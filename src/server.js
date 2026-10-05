@@ -1,0 +1,317 @@
+#!/usr/bin/env node
+// Soliterra 本地服务 —— `node server.js [worldsDir]` 或 `npx soliterra [worldsDir]`
+// 设计：平台设计方案.md §七。单进程：REST + 静态 + 文件监听。
+
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import Fastify from 'fastify';
+import { Vault } from './lib/vault.js';
+import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
+import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates } from './lib/tools.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.join(__dirname, '..');   // 项目根（src/ 的上级）
+
+/** 世界库目录解析（优先级从高到低）：
+ *  ① CLI 参数  node server.js <dir>
+ *  ② 环境变量  SOLITERRA_WORLDS=<dir>
+ *  ③ soliterra.config.json 的 worldsDir（项目根或 src/ 下；相对路径按项目根解析）
+ *  ④ 默认 <项目根>/src/worlds
+ *  世界库独立于项目目录（世界观内容与本项目分开放，仓库保持纯净）。 */
+function resolveWorldsDir() {
+  if (process.argv[2]) return path.resolve(process.argv[2]);
+  if (process.env.SOLITERRA_WORLDS) return path.resolve(process.env.SOLITERRA_WORLDS);
+  for (const cfgPath of [path.join(projectRoot, 'soliterra.config.json'), path.join(__dirname, 'soliterra.config.json')]) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      if (cfg.worldsDir) return path.resolve(projectRoot, cfg.worldsDir);
+    } catch {}
+  }
+  return path.join(__dirname, 'worlds');
+}
+const worldsDir = resolveWorldsDir();
+const PORT = Number(process.env.PORT || 4747);
+
+const vault = new Vault(worldsDir);
+const app = Fastify({ logger: false });
+
+// ---------- 静态服务（public/，零依赖） ----------
+const MIME = {
+  '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp', '.gif': 'image/gif', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
+};
+function serveStatic(reply, abs) {
+  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) { reply.code(404).send('not found'); return; }
+  reply.header('content-type', MIME[path.extname(abs).toLowerCase()] || 'application/octet-stream');
+  reply.header('cache-control', 'no-cache');   // 本地开发：总是重新验证
+  reply.send(fs.readFileSync(abs));
+}
+
+app.get('/', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'index.html')));
+app.get('/css/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'css', req.params['*'])));
+app.get('/js/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'js', req.params['*'])));
+app.get('/locales/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'locales', req.params['*'])));
+
+// 世界的 assets（封面、图片）
+app.get('/w/:id/assets/*', (req, reply) => {
+  try {
+    const abs = path.join(vault.worldDir(req.params.id), 'assets', req.params['*']);
+    serveStatic(reply, abs);
+  } catch { reply.code(404).send('not found'); }
+});
+
+// ---------- API ----------
+app.get('/api/worlds', () => vault.list());
+
+// locales 自动注册（§15.5：启动时扫描——新语言 = 丢一个 json 进 locales/）
+app.get('/api/locales', () => {
+  try {
+    const dir = path.join(__dirname, 'locales');
+    const files = fs.readdirSync(dir);
+    return files.filter((f) => f.endsWith('.json')).map((f) => {
+      const tag = f.replace(/\.json$/, '');
+      let label = tag;
+      try {
+        const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+        if (j['lang.name']) label = j['lang.name'];
+      } catch {}
+      return { tag, label };
+    });
+  } catch { return [{ tag: 'zh-CN', label: '中文' }, { tag: 'en', label: 'English' }]; }
+});
+
+// 世界级操作（§1.1：重命名/复制/删除——删除移入 worlds/.trash-<ts>/）
+app.post('/api/worlds/rename', (req, reply) => {
+  try { return { ok: true, ...vault.renameWorld(req.body?.id, (req.body?.newName || '').trim()) }; }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.post('/api/worlds/duplicate', (req, reply) => {
+  try { return { ok: true, ...vault.duplicateWorld(req.body?.id, (req.body?.newName || '').trim()) }; }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.post('/api/worlds/delete', (req, reply) => {
+  try {
+    const { id, confirm } = req.body || {};
+    if (confirm !== id) return reply.code(400).send({ error: 'confirm 须与世界名一致' });
+    return { ok: true, ...vault.deleteWorld(id) };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+// Obsidian 导入（§15.6）
+app.post('/api/worlds/import', (req, reply) => {
+  try {
+    const { path: src, name } = req.body || {};
+    return vault.importObsidian({ src, name: (name || '').trim() });
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+app.post('/api/worlds', (req, reply) => {
+  try {
+    const { name, subtitle, timeline, cover, calendar } = req.body || {};
+    return vault.create({ name: (name || '').trim(), subtitle, timeline, cover, calendar });
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+app.get('/api/w/:id/tree', (req) => vault.index(req.params.id).tree());
+app.get('/api/w/:id/stats', (req) => vault.index(req.params.id).stats());
+app.get('/api/w/:id/timeline', (req) => vault.index(req.params.id).timeline());
+app.get('/api/w/:id/search', (req) => {
+  const rows = vault.index(req.params.id).search(req.query.q || '');
+  // 视图分级（§15.3）：读者视图下 &v 作者 整行排除（snippet 会泄正文）；&v 秘传 保留标题但清空片段
+  const view = req.query.view || vault.getSettings(req.params.id).view || 'author';
+  if (view !== 'reader') return rows;
+  return rows.filter((r) => {
+    try {
+      const m = vault.index(req.params.id).entry(r.path)?.meta || {};   // entry().meta 已是对象，勿再 JSON.parse
+      const v = (m.v || [])[0] || '';
+      if (v === '作者') return false;
+      if (v === '秘传') { r.snip = ''; r.title = r.title + ' · ' + (req.query.lang === 'en' ? 'sealed' : '秘传'); }
+      return true;
+    } catch { return true; }
+  });
+});
+
+app.get('/api/w/:id/entry', (req, reply) => {
+  const rel = req.query.path;
+  try {
+    const idx = vault.index(req.params.id);
+    const e = idx.entry(rel);
+    if (!e) return reply.code(404).send({ error: 'entry not found' });
+    const settings = vault.getSettings(req.params.id);
+    const view = req.query.view || settings.view || 'author';
+    // 视图分级（§15.3）：读者视图下 &v 作者 → 受限；&v 秘传 → 需揭示；不下发正文与 raw
+    if (view === 'reader') {
+      const v = (e.meta && e.meta.v && e.meta.v[0]) || '';
+      if (v === '作者') return { restricted: 'author', title: e.title, path: rel, meta: e.meta, backlinks: e.backlinks };
+      if (v === '秘传') return { sealed: true, title: e.title, path: rel, meta: e.meta, backlinks: e.backlinks };
+    }
+    const raw = vault.readEntryRaw(req.params.id, rel);
+    // 方向 B（§8.4）：![[条目#锚]] 真嵌入（深度 1；读者视图下受限条目不嵌入）
+    const resolver = (target, anchor) => {
+      const hit = idx.resolve(target);
+      if (!hit) return null;
+      const row = idx.entry(hit.path);
+      if (!row) return null;
+      let m2 = {};
+      try { m2 = JSON.parse(row.meta || '{}'); } catch {}
+      const v = (m2.v && m2.v[0]) || '';
+      if (view === 'reader' && (v === '作者' || v === '秘传')) return null;
+      let text = row.body || '';
+      if (anchor) {
+        const sec = sectionOf(text, anchor);
+        if (!sec) return null;
+        text = sec;
+      }
+      return renderFragment(text, view);
+    };
+    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, req.query.lang || "zh-CN", view, resolver);
+    return { ...e, raw, html, topMetaHTML, rangeHTML };
+  } catch (err) { reply.code(400).send({ error: err.message }); }
+});
+
+app.get('/api/w/:id/raw', (req, reply) => {
+  try { return { text: vault.readEntryRaw(req.params.id, req.query.path) }; }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+app.post('/api/w/:id/save', (req, reply) => {
+  try {
+    const { path: rel, text } = req.body || {};
+    vault.saveEntry(req.params.id, rel, text);
+    return { ok: true };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+// 树移动（拖动）：md 与同名目录成对联动；不自动提交（累计未提交）
+// 结构操作（§5.4 操作流②③④ + 重命名/删除）：成对联动；不自动提交
+app.post('/api/w/:id/fs/create', (req, reply) => {
+  try {
+    const { dir, name, pair } = req.body || {};
+    return { ok: true, ...vault.createEntry(req.params.id, dir || '', name, !!pair) };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.post('/api/w/:id/fs/rename', (req, reply) => {
+  try {
+    const { path: rel, newName } = req.body || {};
+    return { ok: true, ...vault.renameEntry(req.params.id, rel, newName) };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.post('/api/w/:id/fs/delete', (req, reply) => {
+  try {
+    const { path: rel } = req.body || {};
+    return { ok: true, ...vault.deleteEntry(req.params.id, rel) };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+app.post('/api/w/:id/fs/move', (req, reply) => {
+  try {
+    const { path: relFrom, toDir } = req.body || {};
+    return { ok: true, ...vault.moveEntry(req.params.id, relFrom, toDir) };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+app.get('/api/w/:id/settings', (req) => vault.getSettings(req.params.id));
+app.post('/api/w/:id/settings', (req) => vault.saveSettings(req.params.id, req.body || {}));
+
+app.get('/api/w/:id/readlater', (req) => vault.getReadlater(req.params.id));
+app.post('/api/w/:id/readlater', (req) => {
+  const { action, item, path: rel } = req.body || {};
+  if (action === 'add' && item?.path) return vault.addReadlater(req.params.id, item);
+  if (action === 'remove' && rel) return vault.removeReadlater(req.params.id, rel);
+  return vault.getReadlater(req.params.id);
+});
+
+app.get('/api/w/:id/dashboard', (req) => {
+  const d = vault.index(req.params.id).dashboard(vault.worldDir(req.params.id));
+  d.commitsWeek = vault.gitCommitsSince(req.params.id, 7);
+  return d;
+});
+app.get('/api/w/:id/git', (req) => vault.gitInfo(req.params.id));
+app.get('/api/w/:id/git/status', (req) => vault.gitStatus(req.params.id));
+app.get('/api/w/:id/git/log', (req) => ({ commits: vault.gitLog(req.params.id) }));
+app.get('/api/w/:id/git/show', (req) => ({ files: vault.gitShow(req.params.id, req.query.rev) }));
+app.get('/api/w/:id/git/file', (req) => ({ text: vault.gitFile(req.params.id, req.query.rev, req.query.path) }));
+app.post('/api/w/:id/git/rollback', (req) => {
+  const r = vault.gitRollback(req.params.id, req.body?.rev);
+  if (!r.ok) return reply.code(400).send({ error: r.error });
+  try { vault.index(req.params.id).rebuild?.(); } catch { /* 索引由监听器兜底 */ }
+  return r;
+});
+
+// 工具箱（功能设计 §12）：扫描 → diff 预览 → 批量应用（备份+提交）
+app.get('/api/w/:id/tools/scan', (req, reply) => {
+  const tool = req.query.tool;
+  if (tool === 'lint') {
+    try { return { items: lint(vault.worldDir(req.params.id)) }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
+  if (tool === 'dup') {
+    try { return { items: scanDuplicates(vault.worldDir(req.params.id)) }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
+  if (tool === 'drift') {
+    try { return { items: scanDrift(vault.worldDir(req.params.id)) }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
+  if (tool === 'images') {
+    try { return { items: scanImages(vault.worldDir(req.params.id)) }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
+  if (tool === 'regex') {
+    try { return { items: scanRegex(vault.worldDir(req.params.id), req.query.q || '', req.query.r || '') }; }
+    catch (e) { return reply.code(400).send({ error: '正则无效: ' + e.message }); }
+  }
+  if (!['date', 'brackets'].includes(tool)) return reply.code(400).send({ error: 'unknown tool' });
+  try { return { items: scan(vault.worldDir(req.params.id), tool) }; }
+  catch (e) { reply.code(500).send({ error: e.message }); }
+});
+
+app.post('/api/w/:id/tools/apply', (req, reply) => {
+  const { tool, items } = req.body || {};
+  const APPLY_TOOLS = ['date', 'brackets', 'dup', 'drift', 'images', 'regex'];
+  if (!APPLY_TOOLS.includes(tool) || !Array.isArray(items)) {
+    return reply.code(400).send({ error: 'bad request' });
+  }
+  try {
+    const r = applyTool(vault.worldDir(req.params.id), tool, items);
+    // 重索引受影响文件（不自动提交——累计为未提交，由用户手动提交）
+    const idx = vault.index(req.params.id);
+    const paths = new Set(items.map((x) => x.path));
+    for (const rel of paths) idx.indexFile(rel);
+    return r;
+  } catch (e) { reply.code(500).send({ error: e.message }); }
+});
+app.post('/api/w/:id/commit', (req) => vault.gitCommit(req.params.id, req.body?.message || 'edit'));
+
+app.get('/api/w/:id/resolve', (req, reply) => {
+  const hit = vault.index(req.params.id).resolve(req.query.target);
+  return hit ? { path: hit.path, title: hit.title } : { path: null };
+});
+
+// 关系图：全库（功能设计 §9.3「展开全图」）
+app.get('/api/w/:id/graph/all', (req) => vault.index(req.params.id).graphAll());
+
+// 关系图：一跳邻里（中心 + 出链 [+ 反链]）——功能设计 §9.0
+app.get('/api/w/:id/graph', (req, reply) => {
+  const idx = vault.index(req.params.id);
+  const data = idx.graph(req.query.path, req.query.backlinks === '1');
+  if (!data) return reply.code(404).send({ error: 'entry not found' });
+  return data;
+});
+
+// ---------- 启动 ----------
+try {
+  await app.listen({ host: '127.0.0.1', port: PORT });
+  console.log(`\n  SOLITERRA\n  ─────────\n  http://127.0.0.1:${PORT}\n  worlds: ${worldsDir}\n`);
+  if (!fs.existsSync(worldsDir)) {
+    console.log(`  ⚠ 世界库目录不存在——复制 soliterra.config.example.json 为 soliterra.config.json 并设置 worldsDir（或 node server.js <worldsDir> / 环境变量 SOLITERRA_WORLDS）\n`);
+  }
+} catch (e) {
+  console.error('启动失败：', e.message);
+  process.exit(1);
+}
+
+process.on('SIGINT', () => { vault.closeAll(); process.exit(0); });

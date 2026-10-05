@@ -1,0 +1,31 @@
+{
+  "name": "soliterra",
+  "version": "0.1.0",
+  "description": "Local-first worldbuilding & story platform. Markdown is the source of truth.",
+  "type": "module",
+  "bin": {
+    "soliterra": "./server.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "build:editor": "esbuild editor/editor-entry.js --bundle --format=esm --minify --outfile=public/js/vendor/soliterra-editor.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@codemirror/autocomplete": "^6.20.3",
+    "@codemirror/commands": "^6.11.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/language": "^6.12.4",
+    "@codemirror/state": "^6.7.6",
+    "@codemirror/view": "^6.43.13",
+    "better-sqlite3": "^12.4.1",
+    "chokidar": "^4.0.3",
+    "fastify": "^5.2.0",
+    "markdown-it": "^14.1.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

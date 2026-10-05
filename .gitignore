@@ -1,0 +1,15 @@
+# 依赖（npm install 重建）
+node_modules/
+
+# 本地配置：世界库路径机器相关（见 README「世界库配置」）
+soliterra.config.json
+
+# 系统与编辑器杂项
+.DS_Store
+*.log
+
+# 兜底：世界观内容不随项目入库（世界库应在项目目录之外）
+src/worlds/
+
+# 世界索引与备份（若世界库曾放在项目内）
+.soliterra/
