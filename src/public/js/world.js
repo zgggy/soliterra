@@ -1532,6 +1532,11 @@ async function openEntry(ctx, path, chrono) {
     });
     a.addEventListener('mouseleave', () => leaveAnchor());
   });
+  // 图片点击放大（§B.5）：大图纸面
+  reader.querySelectorAll('.entry-body img, .embed-block img').forEach((im) => {
+    im.style.cursor = 'zoom-in';
+    im.addEventListener('click', (ev) => { ev.preventDefault(); openImagePaper(im.getAttribute('src') || ''); });
+  });
 
   if (chrono && !ctx.skipFrame) chrono.focusPath(path);
   if (chrono) chrono.layout();
@@ -1619,10 +1624,14 @@ async function enterEdit(ctx) {
       <div class="editor-host" id="editor-host"></div>
     </div>`;
   await loadEditor();
+  window.__soliterraImgClick = (url, label) => openImagePaper(url, label);   // 编辑器缩略图 → 大图纸面
+  window.__soliterraToast = (msg, kind) => showToast(msg, kind);
   ctx.editor = window.SoliterraEditor.create(document.getElementById('editor-host'), {
     doc: text,
     onChange: debounce(() => autoSave(ctx), 500),
     getEntries: () => flattenTree(ctx.tree),   // [[ 触发双链补全
+    uploadAsset: (file) => uploadAsset(ctx, file),                             // 粘贴/拖入上传（§B.5）
+    resolveAsset: (src) => (/^(https?:)?\/\//.test(src) || src.startsWith('/') ? src : `/w/${enc(ctx.worldId)}/${enc(src)}`),
   });
   const host = document.getElementById('editor-host');
   new ResizeObserver(() => { /* CM6 自适应 */ }).observe(host);
@@ -1643,8 +1652,8 @@ async function enterEdit(ctx) {
       const key = await askText('元数据键 s/e/t/f/n/a/p/v/q/m', 'n');
       ed.meta(/^[a-z]$/.test(key || '') ? key : 'n');
     } else if (cmd === 'image') {
-      const src = await askText('图片路径（assets/…）', 'assets/concepts/');
-      if (src) ed.image(src.trim());
+      const picked = await openAssetPicker(ctx);   // §B.5 assets 选择纸面（缩略图网格 + 上传）
+      if (picked) ed.image(picked.path, picked.alt);
     } else if (typeof ed[cmd] === 'function') {
       ed[cmd]();
     }
@@ -1823,6 +1832,77 @@ function openMapPlaceholder() {
         ? '接入契约已备：外部编辑器导出 assets/maps/*.png + hotspots.json（热区 → 条目）；或以 iframe 嵌入（?world=&pin=）回传热区参数。'
         : 'Contract ready: external editor exports assets/maps/*.png + hotspots.json (hotspots → entries), or iframe embed (?world=&pin=).'}</p>
     </div>`;
+}
+
+// ============ 图片管线（§B.5）：上传 / 选择器 / 大图纸面 ============
+/** 上传图片文件 → assets/imported/（重名加序号）；返回相对路径。 */
+async function uploadAsset(ctx, file) {
+  const r = await fetch(`/api/w/${enc(ctx.worldId)}/asset?name=${enc(file.name || 'image.png')}`, {
+    method: 'POST',
+    headers: { 'content-type': file.type || 'application/octet-stream' },
+    body: file,
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || `上传失败（${r.status}）`);
+  showToast(state.lang === 'zh-CN' ? `已上传：${data.path}` : `Uploaded: ${data.path}`, 'success');
+  return data.path;
+}
+
+/** assets 图片选择纸面：缩略图网格 + 过滤 + 上传；点选返回 {path, alt}，关闭返回 null。 */
+function openAssetPicker(ctx) {
+  return new Promise((resolve) => {
+    const { close, body } = openPaperDialog2('▣ ' + (state.lang === 'zh-CN' ? '插入图片' : 'Insert image'));
+    body.innerHTML = `
+      <div class="asset-picker">
+        <div class="asset-bar">
+          <input class="text-input" id="asset-filter" placeholder="${state.lang === 'zh-CN' ? '过滤文件名…' : 'Filter…'}">
+          <label class="button-ghost asset-upload" for="asset-file">${state.lang === 'zh-CN' ? '上传图片' : 'Upload'}</label>
+          <input type="file" id="asset-file" accept="image/*" hidden>
+        </div>
+        <div class="asset-grid" id="asset-grid"><div class="loading">…</div></div>
+      </div>`;
+    let items = [];
+    let done = false;
+    const finish = (v) => { if (!done) { done = true; resolve(v); } };
+    const grid = body.querySelector('#asset-grid');
+    const paint = () => {
+      const q = (body.querySelector('#asset-filter').value || '').toLowerCase();
+      const shown = items.filter((it) => it.path.toLowerCase().includes(q));
+      grid.innerHTML = shown.length ? shown.map((it) => `
+        <button class="asset-cell" data-path="${esc(it.path)}" title="${esc(it.path)}">
+          <img src="/w/${enc(ctx.worldId)}/${enc(it.path)}" alt="" loading="lazy">
+          <span class="asset-name">${esc(it.path.split('/').pop())}</span>
+        </button>`).join('') : `<div class="empty-state">${state.lang === 'zh-CN' ? 'assets/ 里还没有图片——点「上传图片」' : 'No images yet — use Upload'}</div>`;
+      grid.querySelectorAll('.asset-cell').forEach((b) => b.addEventListener('click', () => {
+        const p2 = b.dataset.path;
+        finish({ path: p2, alt: p2.split('/').pop().replace(/\.[a-z0-9]+$/i, '') });
+        close();
+      }));
+    };
+    api(`/api/w/${enc(ctx.worldId)}/assets`).then((r) => { items = r.items || []; paint(); }).catch(() => paint());
+    body.querySelector('#asset-filter').addEventListener('input', paint);
+    body.querySelector('#asset-file').addEventListener('change', async (e2) => {
+      const f = e2.target.files?.[0];
+      if (!f) return;
+      try {
+        const p2 = await uploadAsset(ctx, f);
+        finish({ path: p2, alt: (f.name || '').replace(/\.[a-z0-9]+$/i, '') });
+        close();
+      } catch (err) { showToast(String(err.message), 'error'); }
+    });
+    const modal = body.closest('.reader-modal');
+    const obs = new MutationObserver(() => {
+      if (!document.body.contains(modal)) { obs.disconnect(); finish(null); }
+    });
+    obs.observe(document.body, { childList: true });
+  });
+}
+
+/** 大图纸面（§B.5）：编辑器缩略图 / 阅读态图片点击共用。 */
+function openImagePaper(url, label = '') {
+  const title = label || (state.lang === 'zh-CN' ? '图片' : 'Image');
+  const { body } = openPaperDialog2('▣ ' + title);
+  body.innerHTML = `<div class="img-paper"><img src="${esc(url)}" alt="${esc(label)}"></div>`;
 }
 
 async function openDashboard(ctx) {

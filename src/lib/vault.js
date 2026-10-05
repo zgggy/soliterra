@@ -109,6 +109,41 @@ export class Vault {
     return fs.readFileSync(resolved, 'utf8');
   }
 
+  /** 保存上传图片到 assets/imported/（重名加序号）；返回相对路径。 */
+  saveAsset(id, name, buf) {
+    const dir = this.worldDir(id);
+    const safe = String(name || 'image.png').replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^\.+/, '') || 'image.png';
+    const ext = path.extname(safe).toLowerCase();
+    const base = path.basename(safe, path.extname(safe)) || 'image';
+    const targetDir = path.join(dir, 'assets', 'imported');
+    fs.mkdirSync(targetDir, { recursive: true });
+    let rel = `assets/imported/${base}${ext}`;
+    let i = 2;
+    while (fs.existsSync(path.join(dir, rel))) { rel = `assets/imported/${base}-${i}${ext}`; i++; }
+    fs.writeFileSync(path.join(dir, rel), buf);
+    return rel;
+  }
+
+  /** assets/ 全量图片列表（缩略图选择器用；按修改时间倒序）。 */
+  listAssets(id) {
+    const root = path.join(this.worldDir(id), 'assets');
+    const out = [];
+    const walk = (rel) => {
+      let names = [];
+      try { names = fs.readdirSync(path.join(root, rel)); } catch { return; }
+      for (const n of names) {
+        if (n.startsWith('.')) continue;
+        const r = rel ? `${rel}/${n}` : n;
+        let st;
+        try { st = fs.statSync(path.join(root, r)); } catch { continue; }
+        if (st.isDirectory()) walk(r);
+        else if (/\.(png|jpe?g|webp|gif|svg)$/i.test(n)) out.push({ path: `assets/${r}`, size: st.size, mtime: st.mtimeMs });
+      }
+    };
+    walk('');
+    return out.sort((a, b) => b.mtime - a.mtime);
+  }
+
   /** 创建世界：目录 + 根条目 + assets + .gitignore + git init。 */
   create({ name, subtitle = '', timeline = '', cover = '', calendar = '' }) {
     if (!name || /[\\/:*?"<>|]/.test(name)) throw new Error('invalid world name');

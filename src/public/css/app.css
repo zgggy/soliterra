@@ -1104,6 +1104,34 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 
 
 
+/* ---------- 图片管线（§B.5）：选择器 / 大图纸面 / 编辑器缩略图 ---------- */
+.asset-picker { display: flex; flex-direction: column; gap: 12px; }
+.asset-bar { display: flex; gap: 10px; align-items: center; }
+.asset-bar .text-input { flex: 1; }
+.asset-upload { display: inline-flex; align-items: center; cursor: pointer; white-space: nowrap; }
+.asset-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px;
+  max-height: 56vh; overflow-y: auto; padding: 2px;
+}
+.asset-cell {
+  display: flex; flex-direction: column; gap: 6px; padding: 6px; cursor: pointer; text-align: left;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 0;
+  transition: border-color var(--motion-quick);
+}
+.asset-cell:hover { border-color: var(--line-strong); }
+.asset-cell img {
+  width: 100%; height: 90px; object-fit: cover; border: 1px solid var(--line); border-radius: 0; background: var(--bg-soft);
+}
+.asset-name { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.img-paper { display: flex; justify-content: center; background: var(--bg-soft); border: 1px solid var(--line); padding: 12px; }
+.img-paper img { max-width: 100%; max-height: 78vh; object-fit: contain; }
+/* 编辑器内联缩略图（CM6 widget；点击 → 大图纸面） */
+.cm-img-widget { display: inline-flex; flex-direction: column; gap: 4px; vertical-align: middle; margin: 4px 0; }
+.cm-img-widget img {
+  max-height: 160px; max-width: 100%; border: 1px solid var(--line); border-radius: 0; cursor: zoom-in; background: var(--bg-soft);
+}
+.cm-img-cap { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); }
+
 /* ---------- 交互动画系统：reduced-motion 全局兜底（v3，design.md「Motion」） ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

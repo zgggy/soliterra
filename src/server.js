@@ -63,6 +63,18 @@ app.get('/w/:id/assets/*', (req, reply) => {
   } catch { reply.code(404).send('not found'); }
 });
 
+// 世界文件兜底：接受整段编码路径（assets%2F... 形式，前端 enc() 全编码）；防目录穿越、屏蔽点文件
+app.get('/w/:id/*', (req, reply) => {
+  try {
+    const rel = String(req.params['*'] || '');
+    if (!rel || rel.split('/').some((s) => s.startsWith('.'))) { reply.code(404).send('not found'); return; }
+    const dir = vault.worldDir(req.params.id);
+    const abs = path.resolve(dir, rel);
+    if (!abs.startsWith(path.resolve(dir) + path.sep)) { reply.code(404).send('not found'); return; }
+    serveStatic(reply, abs);
+  } catch { reply.code(404).send('not found'); }
+});
+
 // ---------- API ----------
 app.get('/api/worlds', () => vault.list());
 
@@ -215,6 +227,29 @@ app.post('/api/w/:id/fs/move', (req, reply) => {
 
 app.get('/api/w/:id/settings', (req) => vault.getSettings(req.params.id));
 app.post('/api/w/:id/settings', (req) => vault.saveSettings(req.params.id, req.body || {}));
+
+// ---------- 图片资产（§B.5 图片管线）：上传（原始二进制）+ 列表 ----------
+const ASSET_EXT = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg']);
+const ASSET_MAX = 10 * 1024 * 1024;
+app.addContentTypeParser(
+  ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml', 'application/octet-stream'],
+  { parseAs: 'buffer' },
+  (req, body, done) => done(null, body),
+);
+app.post('/api/w/:id/asset', (req, reply) => {
+  const name = String(req.query.name || 'image.png');
+  const ext = path.extname(name).toLowerCase();
+  if (!ASSET_EXT.has(ext)) return reply.code(400).send({ error: `不支持的图片类型：${ext || '(无扩展名)'}` });
+  const buf = req.body;
+  if (!Buffer.isBuffer(buf) || !buf.length) return reply.code(400).send({ error: '空文件' });
+  if (buf.length > ASSET_MAX) return reply.code(413).send({ error: '超过 10MB 限制' });
+  try { return { path: vault.saveAsset(req.params.id, name, buf) }; }
+  catch (e) { return reply.code(500).send({ error: e.message }); }
+});
+app.get('/api/w/:id/assets', (req, reply) => {
+  try { return { items: vault.listAssets(req.params.id) }; }
+  catch (e) { return reply.code(500).send({ error: e.message }); }
+});
 
 app.get('/api/w/:id/readlater', (req) => vault.getReadlater(req.params.id));
 app.post('/api/w/:id/readlater', (req) => {

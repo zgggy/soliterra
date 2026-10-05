@@ -53,11 +53,43 @@ const highlight = HighlightStyle.define([
   { tag: tags.contentSeparator, color: 'var(--text-muted)' },
 ]);
 
-// ---------- 装饰层：& 元数据行 / [[双链]] / 围栏头 ----------
-function buildDecorations(view) {
-  const builder = new RangeSetBuilder();
+// ---------- 装饰层：& 元数据行 / [[双链]] / 围栏头 / 图片内联缩略图 ----------
+const IMG_EXT_RE = /\.(png|jpe?g|webp|gif|svg)([?#]|$)/i;
+const MD_IMG_RE = /!\[([^\]\n]*)\]\(([^)\s\n]+)\)/g;
+const WIKI_RE = /!?\[\[([^\]\n|#]+)((?:[|#][^\]\n]*)?)\]\]/g;
+
+/** 图片内联缩略图（§B.5）：光标不在该行时折叠原文为预览，点击 = 大图纸面。 */
+class ImageWidget extends WidgetType {
+  constructor(url, label) { super(); this.url = url; this.label = label || ''; }
+  eq(o) { return o.url === this.url && o.label === this.label; }
+  toDOM() {
+    const el = document.createElement('span');
+    el.className = 'cm-img-widget';
+    const img = document.createElement('img');
+    img.src = this.url;
+    img.alt = this.label;
+    img.loading = 'lazy';
+    img.addEventListener('error', () => el.classList.add('err'));
+    img.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.__soliterraImgClick?.(this.url, this.label);
+    });
+    const cap = document.createElement('span');
+    cap.className = 'cm-img-cap';
+    cap.textContent = this.label;
+    el.appendChild(img);
+    el.appendChild(cap);
+    return el;
+  }
+  ignoreEvent() { return true; }   // 点击由 widget 自己处理（光标不进入）
+}
+
+function buildDecorations(view, resolveAsset) {
+  const items = [];                       // 统一收集后排序（RangeSetBuilder 要求 from 非降序）
   const doc = view.state.doc;
   const sel = view.state.selection.main;
+  const curLine = doc.lineAt(sel.head).number;
   const inSelection = (from, to) => sel.from <= to && sel.to >= from;
 
   for (let ln = 1; ln <= doc.lines; ln++) {
@@ -66,31 +98,96 @@ function buildDecorations(view) {
 
     // & 元数据行（行首 &）——整行样式化
     if (/^\s*&[a-z]/.test(text)) {
-      builder.add(line.from, line.from, Decoration.line({ class: 'cm-meta-line' }));
+      items.push({ from: line.from, to: line.from, deco: Decoration.line({ class: 'cm-meta-line' }) });
       continue;
     }
     // 围栏头 ```type
-    const fence = text.match(/^```(\w+)/);
-    if (fence) {
-      builder.add(line.from, line.from, Decoration.line({ class: 'cm-fence-head' }));
+    if (/^```\w+/.test(text)) {
+      items.push({ from: line.from, to: line.from, deco: Decoration.line({ class: 'cm-fence-head' }) });
     }
-    // [[双链]]（跳过光标所在处，编辑时不干扰）
-    const re = /!?\[\[[^\]\n]+\]\]/g;
+    const rawLine = ln === curLine;       // 光标行显原文（图片不折叠）
+    // [[双链]] / ![[嵌入]]（图片扩展名 → 缩略图 widget）
     let m;
-    while ((m = re.exec(text))) {
+    WIKI_RE.lastIndex = 0;
+    while ((m = WIKI_RE.exec(text))) {
       const from = line.from + m.index;
       const to = from + m[0].length;
+      const isEmbed = m[0].startsWith('!');
+      const target = m[1];
+      if (isEmbed && IMG_EXT_RE.test(target)) {
+        if (!rawLine && !inSelection(from, to)) {
+          const url = resolveAsset ? resolveAsset(target) : target;
+          items.push({ from, to, deco: Decoration.replace({ widget: new ImageWidget(url, target.split('/').pop()) }) });
+        }
+        continue;                          // 图片嵌入不再套链接色
+      }
       if (inSelection(from, to)) continue;
-      builder.add(from, to, Decoration.mark({ class: 'cm-wikilink' }));
+      items.push({ from, to, deco: Decoration.mark({ class: 'cm-wikilink' }) });
+    }
+    // ![](src) 图片
+    MD_IMG_RE.lastIndex = 0;
+    while ((m = MD_IMG_RE.exec(text))) {
+      const from = line.from + m.index;
+      const to = from + m[0].length;
+      if (rawLine || inSelection(from, to)) continue;
+      const src = m[2];
+      const url = resolveAsset ? resolveAsset(src) : src;
+      items.push({ from, to, deco: Decoration.replace({ widget: new ImageWidget(url, m[1] || src.split('/').pop()) }) });
     }
   }
+  items.sort((a, b) => (a.from - b.from) || (a.to - b.to));
+  const builder = new RangeSetBuilder();
+  for (const it of items) builder.add(it.from, it.to, it.deco);
   return builder.finish();
 }
 
-const decoPlugin = ViewPlugin.fromClass(class {
-  constructor(view) { this.decorations = buildDecorations(view); }
-  update(u) { this.decorations = buildDecorations(u.view); }
+const decoPlugin = (resolveAsset) => ViewPlugin.fromClass(class {
+  constructor(view) { this.decorations = buildDecorations(view, resolveAsset); }
+  update(u) { this.decorations = buildDecorations(u.view, resolveAsset); }
 }, { decorations: (v) => v.decorations });
+
+// ---------- 图片粘贴 / 拖入（§B.5）：自动上传 → 在光标处插入 ![](path) ----------
+function pasteDropUpload(opts) {
+  const filesFrom = (dt) => {
+    if (!dt) return [];
+    let out = [...(dt.files || [])];
+    if (!out.length && dt.items) {
+      for (const i of dt.items) if (i.kind === 'file') { const f = i.getAsFile(); if (f) out.push(f); }
+    }
+    return out.filter((f) => /^image\//.test(f.type || ''));
+  };
+  const upload = async (view, files) => {
+    let pos = view.state.selection.main.head;
+    for (const f of files) {
+      try {
+        const p = await opts.uploadAsset(f);
+        const text = `![](${p})`;
+        view.dispatch({ changes: { from: pos, insert: text }, selection: { anchor: pos + text.length } });
+        pos += text.length;
+      } catch (e) {
+        window.__soliterraToast?.(String(e.message || e), 'error');
+      }
+    }
+  };
+  return EditorView.domEventHandlers({
+    paste: (event, view) => {
+      const files = filesFrom(event.clipboardData);
+      if (!files.length) return false;
+      event.preventDefault();
+      upload(view, files);
+      return true;
+    },
+    drop: (event, view) => {
+      const files = filesFrom(event.dataTransfer);
+      if (!files.length) return false;
+      event.preventDefault();
+      const p = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (p != null) view.dispatch({ selection: { anchor: p } });
+      upload(view, files);
+      return true;
+    },
+  });
+}
 
 // ---------- 双链自动补全：输入 `[[` 触发条目下拉 ----------
 function wikiCompletion(getEntries) {
@@ -158,7 +255,8 @@ window.SoliterraEditor = {
           EditorView.lineWrapping,
           markdown(),
           syntaxHighlighting(highlight),
-          decoPlugin,
+          decoPlugin(opts.resolveAsset),
+          ...(opts.uploadAsset ? [pasteDropUpload(opts)] : []),
           theme,
           keymap.of([
             { key: 'Mod-b', run: (v) => (wrapSelection(v, '**'), true) },
@@ -193,7 +291,7 @@ window.SoliterraEditor = {
       },
       fence: (kind) => insertText(view, `\n\`\`\`${kind}\n\n\`\`\`\n`),
       meta: (key) => insertText(view, `\n&${key} `),
-      image: (src) => insertText(view, `![](${src})`),
+      image: (src, alt = '') => insertText(view, `![${alt}](${src})`),
       startCompletion: () => startCompletion(view),   // 手动触发补全（调试/快捷键可用）
       focusEnd: () => { view.dispatch({ selection: { anchor: view.state.doc.length } }); view.focus(); },
       destroy: () => view.destroy(),
