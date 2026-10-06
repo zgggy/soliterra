@@ -129,8 +129,9 @@ function checkInvariants(input, frame) {
     if (!it) { out.push(`覆盖条无对应条目: ${s.path}`); continue; }
     if (Math.abs(s.left - x(it.s)) > TOL) out.push(`覆盖条 left: ${s.path}`);
     if (s.width < (it.instant ? 0 : 6) - TOL) out.push(`覆盖条宽 < 最小值: ${s.path} ${s.width}`);
-    if (s.fuzzyS !== String(it.start || '').includes('*')) out.push(`覆盖条 fuzzyS: ${s.path}`);
-    if (s.fuzzyE !== (!it.instant && String(it.end || '').includes('*'))) out.push(`覆盖条 fuzzyE: ${s.path}`);
+    // 逐端模糊：引擎契约 = 字段优先（第 76 轮数据层），缺字段回退原文串
+    if (s.fuzzyS !== !!(it.fuzzyS ?? String(it.start || '').includes('*'))) out.push(`覆盖条 fuzzyS: ${s.path}`);
+    if (s.fuzzyE !== (!it.instant && !!(it.fuzzyE ?? String(it.end || '').includes('*')))) out.push(`覆盖条 fuzzyE: ${s.path}`);
   }
   // ⑧ 刻度升序 + 余量；刻度让位标记；标记余量
   let prev = -Infinity;
@@ -264,4 +265,58 @@ test('边界：空世界 / 无时刻 / 仅创世 / 无打开卡 不抛异常且�
   const f2 = computeLayout(onlyGen);
   assert.equal(checkInvariants(onlyGen, f2).length, 0);
   assert.equal(f2.placements[0].top, 'axis');   // 打开创世 → 贴轴
+});
+
+// ── 第 76 轮：实测宽（碰撞箱 = 渲染箱）与 fuzzy 数据层字段 ────────────
+const baseInput = (extra = {}) => ({
+  items: [
+    { path: 'a.md', title: '甲', s: 1000, e: null, start: '0003.01.01', end: null, instant: true, fuzzy: false, flag: '事件', era: null, genesis: false },
+    { path: 'b.md', title: '乙', s: 1050, e: null, start: '0003.01.01', end: null, instant: true, fuzzy: false, flag: '事件', era: null, genesis: false },
+  ],
+  genesisAll: [], flags: { 'a.md': '事件', 'b.md': '事件' },
+  view: { lo: 0, hi: 2000 }, full: { lo: 0, hi: 2000 },
+  width: 1000, chronoH: 112, lang: 'zh-CN', currentPath: null,
+  genesisOrd: null, earliestOrd: 1000, latestOrd: 1050,
+  openSize: null, prevTops: {}, measuredW: {},
+  ...extra,
+});
+
+test('实测宽：碰撞箱取 min(实测, 基准宽) —— 短卡不再多让（级联位置随之变化）', () => {
+  const base = baseInput();
+  const fp = computeLayout(base);
+  const a0 = fp.placements.find((p) => p.path === 'a.md');
+  const b0 = fp.placements.find((p) => p.path === 'b.md');
+  // 基准宽 36（1 字）：need = 525 − 18 − 10 = 497
+  assert.ok(Math.abs(a0.left - 497) < 0.6, `基准宽下 a.left=${a0.left}`);
+  assert.equal(b0.w, 36);
+  // 实测 30：need = 525 − 15 − 10 = 500
+  const fp2 = computeLayout(baseInput({ measuredW: { 'a.md': 30 } }));
+  const a1 = fp2.placements.find((p) => p.path === 'a.md');
+  assert.ok(Math.abs(a1.left - 500) < 0.6, `实测宽下 a.left=${a1.left}`);
+  assert.equal(a1.w, 30);
+  // 实测大于基准（长标题被 4 字上限截断）→ 仍取基准宽
+  const fp3 = computeLayout(baseInput({ measuredW: { 'a.md': 200 } }));
+  assert.equal(fp3.placements.find((p) => p.path === 'a.md').w, 36);
+  // 不变量在两种口径下都成立
+  assert.equal(checkInvariants(base, fp).length, 0);
+  assert.equal(checkInvariants(baseInput({ measuredW: { 'a.md': 30 } }), fp2).length, 0);
+});
+
+test('fuzzy 数据层：字段优先、缺字段回退原文串（逐端语义）', () => {
+  const mk = (row) => ({ ...baseInput().items[0], path: row.path, start: row.start, end: row.end, instant: !!row.instant, fuzzyS: row.fuzzyS, fuzzyE: row.fuzzyE });
+  const input = baseInput();
+  input.items = [
+    mk({ path: 'x.md', start: '0800.*.*', end: '0801.01.01', instant: false, fuzzyS: true, fuzzyE: false }),     // 字段：只有起端模糊（即使串里有 *）
+    mk({ path: 'y.md', start: '0800.01.01', end: '0801.*.01', instant: false, fuzzyS: false, fuzzyE: true }),     // 字段：只有止端模糊
+    mk({ path: 'z.md', start: '0802.*.*', end: null, instant: true }),                                            // 缺字段（旧夹具形状）→ 回退串解析
+  ];
+  input.items[0].s = 800 * YEAR; input.items[1].s = 800.2 * YEAR; input.items[2].s = 802 * YEAR;
+  input.flags = { 'x.md': '事件', 'y.md': '事件', 'z.md': '事件' };
+  input.earliestOrd = 800 * YEAR; input.latestOrd = 802 * YEAR;
+  const fr = computeLayout(input);
+  const sp = (p2) => fr.spans.find((s) => s.path === p2);
+  assert.deepEqual([sp('x.md').fuzzyS, sp('x.md').fuzzyE], [true, false]);
+  assert.deepEqual([sp('y.md').fuzzyS, sp('y.md').fuzzyE], [false, true]);
+  assert.deepEqual([sp('z.md').fuzzyS, sp('z.md').fuzzyE], [true, false]);   // 回退：start 含 * 且 instant → 止端恒 false
+  assert.equal(checkInvariants(input, fr).length, 0);
 });

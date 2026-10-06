@@ -90,7 +90,9 @@ export function timelineInfo(meta) {
     start: s,
     end: e || s,             // 缺 &e → 瞬时
     instant: !e,
-    fuzzy: s.fuzzy || (e ? e.fuzzy : false),
+    fuzzy: s.fuzzy || (e ? e.fuzzy : false),   // 合并布尔（≈ 前缀兼容用）
+    fuzzyS: s.fuzzy,          // 逐端语义（第 76 轮：数据层单点真相，前端不再解析 * 串）
+    fuzzyE: e ? e.fuzzy : false,
     flag: meta.f?.[0] || null, // &f <分类> 悬挂旗标
   };
 }

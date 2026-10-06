@@ -6,10 +6,9 @@ import { api, t, state, navigate, bindCoverFallbacks } from './app.js';
 import { showLinkCard, hideCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub } from './exporter.js';
-import { computeLayout } from './timeline-layout.js';   // 第 75 轮：布局引擎（纯函数；规则单点真相，本文件只做输入装配与 DOM 应用）
+import { computeLayout, flagBaseW, LAYOUT, YEAR } from './timeline-layout.js';   // 第 75/76 轮：布局引擎（规则与常量单点真相）
 
-const YEAR = 365.25;
-// 世界数据缓存（tree/timeline 变化少）：导航重渲染几乎同步 → 消除闪屏
+// 世界数据缓存（tree/timeline 变化少）：导航重渲染几乎同步 → 消除闪屏（YEAR 已由引擎导出，单一来源）
 const worldDataCache = new Map();   // worldId -> { tree, timeline, ts }
 const tocOpenDirs = new Set();    // 目录手动展开的目录（跨重渲染记忆，防闪回）
 let activeWorld = null;           // { id, update(path) }：同世界导航走原地更新（不整页重载）
@@ -894,7 +893,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     if (base.length) {
       const lo = Math.min(...base.map((i) => i.s));
       const hi = Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s)));   // 末覆盖最晚结束（卡片按开始时间定位，轴尾须容下所有绘制）
-      const pad = (hi - lo) * 0.05 || YEAR;
+      const pad = (hi - lo) * LAYOUT.RANGE_PAD || YEAR;
       full.lo = lo - pad; full.hi = hi + pad;
       if (!keepView) { view.lo = lo - pad; view.hi = hi + pad; }   // 数据刷新（元数据保存）→ 保持当前视野，只更新范围
     }
@@ -902,7 +901,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     latestOrd = base.length ? Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s))) : null;
     // 创世**虚拟时刻**（第 73 轮）：范围起点前 1%（range=0 退 1 年）——由范围派生、**不反馈进范围**（第 62 轮
     // 「创世不计入总范围」不变）；创世的定位/取景/出界带回全部走它 → 缩放、拖动、合并、点击逻辑统一。
-    genesisOrd = earliestOrd != null ? earliestOrd - (((latestOrd - earliestOrd) * 0.01) || YEAR) : null;
+    genesisOrd = earliestOrd != null ? earliestOrd - (((latestOrd - earliestOrd) * LAYOUT.GENESIS_RATIO) || YEAR) : null;
     return top;
   }
   let earliestOrd = null, latestOrd = null, genesisOrd = null;
@@ -953,6 +952,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   const flagEls = new Map();     // path -> 旗标元素（跨 layout 复用 → 位置/宽度随缩放平滑过渡）
   const spanEls = new Map();     // path -> 覆盖条元素
   const topMemo = new Map();     // path -> 上一帧 top（创世尾箭头单帧滞后取样；第 75 轮起不再写回条目对象）
+  const naturalW = new Map();    // path -> { key, w } 实测自然宽缓存（第 76 轮；key = paint 签名 + compact，内容变才重测）
+  let widthRetry = false;        // 实测宽尾随重排的一次性守卫（第 76 轮：新元素/簇成形首帧）
 
   // ---------- 高模式（§A 修正版）：高度 > 2/3 屏 → 本书全部（有时刻）条目上轴 ----------
   // 显示逻辑与普通模式完全一致（轴线/刻度/按时间定位/引线/分道堆叠都不变），只是面积变大、
@@ -1050,6 +1051,10 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     const oEl0 = flagEls.get(ctx.currentPath);
     const openSize = oEl0 ? { w: oEl0.offsetWidth, h: oEl0.offsetHeight } : null;
     const prevTops = Object.fromEntries(topMemo);   // 上一帧 top（创世尾箭头取样沿用单帧滞后；合并成员保留其上次单独显示的值）
+    // 实测宽（第 76 轮）：缓存值 = 元素**自然宽**（提 --flag-w 上限实测，见 layout 尾部测量段）→
+    // 引擎取 min(实测, 基准宽) = 渲染宽，碰撞箱 ≡ 渲染箱；稳态零 DOM 读取，内容变化才重测
+    const measuredW = {};
+    for (const [p, c] of naturalW) measuredW[p] = c.w;
     // 高模式判定（§A）：高度目标 > 2/3 屏进入（退出阈 2/3 − 24px 滞回）；读 --chrono-h（拖动目标值，非过渡值）
     const hTarget = parseInt(getComputedStyle(worldViewEl).getPropertyValue('--chrono-h')) || 112;
     const t1 = window.innerHeight * 2 / 3;
@@ -1065,11 +1070,39 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       items, genesisAll: allItems, flags,
       view, full, width, chronoH: hTarget, lang: state.lang, currentPath: ctx.currentPath,
       genesisOrd, earliestOrd, latestOrd,
-      openSize, prevTops,
+      openSize, prevTops, measuredW,
     });
     applyFrame(frame);
     topMemo.clear();
     for (const p of frame.placements) if (!p.cluster) topMemo.set(p.path, p.top);
+    // 实测宽收敛（第 76 轮）：缓存缺失 / 内容变化（paint 签名 + compact）→ 提 --flag-w 上限实测**自然宽**
+    // （整批一次同步重排；transition 临时关掉防中间值）；实测与"本帧放置宽"有差异 → 调度**一次** rAF 重排
+    // （自终止：重排用上新鲜缓存后 want == w）
+    const stale = [];
+    for (const p of frame.placements) {
+      const el = flagEls.get(p.path);
+      if (!el) continue;
+      const key = `${el.dataset.paint || ''}|${frame.compact ? 'c' : 'f'}`;
+      if (naturalW.get(p.path)?.key !== key) stale.push({ p, el, key });
+    }
+    if (stale.length) {
+      const prevs = stale.map(({ el }) => [el.style.getPropertyValue('--flag-w'), el.style.transition]);
+      for (const { el } of stale) { el.style.transition = 'none'; el.style.setProperty('--flag-w', '9999px'); }
+      void stale[0].el.offsetWidth;   // 一次同步重排覆盖整批
+      let drift = false;
+      stale.forEach(({ p, el, key }, i) => {
+        const nat = el.offsetWidth;
+        naturalW.set(p.path, { key, w: nat });
+        el.style.setProperty('--flag-w', prevs[i][0]);
+        el.style.transition = prevs[i][1];
+        if (Math.abs(Math.min(nat, flagBaseW(p.title)) - p.w) > 0.75) drift = true;
+      });
+      void stale[0].el.offsetWidth;   // 上限归位后再结算一次
+      if (drift && !widthRetry) {
+        widthRetry = true;
+        requestAnimationFrame(() => { widthRetry = false; layout(); });
+      }
+    }
     // （旗标池装配 / 逐条虚拟时刻 / first-fit 分道 / 三类聚簇 / z 重排 / 同道级联 / O 卡 A·B·C 三通道 /
     //   尾箭头取样 / 出界计数——全部收敛进引擎 timeline-layout.js，本文件不再保留第二份实现）
 
@@ -1163,7 +1196,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       }
       shownFlags.add(p.path);
     }
-    for (const [p0, el0] of [...flagEls]) if (!shownFlags.has(p0)) { el0.remove(); flagEls.delete(p0); }
+    for (const [p0, el0] of [...flagEls]) if (!shownFlags.has(p0)) { el0.remove(); flagEls.delete(p0); naturalW.delete(p0); }
     // 时代带（§3.2）：同 &a 条目的时间并集，bg/bg-soft 交替 + 名称；点击取景该时代；「更多设置」可关
     const eraOn = (ctx.settings?.axisEra ?? 'on') !== 'off';
     eras.style.display = eraOn ? '' : 'none';
@@ -1271,12 +1304,12 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     const it = items.find((i) => i.path === path);
     if (!it) return;
     if (it.genesis) {   // 创世：取景到**虚拟时刻**（仅「强调」拖拽显式手势触发；打开条目不调用本函数）
-      if (genesisOrd != null) focusOrd(genesisOrd, Math.max(((full.hi - full.lo) / YEAR) * 0.25, 1));
+      if (genesisOrd != null) focusOrd(genesisOrd, Math.max(((full.hi - full.lo) / YEAR) * LAYOUT.GENESIS_SPAN, 1));
       return;
     }
     const s = it.s;
     const e = it.e != null && it.e > it.s ? it.e : null;
-    const dur = e != null ? e - s : Math.max(YEAR, (full.hi - full.lo) * 0.02);
+    const dur = e != null ? e - s : Math.max(YEAR, (full.hi - full.lo) * LAYOUT.ZOOM_DUR_RATIO);
     animateTo(s - dur, (e ?? s) + dur, 300);
   }
 
@@ -1341,6 +1374,15 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   window.addEventListener('keydown', axisKeyHandler);
 
   window.addEventListener('resize', layout);
+  // 回前台自愈（第 76 轮）：后台标签页会冻结 CSS 过渡（max-width 悬停展开可卡在中间值、宽于上限）——
+  // 回前台时关过渡 → 重排（写入目标上限）→ 强制结算 → 恢复过渡（数值未变，不会重新触发动画）
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    for (const el of flagEls.values()) el.style.transition = 'none';
+    layout();
+    void canvas.offsetWidth;
+    for (const el of flagEls.values()) el.style.transition = '';
+  });
   return {
     layout, focusPath, focusOrd, isTall: () => tall, view,
     setScope: () => { rescope(); layout(); },

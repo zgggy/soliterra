@@ -14,6 +14,10 @@ export const LAYOUT = {
   LANE_GAP: 6,         // 相邻道叠片（≤ 该值属设计）
   LANE_TOP: 10,        // 首道 top
   GENESIS_RATIO: 0.01, // 创世虚拟时刻 = 范围起点前 range × 该比例（range=0 退 1 年）
+  RANGE_PAD: 0.05,     // 范围两端各留 = range × 该比例的内边距（world.js rescope 同读此值）
+  GENESIS_SPAN: 0.25,  // 创世取景跨度 = 全范围 × 该比例（feat: 成员同刻跨度为 0，深缩会把轴首推出屏外）
+  CLUSTER_SPAN_X: 3,   // 普通簇取景跨度 = 成员跨度 × 该系数（≥ 1 年）
+  ZOOM_DUR_RATIO: 0.02,// 瞬时条目取景标称时长 = 全范围 × 该比例（≥ 1 年）
   BASE_Z: 10,          // z 起点（按时间序 +1）
   OPEN_Z: 80,          // 打开卡恒最上
   COMPACT_H: 84,       // 高度低于此 → compact（只显标题）
@@ -56,6 +60,8 @@ export function tickStepFor(width, span) {
  *  - view/full  {lo,hi}；width 画布宽；chronoH = --chrono-h 目标值
  *  - lang / currentPath / genesisOrd / earliestOrd / latestOrd
  *  - openSize   打开卡实测尺寸 {w,h}（元素存在时）；null → 基宽/兜底高
+ *  - measuredW  path → 旗标**自然宽**（渲染实测：scrollWidth + 边框；缺省 → 基准宽）——
+ *               引擎取 min(实测, 基准宽) = 渲染宽 → 碰撞箱 ≡ 渲染箱（第 76 轮）
  *  - prevTops   path → 上一帧 top（创世尾箭头的高度取样沿用既有单帧滞后行为）
  *
  * 输出 frame：
@@ -67,17 +73,20 @@ export function computeLayout(input) {
     view, full, width, chronoH,
     lang = 'zh-CN', currentPath = null,
     genesisOrd = null, earliestOrd = null, latestOrd = null,
-    openSize = null, prevTops = {},
+    openSize = null, prevTops = {}, measuredW = {},
   } = input;
   const zh = lang === 'zh-CN';
   const {
     GAP, CLUSTER_GAP, MIN_CLUSTER, FLAG_H, LANE_GAP, LANE_TOP, GENESIS_RATIO,
+    GENESIS_SPAN, CLUSTER_SPAN_X,
     BASE_Z, OPEN_Z, COMPACT_H, OPEN_H, OPEN_H_COMPACT, EDGE_MARGIN,
     MARKER_SAME_GAP, MARKER_PAD, TICK_MARKER_GAP, TICK_PAD,
     ERA_PAD, ERA_NAME_MIN, ERA_MIN_W, O_SHIFT_PASS,
   } = LAYOUT;
   const x = (ord) => ((ord - view.lo) / (view.hi - view.lo)) * width;
   const yLabel = (ord) => { const y = Math.floor(ord / YEAR); return y < 0 ? `前${Math.abs(y)}` : String(y); };   // 0847.08 不得四舍五入成 848
+  /** 旗标宽（第 76 轮：碰撞箱 = 渲染箱）——min(自然宽实测, 基准宽)；无实测（新元素首帧）→ 基准宽兜底。 */
+  const wOf = (title, path) => Math.min(measuredW[path] > 0 ? measuredW[path] : Infinity, flagBaseW(title));
 
   // ── 起止标记 + 刻度（轴下方：打开文档起止 + 范围首尾高刻度；常规刻度让位）
   const markers = [];
@@ -125,7 +134,7 @@ export function computeLayout(input) {
     if (genList.length) {
       const spanD = full.hi - full.lo;
       const pxA = ((genesisOrd - full.lo) / spanD) * width;
-      const lw = genList.map((it) => flagBaseW(it.title));
+      const lw = genList.map((it) => wOf(it.title, it.path));
       const left = genList.map((it, i) => pxA - lw[i]);       // 初始：右缘齐基准
       for (let i = genList.length - 2; i >= 0; i--) {
         const need = left[i + 1] - lw[i] / 2 - GAP;           // 半箱避让（与级联同式）
@@ -135,7 +144,7 @@ export function computeLayout(input) {
     }
   }
   for (const it of flagItems) {
-    it._w = flagBaseW(it.title);
+    it._w = wOf(it.title, it.path);
     it._trueX = it.genesis
       ? (genV.has(it.path) ? x(genV.get(it.path)) : (genesisX - it._w))   // 创世 = 各自虚拟时刻（genV 存序数 → x() 转像素）
       : x(it.s);                                                          // 普通卡 = 真实时刻
@@ -205,7 +214,7 @@ export function computeLayout(input) {
           genesis: isGen,                      // 创世簇保持创世身份（尾箭头/互避链照常）
         };
         cl._lane = first._lane;
-        cl._w = flagBaseW(cl.title);
+        cl._w = wOf(cl.title, cl.path);   // 簇卡实测（元素复用键 = 首成员；成形首帧退回基准宽，尾随重算收敛）
         cl._trueX = isGen ? genesisX - cl._w : x(cl.s);   // 创世簇同创世锚定规则
         cl._left = cl._trueX;
         clusters.push(cl);
@@ -339,10 +348,10 @@ export function computeLayout(input) {
       const memberTitles = it.cluster.map((m) => m.title);
       cluster = {
         ord: it.s,   // 普通簇 = 成员中心；创世簇 = 虚拟时刻
-        // 取景跨度：普通簇 = 成员跨度×3（≥1 年）；创世簇 = 全范围的 25%（成员同刻跨度为 0，深缩会把轴首推出屏外）
+        // 取景跨度：普通簇 = 成员跨度 × CLUSTER_SPAN_X（≥1 年）；创世簇 = 全范围 × GENESIS_SPAN（成员同刻跨度为 0，深缩会把轴首推出屏外）
         spanYears: it.cluster[0].genesis
-          ? Math.max(((full.hi - full.lo) / YEAR) * 0.25, 1)
-          : Math.max(((last.s - it.cluster[0].s) / YEAR) * 3, 1),
+          ? Math.max(((full.hi - full.lo) / YEAR) * GENESIS_SPAN, 1)
+          : Math.max(((last.s - it.cluster[0].s) / YEAR) * CLUSTER_SPAN_X, 1),
         altTitle: memberTitles.slice(0, 3).join('、') + (memberTitles.length > 3 ? '…' : ''),
         memberTitles,
       };
@@ -365,11 +374,11 @@ export function computeLayout(input) {
     const sx = x(it.s);
     const ex = it.e != null ? x(it.e) : sx;
     const w = Math.max(ex - sx, it.instant ? 0 : 6);
-    // 模糊 = 按端渐隐：从 &s/&e 原文串解析每端 `*`（前端自足；第 76 轮迁入数据层）
+    // 模糊 = 按端渐隐：数据层 fuzzyS/fuzzyE 字段优先（第 76 轮单点真相），缺字段回退原文串解析（兼容旧夹具）
     spans.push({
       path: it.path, left: sx, width: w,
-      fuzzyS: String(it.start || '').includes('*'),
-      fuzzyE: !it.instant && String(it.end || '').includes('*'),
+      fuzzyS: !!(it.fuzzyS ?? String(it.start || '').includes('*')),
+      fuzzyE: !it.instant && !!(it.fuzzyE ?? String(it.end || '').includes('*')),
       isOpen: it.path === currentPath,
       title: `${it.title} · ${it.start}${it.end && !it.instant ? ' → ' + it.end : ''}`,
     });

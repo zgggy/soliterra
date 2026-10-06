@@ -85,7 +85,9 @@ export class WorldIndex {
       CREATE TABLE IF NOT EXISTS entries (
         path TEXT PRIMARY KEY,
         title TEXT, meta TEXT, tags TEXT, status TEXT,
-        start TEXT, end TEXT, flag TEXT, instant INTEGER, fuzzy INTEGER, t_ord REAL,
+        start TEXT, end TEXT, flag TEXT, instant INTEGER, fuzzy INTEGER,
+        fuzzy_s INTEGER, fuzzy_e INTEGER,
+        t_ord REAL,
         body TEXT, mtime INTEGER
       );
       CREATE TABLE IF NOT EXISTS links (src TEXT, dst TEXT);
@@ -94,15 +96,20 @@ export class WorldIndex {
       CREATE INDEX IF NOT EXISTS links_dst ON links(dst);
       CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(path UNINDEXED, title, body);
     `);
+    // 旧库迁移（第 76 轮：fuzzy 逐端列）：index.db 是派生缓存，补列后首次 rebuild 即补齐数据
+    const cols = this.db.prepare('PRAGMA table_info(entries)').all().map((c) => c.name);
+    if (!cols.includes('fuzzy_s')) this.db.exec('ALTER TABLE entries ADD COLUMN fuzzy_s INTEGER');
+    if (!cols.includes('fuzzy_e')) this.db.exec('ALTER TABLE entries ADD COLUMN fuzzy_e INTEGER');
   }
 
   #prep() {
     this.qUpsert = this.db.prepare(`INSERT INTO entries
-      (path,title,meta,tags,status,start,end,flag,instant,fuzzy,t_ord,body,mtime)
-      VALUES (@path,@title,@meta,@tags,@status,@start,@end,@flag,@instant,@fuzzy,@t_ord,@body,@mtime)
+      (path,title,meta,tags,status,start,end,flag,instant,fuzzy,fuzzy_s,fuzzy_e,t_ord,body,mtime)
+      VALUES (@path,@title,@meta,@tags,@status,@start,@end,@flag,@instant,@fuzzy,@fuzzy_s,@fuzzy_e,@t_ord,@body,@mtime)
       ON CONFLICT(path) DO UPDATE SET
         title=@title, meta=@meta, tags=@tags, status=@status,
         start=@start, end=@end, flag=@flag, instant=@instant, fuzzy=@fuzzy,
+        fuzzy_s=@fuzzy_s, fuzzy_e=@fuzzy_e,
         t_ord=@t_ord, body=@body, mtime=@mtime`);
     this.qDelLinks = this.db.prepare('DELETE FROM links WHERE src=?');
     this.qInsLink = this.db.prepare('INSERT INTO links (src,dst) VALUES (?,?)');
@@ -135,6 +142,7 @@ export class WorldIndex {
       tags: e.tags.join(' '), status: e.status || null,
       start: tl?.start.text ?? null, end: tl?.end.text ?? null, flag: tl?.flag ?? null,
       instant: tl ? (tl.instant ? 1 : 0) : null, fuzzy: tl ? (tl.fuzzy ? 1 : 0) : null,
+      fuzzy_s: tl ? (tl.fuzzyS ? 1 : 0) : null, fuzzy_e: tl ? (tl.fuzzyE ? 1 : 0) : null,
       t_ord: tl?.start.ord ?? null,
       body: e.body, mtime: Date.now(),
     });
@@ -226,7 +234,8 @@ export class WorldIndex {
 
   timeline() {
     return this.db.prepare(
-      `SELECT path,title,start,end,flag,instant,fuzzy,t_ord,
+      `SELECT path,title,start,end,flag,instant,fuzzy,
+              fuzzy_s AS fuzzyS, fuzzy_e AS fuzzyE, t_ord,
               json_extract(meta,'$.a[0]') AS era,
               json_extract(meta,'$.t') AS tags_json
        FROM entries
