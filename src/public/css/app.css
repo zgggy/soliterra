@@ -227,7 +227,8 @@ img { display: block; max-width: 100%; }
 .world-shell.push-right { --col-r: minmax(260px, var(--right-w, 50vw)); }
 .world-shell.push-right.p-rel { --right-w: var(--rel-w, 50vw); }
 .world-shell.push-right.p-tools { --right-w: 50vw; }
-.world-shell.rel-full { --col-l: minmax(0px, 0px); --col-r: minmax(0px, 0px); }
+/* 展开全图：阅读列归零、关系图占满整壳（原先只把两侧列压 0、模板没动 → 图所在第 3 列被压成 0 宽 = 面板“消失”） */
+.world-shell.rel-full { --col-l: minmax(0px, 0px); --col-r: minmax(0px, 0px); grid-template-columns: minmax(0px, 0px) minmax(0px, 0px) minmax(0px, 1fr); }
 
 /* ---------- 时间轴（功能设计 §3） ---------- */
 /* 时代带（§3.2）：轴下 h10，bg/bg-soft 交替 + 眉题名；点击取景该时代 */
