@@ -422,10 +422,10 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 **`event-flag`** — 悬挂事件旗标。
 - 140×52，card-surface 同配方（1px `{colors.line}` / 0 圆角 / Level 1.5 投影）；内容 = 眉题 + 衬线标题（单行省略）+ 等宽日期（模糊段前缀 `≈`）。1px `{colors.line-strong}` 引线垂至轴线（`--lead-x` 补偿让位位移，恒指真实时刻）。
-- **打开态极性翻转**（ink 底 / on-accent 字）——与 read-later chip、章节高亮共用同一「正在读」语言。
+- **打开态极性翻转**（ink 底 / on-accent 字）——与 read-later chip、章节高亮共用同一「正在读」语言。**z=80 恒最上（显式内联置值）且参与碰撞**（第 67 轮）：被它盖住左半的卡片链式左让；它压到创世则它自己右移让位；它本身是创世则创世组含它重排。
 - **聚合簇变体（第 66 轮）**：眉题「同时」+ 标题「＋N 条」+ 首条日期；hover 展开换成员名单（前 3 + …）、原生 title = 全名单；**点击 = 取景该时刻**（非打开）；元素复用键 = 首成员 path。
 
-**`span-bar`** — 覆盖范围条，h6，贴时间轴线（`bottom: 0`），`{colors.bg-soft}` 填充 1px `{colors.text}` 边框；**模糊 = 按端渐隐（第 66 轮）：`.fuzzy-s` 左端 24px mask 渐隐 / `.fuzzy-e` 右端渐隐 / 两端皆有则两端渐隐（替代旧 dashed）**；**打开态：1px ink 边框，不加粗**。
+**`span-bar`** — 覆盖范围条，h6，贴时间轴线（`bottom: 0`），`{colors.bg-soft}` 填充 1px `{colors.text}` 边框；**模糊 = 按端渐隐（第 66 轮）：`.fuzzy-s` 左端 mask 渐隐 / `.fuzzy-e` 右端渐隐 / 两端皆有则两端渐隐（替代旧 dashed）；渐隐长度 `min(24px, 33%)`——短条按比例收窄、保留实心核心（第 67 轮）**；**打开态：1px ink 边框，不加粗**。
 
 **`edge-hint`（出界指示，第 66 轮）** — bar 左右缘 10px 处的「◀ N / N ▶」chip：1px `{colors.line}` 框 + surface 底 + 0 圆角 + 0.6rem mono 数字 + 8px 线条 chevron（stroke 1.6）；hover 仅边框/字色加深；z=95（高于卡片 90）；N = 完全在视口外一侧的卡片数；点击平滑取景（最近出界卡落到 1/4 屏或 3/4 屏）；N=0 隐藏。
 

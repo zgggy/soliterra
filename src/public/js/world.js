@@ -867,18 +867,19 @@ async function addReadlater(ctx, path) {
 
 // ============ 时间轴（功能设计 §3） ============
 function initTimeline(ctx, wrap, canvas, ticks) {
-  const allItems = ctx.timeline.map((r) => {
+  const buildItems = () => ctx.timeline.map((r) => {
     let tg = [];
     try { tg = r.tags_json ? JSON.parse(r.tags_json) : []; } catch {}
     // 创世条目（&f 创世 或 &t 含「创世」）：不按 &s 上轴、不计入时间轴总范围；显示在「最早时间之前」
     const genesis = r.flag === '创世' || (Array.isArray(tg) ? tg : String(tg || '').split(/\s+/)).includes('创世');
     return { ...r, s: parseOrd(r.start), e: parseOrd(r.end), era: r.era || null, genesis };
   }).filter((r) => r.s != null || r.genesis);   // 创世无 &s 也保留（创世排不依赖时刻）
+  let allItems = buildItems();
   // 时间轴范围 = 本书（§A 二次定型）：顶层散文件文档 → 全库；换书由 setScope 重建
   let items = [];
   const view = { lo: 0, hi: 1 };
   const full = { lo: 0, hi: 1 };
-  function rescope() {
+  function rescope(keepView = false) {
     const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
     const node = ctx.tree.children.find((c) => c.name === top);
     const inBook = !!(node && node.children && node.children.length);
@@ -893,9 +894,9 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       const lo = Math.min(...base.map((i) => i.s));
       const hi = Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s)));   // 末覆盖最晚结束（卡片按开始时间定位，轴尾须容下所有绘制）
       const pad = (hi - lo) * 0.05 || YEAR;
-      view.lo = lo - pad; view.hi = hi + pad;
+      full.lo = lo - pad; full.hi = hi + pad;
+      if (!keepView) { view.lo = lo - pad; view.hi = hi + pad; }   // 数据刷新（元数据保存）→ 保持当前视野，只更新范围
     }
-    full.lo = view.lo; full.hi = view.hi;
     earliestOrd = base.length ? Math.min(...base.map((i) => i.s)) : null;
     latestOrd = base.length ? Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s))) : null;
     return top;
@@ -1205,6 +1206,50 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       if (mn < 6) for (const it of genItems) it._left += 6 - mn;
       else if (mx > width - 6) for (const it of genItems) it._left += (width - 6) - mx;
     }
+    // ── 打开中的卡片参与碰撞（2026-10-06 用户要求）：它恒在最上（z=80），但与其他卡片互不遮挡。
+    //    A) O 是创世 → 创世组（含 O，O 视作组内最上）重排 + 整组归一
+    //    B) O 非创世且盖到创世卡左半 → **O 右移越过**（创世恒可见优先，改由打开卡让位）
+    //    C) 纵向带与 O 相交（重叠 >6px）的各道：被 O 盖住左半的卡片链式左让（O 视作链末"后卡"）
+    const openIt = arrange.find((it) => it.path === ctx.currentPath);
+    if (openIt) {
+      const oEl = flagEls.get(openIt.path);
+      const oH = (oEl && oEl.offsetHeight) || (COMPACT ? 26 : 64);   // 打开卡实际高度（元素已存在时实测）
+      // 卡片在 .chrono-canvas（inset 0 0 28px）内定位：贴轴卡底边 = 画布底 −6（画布 = 面板 −28）
+      const oTop = (chronoH - 28) - 6 - oH;
+      if (openIt.genesis && genItems.length > 1) {
+        const g2 = [...genItems.filter((x) => x !== openIt), openIt];
+        for (let i = g2.length - 2; i >= 0; i--) {         // 组内链式让位（O 最后的"后卡"）
+          const cur2 = g2[i], nxt2 = g2[i + 1];
+          const need = nxt2._left - cur2._w / 2 - GAP;
+          if (cur2._left > need) cur2._left = Math.max(need, cur2._trueX - MAX_SHIFT(cur2));
+        }
+        let mn = Infinity, mx = -Infinity;
+        for (const g of genItems) { mn = Math.min(mn, g._left); mx = Math.max(mx, g._left + g._w); }
+        const shift = mn < 6 ? 6 - mn : (mx > width - 6 ? (width - 6) - mx : 0);
+        if (shift) for (const g of genItems) g._left += shift;
+      } else if (genItems.length && !openIt.genesis) {
+        for (let it2 = 0; it2 < 4; it2++) {                 // O 右移越过被压的创世卡（循环至稳定）
+          let need = openIt._left;
+          for (const g of genItems) {
+            if (g._left < openIt._left + openIt._w && g._left + g._w / 2 + GAP > openIt._left) need = Math.max(need, g._left + g._w / 2 + GAP);
+          }
+          if (need === openIt._left) break;
+          openIt._left = need;
+        }
+      }
+      for (const [lane, grp] of laneArrange) {
+        if (10 + lane * (FLAG_H + 6) + oH - oTop <= 6) continue;   // 带状不相交（相邻道 6px 叠边）→ 不干涉
+        const grpC = grp.filter((x) => !x.genesis);                // 创世卡不在此让位（A/B 已保证不与 O 互遮；对普通卡保持"宁可压住轴首"）
+        for (let i = grpC.length - 1; i >= 0; i--) {
+          const cur = grpC[i];
+          let target = cur._left;
+          if (cur._left < openIt._left + openIt._w && cur._left + cur._w / 2 + GAP > openIt._left) target = Math.min(target, openIt._left - cur._w / 2 - GAP);
+          const nxt = i === grpC.length - 1 ? null : grpC[i + 1];
+          if (nxt && nxt._left < cur._left + cur._w / 2 + GAP) target = Math.min(target, nxt._left - cur._w / 2 - GAP);
+          if (target < cur._left) cur._left = Math.max(target, cur._trueX - MAX_SHIFT(cur));
+        }
+      }
+    }
     // 创世向左渐隐箭头：跟组左缘（贴边时压在卡下探出一点）；取首道卡行中心
     if (genItems.length) {
       let mnT = Infinity, minTop = Infinity;
@@ -1271,7 +1316,9 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       else { flag.style.top = (it._top || 10) + 'px'; flag.style.bottom = 'auto'; flag.classList.remove('axis-anchored'); }
       flag.style.setProperty('--lead-x', (it._trueX - it._left + 10) + 'px');   // 引线始终垂在真实开始时刻
       flag.style.setProperty('--flag-w', it._w + 'px');   // 基础宽 = 最多 4 字（内容自然宽，hover 不跳变）
-      if (!flag.classList.contains('expand')) flag.style.zIndex = String(it._z);
+      // 打开中的卡片恒最上（z=80；expand 态也被显式置 80，不因 hover 逻辑漏设）
+      if (it.path === ctx.currentPath) flag.style.zIndex = '80';
+      else if (!flag.classList.contains('expand')) flag.style.zIndex = String(it._z);
       if (flag.dataset.fresh === '1') {       // 新建卡片淡入（160ms；高分道展开/缩回时同样生效）
         flag.dataset.fresh = '';
         flag.classList.add('card-in');
@@ -1481,6 +1528,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     setScope: () => { rescope(); layout(); },
     /** 是否为创世条目（打开创世 = 不动时间轴分毫的判断依据）。 */
     isGenesis: (p) => { const i = allItems.find((x) => x.path === p); return !!(i && i.genesis); },
+    /** 数据刷新（元数据/工具改动后）：重取 timeline → 重建条目 → 范围重算（**视野不跳**）→ 重排。 */
+    reload: (rows) => { if (rows) ctx.timeline = rows; allItems = buildItems(); rescope(true); layout(); },
   };
 }
 
@@ -1882,6 +1931,15 @@ function debounce(fn, ms) {
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
 }
 
+/** 元数据改动后的时间轴数据刷新：重取 timeline（服务端已重索引）→ 原地重建条目与范围，视野不跳。 */
+async function refreshTimeline(ctx) {
+  worldDataCache.delete(ctx.worldId);
+  try {
+    const rows = await api(`/api/w/${enc(ctx.worldId)}/timeline`);
+    ctx.chrono?.reload?.(rows);
+  } catch {}
+}
+
 /** 自动保存调度（§「保存间隔」设置：500/1000/2000ms 或 0=仅保存并退出时落盘）——动态读取，即时生效。 */
 let saveTimer = null;
 function scheduleAutoSave(ctx) {
@@ -1891,10 +1949,11 @@ function scheduleAutoSave(ctx) {
   saveTimer = setTimeout(() => autoSave(ctx), ms);
 }
 
-/** 防抖自动保存（不提交，静默）。 */
+/** 防抖自动保存（不提交，静默）——保存后立即刷新时间轴（改 &s/&e 即刻上轴、范围随之更新）。 */
 async function autoSave(ctx) {
   if (!ctx.editing || !ctx.editor) return;
-  await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: ctx.editor.getValue() } }).catch(() => {});
+  const ok = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: ctx.editor.getValue() } }).then(() => true).catch(() => false);
+  if (ok) await refreshTimeline(ctx);
 }
 
 async function saveEdit(ctx) {
@@ -1905,7 +1964,7 @@ async function saveEdit(ctx) {
 async function exitEdit(ctx) {
   // 退出并保存（不提交——改动累计为未提交，提交在 + 面板）
   await saveEdit(ctx);
-  worldDataCache.delete(ctx.worldId);
+  await refreshTimeline(ctx);   // 编辑期改动（含 & 行）立即反映到时间轴与范围
   ctx.editing = false;
   if (ctx.editor) { try { ctx.editor.destroy(); } catch {} ctx.editor = null; }
   setEditFab(ctx, false);
@@ -2835,6 +2894,7 @@ function renderTools(ctx) {
       });
       worldDataCache.delete(ctx.worldId);
       refreshGitStatus(ctx);
+      await refreshTimeline(ctx);   // 工具改动（含日期归一等）即刻上轴
           showToast(`${lt('toolApplied')} ${r.changed} ${lt('toolPlaces')} · backup: ${r.backup}`, 'success');
       runScan(currentTool);
       // 刷新当前阅读内容（若被修改）——原地重载，不动面板
@@ -3327,6 +3387,7 @@ async function editMetaValue(ctx, key, value) {
   try {
     await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: raw } });
     refreshGitStatus(ctx);
+    await refreshTimeline(ctx);   // 元数据改完即刻上轴（含范围重算）
     await openEntry(ctx, ctx.currentPath, ctx.chrono);   // 原地重载正文（不重建面板；打开本就不取景）
   } catch (err) { showToast(String(err.message), 'error'); }
 }

@@ -294,10 +294,11 @@ img { display: block; max-width: 100%; }
   opacity: 0; transition: opacity var(--motion-quick);   /* left/width 不过渡：拖动/缩放须跟手 */
 }
 .span-bar.show, .span-bar.open { opacity: 1; }
-/* 模糊日期 = 按端渐隐（§E.4）：起端含 `*` → 左端渐隐、止端含 `*` → 右端渐隐（替代整段虚线） */
-.span-bar.fuzzy-s:not(.fuzzy-e) { mask-image: linear-gradient(90deg, transparent, #000 24px); -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); }
-.span-bar.fuzzy-e:not(.fuzzy-s) { mask-image: linear-gradient(270deg, transparent, #000 24px); -webkit-mask-image: linear-gradient(270deg, transparent, #000 24px); }
-.span-bar.fuzzy-s.fuzzy-e { mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+/* 模糊日期 = 按端渐隐（§E.4）：起端含 `*` → 左端渐隐、止端含 `*` → 右端渐隐（替代整段虚线）。
+   渐隐长度 min(24px, 33%)——短条按比例收窄，避免 24px 把整条吃光只剩透明。 */
+.span-bar.fuzzy-s:not(.fuzzy-e) { mask-image: linear-gradient(90deg, transparent, #000 min(24px, 33%)); -webkit-mask-image: linear-gradient(90deg, transparent, #000 min(24px, 33%)); }
+.span-bar.fuzzy-e:not(.fuzzy-s) { mask-image: linear-gradient(270deg, transparent, #000 min(24px, 33%)); -webkit-mask-image: linear-gradient(270deg, transparent, #000 min(24px, 33%)); }
+.span-bar.fuzzy-s.fuzzy-e { mask-image: linear-gradient(90deg, transparent, #000 min(24px, 33%), #000 calc(100% - min(24px, 33%)), transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 min(24px, 33%), #000 calc(100% - min(24px, 33%)), transparent); }
 .span-bar.open { border-color: var(--accent); background: var(--bg-soft); }   /* 打开态不加粗边框 */
 
 .event-flag {
