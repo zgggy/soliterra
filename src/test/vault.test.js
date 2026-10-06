@@ -114,7 +114,7 @@ const mkBare = () => {
   return { root, lib, v };
 };
 
-test('adopt：空文件夹（库外）→ README.md + assets/cover + .gitignore + git init + 链接登记', () => {
+test('adopt：空文件夹（库外）→ README.md + assets/covers/ 封面 + .gitignore + git init + 链接登记', () => {
   const { root, lib, v } = mkBare();
   const folder = join(root, '我的新世界');
   const cover = join(root, 'cover.png');
@@ -128,10 +128,10 @@ test('adopt：空文件夹（库外）→ README.md + assets/cover + .gitignore 
     assert.equal(info.dir, realpathSync(folder));
     const readme = readFileSync(join(folder, 'README.md'), 'utf8');
     assert.ok(readme.startsWith('&n 我的新世界'), '&n 首行');
-    assert.ok(readme.includes('&m assets/cover.png'));
+    assert.ok(readme.includes('&m assets/covers/cover.png'));
     assert.ok(readme.includes('# 我的新世界') && readme.includes('一句话介绍'));
-    assert.ok(existsSync(join(folder, 'assets', 'cover.png')), '封面复制进 assets/');
-    assert.equal(readFileSync(join(folder, 'assets', 'cover.png'), 'utf8'), 'PNGDATA-1');
+    assert.ok(existsSync(join(folder, 'assets', 'covers', 'cover.png')), '封面复制进 assets/covers/（第 89 轮规范）');
+    assert.equal(readFileSync(join(folder, 'assets', 'covers', 'cover.png'), 'utf8'), 'PNGDATA-1');
     assert.ok(readFileSync(join(folder, '.gitignore'), 'utf8').includes('.soliterra/'));
     assert.ok(existsSync(join(folder, '.git')), 'git init');
     assert.equal(execFileSync('git', ['log', '-1', '--format=%s'], { cwd: folder }).toString().trim(), 'init: 创建世界 我的新世界');
@@ -199,14 +199,15 @@ test('adopt：封面——已在文件夹内不复制；重名不同内容自动
     const info = v.adoptFolder({ dir: folder, coverPath: join(folder, 'pic.png') });
     assert.ok(readFileSync(join(folder, 'README.md'), 'utf8').includes('&m pic.png'), '文件夹内图片 → 相对路径不复制');
     assert.ok(!existsSync(join(folder, 'assets', 'pic.png')));
-    // 重名不同内容：已存在 assets/cover.png（大小不同）→ 新增 cover-1.png
-    writeFileSync(join(folder, 'assets', 'cover.png'), 'OLD-XXXX', 'utf8');
+    // 重名不同内容：已存在 assets/covers/cover.png（大小不同）→ 新增 cover-1.png
+    mkdirSync(join(folder, 'assets', 'covers'), { recursive: true });
+    writeFileSync(join(folder, 'assets', 'covers', 'cover.png'), 'OLD-XXXX', 'utf8');
     const c2 = join(root, 'cover.png');
     writeFileSync(c2, 'NEW', 'utf8');
     const info2 = v.adoptFolder({ dir: folder, coverPath: c2 });
     assert.ok(info2, 'ok');
-    assert.ok(existsSync(join(folder, 'assets', 'cover-1.png')), '重名自动加序号');
-    assert.equal(readFileSync(join(folder, 'assets', 'cover.png'), 'utf8'), 'OLD-XXXX', '原文件不动');
+    assert.ok(existsSync(join(folder, 'assets', 'covers', 'cover-1.png')), '重名自动加序号');
+    assert.equal(readFileSync(join(folder, 'assets', 'covers', 'cover.png'), 'utf8'), 'OLD-XXXX', '原文件不动');
   } finally {
     v.close('封面世界');
     rmSync(root, { recursive: true, force: true });
@@ -290,6 +291,40 @@ test('根条目优先级：README.md 优先于 <世界名>.md', () => {
     assert.equal(info.name, '读我');
     v2.close('双根');
   } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('结构规范（第 89 轮）：_initWorldFolder 建 books/ 容器 + 时间线 → books/时间线/ 成对书', () => {
+  const { root, v } = mkBare();
+  const folder = join(root, '时间线世界');
+  try {
+    mkdirSync(folder, { recursive: true });
+    const info = v.adoptFolder({ dir: folder, intro: 'x', timeline: '&s 0705.01.01 &f 纪元开启 黄金纪元' });
+    assert.ok(existsSync(join(folder, 'books')), 'books/ 容器');
+    assert.ok(existsSync(join(folder, 'books', '时间线.md')), '时间线配对条目');
+    assert.ok(existsSync(join(folder, 'books', '时间线', '01-纪元开启.md')), '事件条目在 books/时间线/ 下');
+    assert.ok(!existsSync(join(folder, '时间线')), '世界根不再放 时间线/');
+    assert.equal(info.rootRel, 'README.md');
+  } finally {
+    v.close('时间线世界');
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('结构规范：saveAsset → assets/images/（正文图片之家）', () => {
+  const { root, v } = mkBare();
+  const folder = join(root, '图世界');
+  try {
+    mkdirSync(folder, { recursive: true });
+    v.adoptFolder({ dir: folder });
+    const rel = v.saveAsset('图世界', '照片 1.png', Buffer.from('IMG'));
+    assert.equal(rel, 'assets/images/照片_1.png');
+    assert.ok(existsSync(join(folder, 'assets', 'images', '照片_1.png')));
+    const rel2 = v.saveAsset('图世界', '照片 1.png', Buffer.from('IMG2'));
+    assert.equal(rel2, 'assets/images/照片_1-2.png', '重名加序号');
+  } finally {
+    v.close('图世界');
     rmSync(root, { recursive: true, force: true });
   }
 });

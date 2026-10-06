@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { apply, pruneBackups, lint } from '../lib/tools.js';
+import { apply, pruneBackups, lint, scanStructure, applyStructure } from '../lib/tools.js';
 
 const mkWorld = () => mkdtempSync(join(tmpdir(), 'soliterra-test-'));
 const fakeBackup = (dir, i) => {
@@ -162,4 +162,72 @@ test('lint：悬空双链与现存标题编辑距离 ≤2 → 消息附「疑似
   assert.match(drift.message, /工具箱/, '提示可归并路径');
   assert.ok(!plain.message.includes('疑似漂移'), '无近似不提示');
   rmSync(dir, { recursive: true, force: true });
+});
+
+// ============ 第 89 轮：目录结构规范化 ============
+
+const mkStructuredWorld = () => {
+  const dir = mkWorld();
+  writeFileSync(join(dir, 'README.md'), '&n 卡纳利斯\n\n# 卡纳利斯\n', 'utf8');
+  writeFileSync(join(dir, '散记.md'), '&m assets/concepts/cover.png\n\n# 散记\n\n![图](assets/imported/old.png)\n', 'utf8');
+  mkdirSync(join(dir, '黄金时代'), { recursive: true });
+  writeFileSync(join(dir, '黄金时代.md'), '&n 黄金时代\n\n# 黄金时代\n', 'utf8');
+  writeFileSync(join(dir, '黄金时代', '北伐.md'), '&s 0662.08.17\n\n# 北伐\n', 'utf8');
+  mkdirSync(join(dir, 'assets', 'concepts'), { recursive: true });
+  mkdirSync(join(dir, 'assets', 'imported'), { recursive: true });
+  writeFileSync(join(dir, 'assets', 'concepts', 'cover.png'), 'COVER', 'utf8');
+  writeFileSync(join(dir, 'assets', 'imported', 'old.png'), 'IMG', 'utf8');
+  return dir;
+};
+
+test('scanStructure：根层书/文件 → books/；assets 旧目录 → 规范名 + 引用改写（README/assets/books 不动）', () => {
+  const dir = mkStructuredWorld();
+  try {
+    const { items, moves } = scanStructure(dir);
+    const movePairs = moves.filter((m) => m.kind === 'move').map((m) => `${m.from}→${m.to}`);
+    assert.ok(movePairs.includes('黄金时代.md→books/黄金时代.md'), '配对 md');
+    assert.ok(movePairs.includes('黄金时代→books/黄金时代'), '书目录');
+    assert.ok(movePairs.includes('散记.md→books/散记.md'), '根层散文件');
+    assert.ok(movePairs.includes('assets/concepts/cover.png→assets/covers/cover.png'), '封面规范名');
+    assert.ok(movePairs.includes('assets/imported/old.png→assets/images/old.png'), '正文图规范名');
+    assert.ok(!movePairs.some((x) => x.startsWith('README.md')), 'README 不动');
+    const refs = moves.filter((m) => m.kind === 'ref');
+    assert.equal(refs.length, 2, '&m 行与正文图各一行');
+    assert.equal(refs[0].after, '&m assets/covers/cover.png');
+    assert.equal(refs[1].after, '![图](assets/images/old.png)');
+    assert.ok(items.some((it) => it.kind === 'move'), 'items 供工具箱展示');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('applyStructure：先改引用后搬运 → books/ 就位、assets 规范名、旧目录清空、备份留清单、防穿越', () => {
+  const dir = mkStructuredWorld();
+  try {
+    const { moves } = scanStructure(dir);
+    const evil = [{ kind: 'move', from: '../../etc/passwd', to: 'books/passwd' }];
+    const r = applyStructure(dir, [...moves, ...evil]);
+    assert.ok(r.moved >= 5, '至少 5 项搬移');
+    assert.ok(existsSync(join(dir, 'books', '黄金时代.md')) && existsSync(join(dir, 'books', '黄金时代', '北伐.md')));
+    assert.ok(existsSync(join(dir, 'books', '散记.md')));
+    assert.ok(!existsSync(join(dir, '黄金时代')) && !existsSync(join(dir, '散记.md')), '根层已清空');
+    assert.ok(existsSync(join(dir, 'assets', 'covers', 'cover.png')) && existsSync(join(dir, 'assets', 'images', 'old.png')));
+    assert.ok(!existsSync(join(dir, 'assets', 'concepts')) && !existsSync(join(dir, 'assets', 'imported')), '旧资产目录清空移除');
+    assert.ok(!existsSync(join(dir, 'books', 'passwd')), '穿越路径被跳过');
+    const moved = readFileSync(join(dir, 'books', '散记.md'), 'utf8');
+    assert.ok(moved.includes('&m assets/covers/cover.png') && moved.includes('![图](assets/images/old.png)'), '引用随文件搬到新位置（内容已改写）');
+    const manifest = JSON.parse(readFileSync(join(dir, r.backup, 'structure-moves.json'), 'utf8'));
+    assert.ok(manifest.moves.length >= 5, '移动清单入备份');
+    // 迁移后再扫 → 干净
+    assert.equal(scanStructure(dir).moves.length, 0, '迁移后零残留');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('lint：世界根非规范内容 → 结构提示行（第 89 轮）', () => {
+  const dir = mkStructuredWorld();
+  try {
+    const items = lint(dir);
+    const row = items.find((x) => x.kind === 'structure');
+    assert.ok(row, '有结构提示');
+    assert.match(row.message, /黄金时代|散记/);
+    assert.match(row.message, /结构规范化/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

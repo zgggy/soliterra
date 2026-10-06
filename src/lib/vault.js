@@ -149,11 +149,11 @@ export class Vault {
     const safe = String(name || 'image.png').replace(/[\\/:*?"<>|\s]+/g, '_').replace(/^\.+/, '') || 'image.png';
     const ext = path.extname(safe).toLowerCase();
     const base = path.basename(safe, path.extname(safe)) || 'image';
-    const targetDir = path.join(dir, 'assets', 'imported');
+    const targetDir = path.join(dir, 'assets', 'images');   // 正文图片之家（第 89 轮规范）
     fs.mkdirSync(targetDir, { recursive: true });
-    let rel = `assets/imported/${base}${ext}`;
+    let rel = `assets/images/${base}${ext}`;
     let i = 2;
-    while (fs.existsSync(path.join(dir, rel))) { rel = `assets/imported/${base}-${i}${ext}`; i++; }
+    while (fs.existsSync(path.join(dir, rel))) { rel = `assets/images/${base}-${i}${ext}`; i++; }
     fs.writeFileSync(path.join(dir, rel), buf);
     return rel;
   }
@@ -183,6 +183,7 @@ export class Vault {
    *  时间线事件 → `时间线/NN-标题.md`；`.gitignore` 补 `.soliterra/`；非 git 仓库 → init + 唯一自动提交。 */
   _initWorldFolder(dir, { name, intro = '', timeline = '', coverRel = '', calendar = '' }) {
     fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'books'), { recursive: true });   // 书籍容器（第 89 轮规范）
     const calLine = calendar ? `<!-- calendar: ${calendar} -->` : '';
     const tlLines = String(timeline || '').split('\n').map((x) => x.trim()).filter(Boolean);
     const eventLines = tlLines.filter((x) => /&s\s/.test(x));
@@ -200,18 +201,22 @@ export class Vault {
       const body = [`# ${name}`, '', intro || '', calLine && ['', calLine], '', plainLines.join('\n')].flat().filter((x) => x !== undefined).join('\n');
       fs.writeFileSync(readmeAbs, `${meta}\n\n${body}\n`, 'utf8');
     }
-    eventLines.forEach((line, i) => {
-      // 标题 = 行内元数据段之外的裸文本；无裸文本则取 &f 首词
-      const fval = (line.match(/&f\s+([^&]*)/) || [])[1]?.trim() || '';
-      const rest = line.replace(/&[a-z]\s+[^&]*/g, '').replace(/&[a-z]\b/g, '').trim();
-      const title = (rest || fval.split(/\s+/)[0] || `事件${i + 1}`).replace(/\s+/g, '');
-      const safeTitle = String(title).replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || `事件${i + 1}`;
-      const idx2 = String(i + 1).padStart(2, '0');
-      const rel = path.join('时间线', `${idx2}-${safeTitle}.md`);
-      const abs = path.join(dir, rel);
-      fs.mkdirSync(path.dirname(abs), { recursive: true });
-      fs.writeFileSync(abs, `${line}\n\n# ${safeTitle}\n`, 'utf8');
-    });
+    if (eventLines.length) {
+      // 时间线书（第 89 轮：books/时间线/ + 配对 `时间线.md`——书籍一律成对住 books/ 下）
+      const tlDir = path.join(dir, 'books', '时间线');
+      fs.mkdirSync(tlDir, { recursive: true });
+      const tlMd = path.join(dir, 'books', '时间线.md');
+      if (!fs.existsSync(tlMd)) fs.writeFileSync(tlMd, `&n 时间线\n\n# 时间线\n\n世界大事记（自动生成，可自由整理）。\n`, 'utf8');
+      eventLines.forEach((line, i) => {
+        // 标题 = 行内元数据段之外的裸文本；无裸文本则取 &f 首词
+        const fval = (line.match(/&f\s+([^&]*)/) || [])[1]?.trim() || '';
+        const rest = line.replace(/&[a-z]\s+[^&]*/g, '').replace(/&[a-z]\b/g, '').trim();
+        const title = (rest || fval.split(/\s+/)[0] || `事件${i + 1}`).replace(/\s+/g, '');
+        const safeTitle = String(title).replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || `事件${i + 1}`;
+        const idx2 = String(i + 1).padStart(2, '0');
+        fs.writeFileSync(path.join(tlDir, `${idx2}-${safeTitle}.md`), `${line}\n\n# ${safeTitle}\n`, 'utf8');
+      });
+    }
     // .gitignore：无则写；已有则缺 .soliterra 时补一行（附加操作，不动原内容）
     const gi = path.join(dir, '.gitignore');
     if (!fs.existsSync(gi)) fs.writeFileSync(gi, '.soliterra/\n', 'utf8');
@@ -291,13 +296,13 @@ export class Vault {
     if (srcReal.startsWith(real + path.sep)) return path.relative(real, srcReal).replace(/\\/g, '/');
     const ext = path.extname(src).toLowerCase();
     const stem = path.basename(src, path.extname(src));
-    fs.mkdirSync(path.join(real, 'assets'), { recursive: true });
-    let rel = `assets/${path.basename(src)}`;
+    fs.mkdirSync(path.join(real, 'assets', 'covers'), { recursive: true });   // 封面之家（第 89 轮规范）
+    let rel = `assets/covers/${path.basename(src)}`;
     let n = 1;
     while (fs.existsSync(path.join(real, rel))) {
       // 同名文件已在：同大小视为同一张 → 复用；否则加序号
       try { if (fs.statSync(path.join(real, rel)).size === fs.statSync(src).size) return rel; } catch {}
-      rel = `assets/${stem}-${n++}${ext}`;
+      rel = `assets/covers/${stem}-${n++}${ext}`;
     }
     fs.copyFileSync(src, path.join(real, rel));
     return rel;
@@ -446,15 +451,15 @@ export class Vault {
     const IMG = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp']);
     const imgMap = new Map();          // 库内文件名（含/不含扩展） → 相对路径
     let imgCount = 0;
-    fs.mkdirSync(path.join(dest, 'assets', 'imported'), { recursive: true });
+    fs.mkdirSync(path.join(dest, 'assets', 'images'), { recursive: true });
     walk(srcAbs, (abs) => {
       const ext = path.extname(abs).toLowerCase();
       if (!IMG.has(ext)) return;
       const base = path.basename(abs);
       const stem = base.replace(/\.[^.]+$/, '');
-      let saved = `assets/imported/${base}`;
+      let saved = `assets/images/${base}`;
       let n = 1;
-      while (fs.existsSync(path.join(dest, saved))) saved = `assets/imported/${path.basename(base, ext)}-${n++}${ext}`;
+      while (fs.existsSync(path.join(dest, saved))) saved = `assets/images/${path.basename(base, ext)}-${n++}${ext}`;
       fs.copyFileSync(abs, path.join(dest, saved));
       imgMap.set(base, saved);
       imgMap.set(stem, saved);

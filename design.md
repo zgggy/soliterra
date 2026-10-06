@@ -373,6 +373,10 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 - **`world-card-path`**：`~/<世界库>/<名>/` 等宽 0.62rem `{colors.text-muted}`，单行 `text-overflow: ellipsis`，`title` = 完整绝对路径（数据 = `/api/worlds` 的 `dir` + `/api/meta.home` 缩写）。
 - **hover 倾斜**：`hover-tilt` 原语（±6deg / 200ms）+ 边框 `line-strong`。
 
+**`books-container`（`books/` 容器扁平化，第 89 轮）** — 目录树与全部书籍面板的取数规则。
+- `books/` 目录（无同名 md）是**书籍容器**，**不渲染容器行**：面板/TOC/关系图「按树分组」直接以 `books/` 的直接子节点为顶层书籍；README 不算书（世界介绍）；未被迁移的旧形态顶层节点照常可见（混合世界不丢行）。
+- 数据源：`bookHost/topBookNodes/topOfPath/currentBookOf`（world.js）；`books/` 内书籍一律成对（`书.md` + `书/`，可嵌套），与旧形态同构。
+
 **`tree-menu`（卡菜单的位置组，第 87 轮）** — 世界卡 ⋯ 菜单头部。
 - **`tree-menu-note`**：完整缩写路径注记（等宽 0.62rem muted、`max-width 300px`、`word-break: break-all`；底部 hairline）；**`tree-menu-sep`**：1px `{colors.line}` 分组线（位置组动作与重命名/复制/删除之间）；动作项沿用 `tree-menu-item`。
 

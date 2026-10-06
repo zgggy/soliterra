@@ -307,7 +307,7 @@ const META_DEFS = [
   ['p', '状态', '存储英文 token（UI 显示中文）', 'Status (stored as English token)', 'canon / draft / disputed / deprecated'],
   ['v', '可见性', '读者视图分级（存中文值）', 'Visibility (reader-view gating)', '公众 / 秘传 / 作者'],
   ['q', '可信度', '卡片徽章前置（存中文值）', 'Reliability badge', '可靠 / 存疑 / 已证伪 / 立场鲜明'],
-  ['m', '封面图', 'assets/ 相对路径', 'Cover image path', 'assets/concepts/cover.png'],
+  ['m', '封面图', 'assets/ 相对路径', 'Cover image path', 'assets/covers/cover.png'],
 ];
 const CALLOUT_TYPES = [
   ['档案', '档案（平铺叙述，常规展示）', 'Archive (plain, always shown)'],

@@ -11,7 +11,7 @@ import Fastify from 'fastify';
 import { Vault } from './lib/vault.js';
 import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
 import { parseEntry } from './lib/parser.js';
-import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard } from './lib/tools.js';
+import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard, scanStructure, applyStructure } from './lib/tools.js';
 import { buildSite } from './lib/publish.js';
 import { pickFolder, pickImage } from './lib/picker.js';
 
@@ -365,6 +365,10 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
     try { return { items: scanOnboard(vault.worldDir(req.params.id)) }; }
     catch (e) { return reply.code(500).send({ error: e.message }); }
   }
+  if (tool === 'structure') {
+    try { return { items: scanStructure(vault.worldDir(req.params.id)).items }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
   if (!['date', 'brackets'].includes(tool)) return reply.code(400).send({ error: 'unknown tool' });
   try { return { items: scan(vault.worldDir(req.params.id), tool) }; }
   catch (e) { reply.code(500).send({ error: e.message }); }
@@ -372,16 +376,21 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
 
 app.post('/api/w/:id/tools/apply', (req, reply) => {
   const { tool, items } = req.body || {};
-  const APPLY_TOOLS = ['date', 'brackets', 'dup', 'drift', 'images', 'regex', 'onboard'];
+  const APPLY_TOOLS = ['date', 'brackets', 'dup', 'drift', 'images', 'regex', 'onboard', 'structure'];
   if (!APPLY_TOOLS.includes(tool) || !Array.isArray(items)) {
     return reply.code(400).send({ error: 'bad request' });
   }
   try {
-    const r = applyTool(vault.worldDir(req.params.id), tool, items);
-    // 重索引受影响文件（不自动提交——累计为未提交，由用户手动提交）
+    const dir = vault.worldDir(req.params.id);
+    // 结构规范化（第 89 轮）：文本改写 + 文件/目录搬迁（applyStructure 内部按旧路径先改后搬）
+    const r = tool === 'structure' ? applyStructure(dir, items) : applyTool(dir, tool, items);
+    // 重索引：结构工具可能搬迁整棵目录 → 全量重建（其它工具按受影响文件增量）
     const idx = vault.index(req.params.id);
-    const paths = new Set(items.map((x) => x.path));
-    for (const rel of paths) idx.indexFile(rel);
+    if (tool === 'structure') idx.rebuild?.();
+    else {
+      const paths = new Set(items.map((x) => x.path));
+      for (const rel of paths) idx.indexFile(rel);
+    }
     return r;
   } catch (e) { reply.code(500).send({ error: e.message }); }
 });

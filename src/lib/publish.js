@@ -83,6 +83,14 @@ function buildTreeHtml(paths, titles) {
       cur = node.children;
     }
   }
+  // books/ 容器扁平化（第 89 轮）：站点目录树与站内一致——直接见书，不显容器行（有键冲突时保守不扁）
+  {
+    const bk = nodes.get('books');
+    if (bk && !bk.file && bk.children.size && ![...bk.children.keys()].some((k) => nodes.has(k))) {
+      nodes.delete('books');
+      for (const [k, v] of bk.children) nodes.set(k, v);
+    }
+  }
   const mdKey = (nodeKey) => nodeKey.replace(/\.html$/, '.md');   // 树节点 key 带 .html，titles 键是 .md
   const render = (map) => {
     const lis = [...map.values()].map((n) => {

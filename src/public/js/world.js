@@ -89,6 +89,7 @@ const L = {
   lintJump: { 'zh-CN': '打开条目', en: 'Open entry' },
   toolDate: { 'zh-CN': '日期时间规范化', en: 'Normalize dates & times' },
   toolOnboard: { 'zh-CN': '时间上手（按时间线提取 &s）', en: 'Onboard dates from timeline' },
+  toolStructure: { 'zh-CN': '结构规范化（世界根 → books/）', en: 'Normalize structure (→ books/)' },
   toolBrackets: { 'zh-CN': '【【】】 → [[ ]]', en: '【【】】 → [[ ]]' },
   toolScanning: { 'zh-CN': '扫描中…', en: 'Scanning…' },
   toolNoIssues: { 'zh-CN': '没有需要修复的内容', en: 'Nothing to fix' },
@@ -187,7 +188,7 @@ export async function renderWorld(root, worldId, entryPath) {
   const chronoH = parseInt(sessionStorage.getItem('soliterra.chronoH') || '112', 10);
   root.querySelector('.world-view').style.setProperty('--chrono-h', Math.min(Math.round(window.innerHeight * 0.75), Math.max(70, chronoH)) + 'px');   // §A：上限 3/4 屏高（>2/3 即高模式）
   const chrono = initTimeline(ctx, el('chrono'), el('chrono-canvas'), el('chrono-ticks'));
-  ctx.scopeTop = ctx.currentPath ? ctx.currentPath.split('/')[0] : null;   // 时间轴范围当前所属（与 openEntry 的切书判断一致）
+  ctx.scopeTop = ctx.currentPath ? topOfPath(ctx.currentPath) : null;   // 时间轴范围当前所属（第 89 轮：剥 books/ 前缀）
   chrono.layout();
   bindChronoResize(root, ctx, chrono);
 
@@ -295,10 +296,10 @@ async function addBook(ctx) {
   const name = await askText(state.lang === 'zh-CN' ? '新书名' : 'Book name');
   if (!name || !name.trim()) return;
   try {
-    const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: '', name: name.trim(), pair: true } });
+    const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: 'books', name: name.trim(), pair: true } });
     await refreshTree(ctx);
     refreshGitStatus(ctx);
-    showToast(state.lang === 'zh-CN' ? `已建书：${name}` : `Book created: ${name}`, 'success');
+    showToast(state.lang === 'zh-CN' ? `已建书：books/${name}` : `Book created: books/${name}`, 'success');
     if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
   } catch (e) { showToast(String(e.message), 'error'); }
 }
@@ -308,10 +309,15 @@ async function addEntry(ctx) {
   const name = await askText(state.lang === 'zh-CN' ? '新条目名' : 'Entry name');
   if (!name || !name.trim()) return;
   try {
-    const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
-    const book = ctx.tree.children.find((c) => c.name === top)
-      || rootNodeOf(ctx);
-    const dir = book?.dir || '';   // 书目录（根级散文件书 → ''，落在世界根）
+    const book = currentBookOf(ctx);
+    const dir = book?.dir || '';
+    if (!dir) {
+      // 第 89 轮规范：世界根只放 README.md 与 books/ ——散条目一律拒建，指路到书籍面板
+      showToast(state.lang === 'zh-CN'
+        ? '世界根只放 README 与 books/ —— 请先在「全部书籍」面板 ＋ 新建书，或打开某本书再加条目'
+        : 'World root only holds README and books/ — create a book first', 'warning');
+      return;
+    }
     const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir, name: name.trim(), pair: false } });
     await refreshTree(ctx);
     refreshGitStatus(ctx);
@@ -521,7 +527,7 @@ async function renderWorldPanel(ctx) {
   const dirShow = dirFull ? abbrevPath(dirFull, meta.home) + '/' : '';
   const rootNode = rootNodeOf(ctx);
   const cover = rootNode?.cover;
-  const bookCount = ctx.tree.children.filter((c) => c.md || c.children.length).length;
+  const bookCount = topBookNodes(ctx).filter((c) => c.md || c.children.length).length;
 
   const siteRel = localStorage.getItem('soliterra.site.' + ctx.worldId) || '';   // 最近一次只读站点（第 86 轮「上次站点 ↗」原生链接）
   host.innerHTML = `
@@ -571,7 +577,7 @@ async function renderWorldPanel(ctx) {
     try { await api('/api/worlds/reveal', { method: 'POST', body: { id: ctx.worldId } }); }
     catch (e) { showToast(String(e.message), 'error'); }
   });
-  const top = ctx.tree.children.find((c) => (ctx.currentPath || '').startsWith(c.name + '/')) || rootNodeOf(ctx);
+  const top = currentBookOf(ctx) || rootNodeOf(ctx);
   host.querySelector('#ex-doc-md').addEventListener('click', () => exportDoc(ctx, 'md'));
   host.querySelector('#ex-doc-txt').addEventListener('click', () => exportDoc(ctx, 'txt'));
   host.querySelector('#ex-book-md').addEventListener('click', () => exportBook(ctx, 'md', top));
@@ -802,7 +808,7 @@ function renderBooksPanel(ctx) {
   if (!grid) return;
   const count = document.getElementById('books-count');
   const filter = document.getElementById('books-filter');
-  const books = ctx.tree.children.filter((c) => c.md || c.children.length);
+  const books = topBookNodes(ctx).filter((c) => c.md || c.children.length);
   // 分类 filter（§8.3）：顶层书的 &t 标签去重成 chip 行（旧弹层的分类行迁移）
   const cats = [];
   for (const b of books) for (const tg of (b.tags || [])) if (!cats.includes(tg)) cats.push(tg);
@@ -865,12 +871,40 @@ function firstEntryOf(node) {
   return null;
 }
 
-/** 根条目节点（第 88 轮约定）：README.md 优先 → 历史 `<世界名>` 节点 → 第一子节点。 */
+/** 根条目节点（第 88 轮约定）：README.md 优先 → 历史 `<世界名>` 节点 → 第一本书 → 第一子节点。 */
 function rootNodeOf(ctx) {
   const kids = ctx.tree?.children || [];
   return kids.find((c) => c.md === 'README.md' || c.name === 'README')
     || kids.find((c) => c.name === ctx.worldId)
+    || topBookNodes(ctx)[0]
     || kids[0] || null;
+}
+
+/** 书籍容器（第 89 轮规范）：顶层 `books` 目录节点（无同名 md）即书籍之家；无则回落旧形态。 */
+function bookHost(ctx) {
+  return (ctx.tree?.children || []).find((c) => c.name === 'books' && !c.md) || null;
+}
+
+/** 顶层书籍节点序列：books/ 直接子节点在前；**未被迁移的旧形态顶层节点照常可见**（混合世界不丢行）。
+ *  剔除 README（世界介绍，不是书）与 assets 容器。 */
+function topBookNodes(ctx) {
+  const kids = ctx.tree?.children || [];
+  const bc = bookHost(ctx);
+  const own = kids.filter((c) => c !== bc && c.name !== 'README' && c.name !== 'assets');
+  return bc ? [...bc.children, ...own] : own;
+}
+
+/** 路径 → 顶层书名（剥 `books/` 前缀）。 */
+function topOfPath(p) {
+  const segs = (p || '').split('/');
+  const head = segs[0] === 'books' && segs.length > 1 ? segs[1] : segs[0];
+  return (head || '').replace(/\.md$/i, '');
+}
+
+/** 当前条目所属的顶层书籍节点（散文件 / 根条目 → null）。 */
+function currentBookOf(ctx) {
+  const p = ctx.currentPath || '';
+  return topBookNodes(ctx).find((c) => c.dir && (p === c.md || p.startsWith(c.dir + '/'))) || null;
 }
 
 // ============ 稍后阅读（底部中央卡片集：rest = 扇形聚拢；hover = 横排展开；单卡 hover 上升） ============
@@ -974,8 +1008,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   const view = { lo: 0, hi: 1 };
   const full = { lo: 0, hi: 1 };
   function rescope(keepView = false) {
-    const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
-    const node = ctx.tree.children.find((c) => c.name === top);
+    const node = currentBookOf(ctx);
     const inBook = !!(node && node.children && node.children.length);
     items = inBook
       ? (() => { const set = new Set(flattenTree(node).map((e) => e.path)); return allItems.filter((i) => set.has(i.path)); })()
@@ -1060,9 +1093,9 @@ function initTimeline(ctx, wrap, canvas, ticks) {
 
   /** 当前文档所属书的条目 path→tags（散文件文档 → 全库）；跨导航按 top 缓存。 */
   function bookFlagMap() {
-    const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
+    const top = topOfPath(ctx.currentPath);
     if (flagSetCache.key === top) return flagSetCache.map;
-    const node = ctx.tree.children.find((c) => c.name === top);
+    const node = currentBookOf(ctx);
     const root = (node && node.children && node.children.length) ? node : ctx.tree;
     const map = new Map();
     const walk = (n) => { if (n.md) map.set(n.md, n.tags || []); for (const c of n.children) walk(c); };
@@ -1212,7 +1245,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     // （旗标池装配 / 逐条虚拟时刻 / first-fit 分道 / 三类聚簇 / z 重排 / 同道级联 / O 卡 A·B·C 三通道 /
     //   尾箭头取样 / 出界计数——全部收敛进引擎 timeline-layout.js，本文件不再保留第二份实现）
 
-    lastTimelineView = { world: ctx.worldId, book: (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, ''), lo: view.lo, hi: view.hi };
+    lastTimelineView = { world: ctx.worldId, book: topOfPath(ctx.currentPath), lo: view.lo, hi: view.hi };
     if (DEV) {
       const ms = performance.now() - t0;
       const perf = window.__tlPerf = window.__tlPerf || { frames: 0, last: 0, avg: 0, max: 0, engine: 0, apply: 0, items: 0, placements: 0, nodes: 0, h: 0 };
@@ -1636,10 +1669,8 @@ function renderToc(ctx) {
   if (!body) return;
   body.innerHTML = '';
 
-  const topOf = (p) => (p || '').split('/')[0].replace(/\.md$/i, '');
-  const currentTop = topOf(ctx.currentPath);
   const defaultBook = rootNodeOf(ctx);
-  const book = ctx.tree.children.find((c) => c.name === currentTop) || defaultBook;
+  const book = currentBookOf(ctx) || defaultBook;
   if (!book) return;
 
   // 当前文档是否在某节点子树内
@@ -1821,7 +1852,7 @@ async function openEntry(ctx, path, chrono) {
   });
 
   // 目录：换书 → 重建树；同书 → 只移动高亮行（不重建，避免面板闪动）
-  const topOf2 = (p2) => (p2 || '').split('/')[0];
+  const topOf2 = (p2) => topOfPath(p2);
   // 时间轴范围切换：**打开创世条目不动时间轴分毫**（无时间语义）；仅打开非创世条目且换书才切
   if (chrono && !chrono.isGenesis?.(path) && ctx.scopeTop !== topOf2(path)) {
     ctx.scopeTop = topOf2(path);
@@ -2193,9 +2224,10 @@ function renderActions(ctx, results, q, close) {
       else showToast(state.lang === 'zh-CN' ? `无此条目：${target}` : `Not found: ${target}`, 'warning');
     } else if (act === 'newentry') {
       const name = b.dataset.q;
-      const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
+      const book = currentBookOf(ctx);
+      if (!book?.dir) { showToast(state.lang === 'zh-CN' ? '世界根只放 README 与 books/——请先打开某本书' : 'Open a book first', 'warning'); return; }
       try {
-        const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: top, name, pair: false } });
+        const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: book.dir, name, pair: false } });
         await refreshTree(ctx);
         refreshGitStatus(ctx);
         if (r2.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path)}`);
@@ -2442,8 +2474,8 @@ async function renderRel(ctx, mode) {
   (function walk(node, d) { if (node.md) depthOf.set(node.md, d); for (const c of node.children) walk(c, d + 1); })(ctx.tree, 0);
   if (ctx.graphLayout === 'tree') {
     // 按树分组：x = 顶层书（按目录顺序分列），y = 组内顺序
-    const bookOrder = (ctx.tree.children || []).map((c) => c.name);
-    const groupOf = (p2) => (p2 || '').split('/')[0].replace(/\.md$/i, '');
+    const bookOrder = topBookNodes(ctx).map((c) => c.name);
+    const groupOf = (p2) => topOfPath(p2);
     const groups = [...new Set(g.nodes.map((n) => groupOf(n.path)))].sort((a2, b2) => {
       const ia = bookOrder.indexOf(a2), ib = bookOrder.indexOf(b2);
       return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib);
@@ -2886,8 +2918,8 @@ function renderTools(ctx) {
   modal.innerHTML = `
       <div class="tools-layout">
         <nav class="tools-nav">
-          ${['lint', 'date', 'onboard', 'brackets', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
-          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ date: 'toolDate', onboard: 'toolOnboard', brackets: 'toolBrackets', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
+          ${['lint', 'structure', 'date', 'onboard', 'brackets', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
+          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ structure: 'toolStructure', date: 'toolDate', onboard: 'toolOnboard', brackets: 'toolBrackets', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
         </nav>
         <div class="tools-main">
           <div class="tools-list" id="tools-list"><div class="loading">${lt('toolScanning')}</div></div>
@@ -2951,7 +2983,14 @@ function renderTools(ctx) {
     const manualRows = items.filter((x) => x.manual);
     list.innerHTML = [
       ...manualRows.map((it) => `<div class="alert-row lint-info"><span class="lint-msg">${esc2(it.before)}</span><span class="lint-loc">${esc2(String(it.path).slice(0, 60))}</span></div>`),
-      ...fixRows.map((it, i) => `
+      ...fixRows.map((it, i) => it.kind === 'move' ? `
+      <div class="diff-row diff-move">
+        ${checkHTML(it.checked, '', `data-i="${i}"`)}
+        <span class="diff-path diff-move-tag">${state.lang === 'zh-CN' ? '移动' : 'move'}</span>
+        <span class="diff-before">${esc2(it.before)}</span>
+        <span class="diff-arrow">→</span>
+        <span class="diff-after">${esc2(it.after)}</span>
+      </div>` : `
       <div class="diff-row">
         ${checkHTML(it.checked, '', `data-i="${i}"`)}
         <span class="diff-path" title="${esc2(it.src || it.path)}">${esc2(it.path)}:${it.line}</span>
@@ -2969,7 +3008,7 @@ function renderTools(ctx) {
     list.querySelectorAll('.diff-row').forEach((row, i) => row.addEventListener('click', (e) => {
       if (e.target.closest('.check-row')) return;
       const it = fixRows[i];
-      if (!it?.path) return;
+      if (!it?.path || it.kind === 'move') return;   // 移动行不跳转
       openWithAnnotation(ctx, it.path, `${it.before || ''}`);
     }));
     refreshCount();
@@ -3263,7 +3302,7 @@ const META_KEY_DOC = {
   p: { zh: ['状态（存英文 token）：canon / draft / disputed / deprecated', 'canon'], en: ['Status token: canon/draft/disputed/deprecated', 'canon'] },
   v: { zh: ['可见性——读者视图分级（存中文值）', '公众 / 秘传 / 作者'], en: ['Visibility (reader-view gating)', '公众/秘传/作者'] },
   q: { zh: ['可信度——卡片徽章前置（存中文值）', '可靠 / 存疑 / 已证伪'], en: ['Reliability badge', '可靠'] },
-  m: { zh: ['封面图——assets/ 相对路径', 'assets/concepts/cover.png'], en: ['Cover image path', 'assets/…'] },
+  m: { zh: ['封面图——assets/ 相对路径', 'assets/covers/cover.png'], en: ['Cover image path', 'assets/covers/cover.png'] },
 };
 const META_ORDER = ['s', 'e', 'n', 't', 'f', 'a', 'p', 'v', 'q', 'm'];
 
@@ -3385,7 +3424,7 @@ function openMetaEditor(ctx, key, current) {
     const isTags = key === 't';
     const seg = META_ENUM[key];
     const flagCats = [...new Set(ctx.timeline.map((r) => r.flag).filter(Boolean))];
-    const bookTags = [...new Set((ctx.tree.children || []).flatMap((b) => b.tags || []))];
+    const bookTags = [...new Set(topBookNodes(ctx).flatMap((b) => b.tags || []))];
     let tags = isTags ? String(current || '').split(/\s+/).filter(Boolean) : [];
     const kdoc = META_KEY_DOC[key];
     const explain = kdoc ? (state.lang === 'en' ? kdoc.en[0] : kdoc.zh[0]) : '';

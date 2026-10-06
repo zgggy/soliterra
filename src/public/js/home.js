@@ -92,7 +92,7 @@ export async function renderHome(root) {
             <input class="text-input" name="src" placeholder="/Users/me/Documents/MyVault" autofocus></label>
           <label class="field"><span class="eyebrow">${state.lang === 'zh-CN' ? '新世界名' : 'New world name'}</span>
             <input class="text-input" name="name" placeholder="${state.lang === 'zh-CN' ? '如：我的知识库' : 'e.g. MyVault'}"></label>
-          <div class="field-note eyebrow" style="color:var(--text-muted)">${state.lang === 'zh-CN' ? 'frontmatter → & 元数据 · 双链原样 · 图片入 assets/imported · 生成世界副本（不动原库）' : 'frontmatter → & metadata · wikilinks kept · images → assets/imported'}</div>
+          <div class="field-note eyebrow" style="color:var(--text-muted)">${state.lang === 'zh-CN' ? 'frontmatter → & 元数据 · 双链原样 · 图片入 assets/images · 生成世界副本（不动原库）' : 'frontmatter → & metadata · wikilinks kept · images → assets/images'}</div>
           <div class="modal-actions">
             <button class="button-ghost" data-close>${state.lang === 'zh-CN' ? '取消' : 'Cancel'}</button>
             <button class="button-primary" data-import>${state.lang === 'zh-CN' ? '导入' : 'Import'}</button>
@@ -234,7 +234,7 @@ function openNewWorld(root) {
             <summary class="eyebrow">${zh ? '可选：历法与时间线初始化' : 'Optional: calendar & timeline'}</summary>
             <label class="field"><span class="eyebrow">${zh ? '历法与纪元锚点（注释写入 README.md，可空）' : 'Calendar (README comment)'}</span>
               <input class="text-input" name="calendar" placeholder="CE 元年=0705"></label>
-            <label class="field"><span class="eyebrow">${zh ? '时间线（每行一个事件，可空；创建为「时间线/」子条目）' : 'Timeline (one event per line → entries)'}</span>
+            <label class="field"><span class="eyebrow">${zh ? '时间线（每行一个事件，可空；创建为「books/时间线/」子条目）' : 'Timeline (one event per line → books/时间线/)'}</span>
               <textarea class="text-input wz-timeline" name="timeline" rows="6" placeholder="&s 0705.01.01 &e 0705.12.31 &f 纪元开启 黄金纪元&#10;&s 0874.*.* &e 0874.*.* &f 灾变 大崩坏"></textarea></label>
           </details>
         </div>

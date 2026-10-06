@@ -422,6 +422,22 @@ export function lint(worldDir, limit = 800) {
     kind: 'summary', severity: 'info', path: '',
     message: `状态体检：条目 ${entries.length} · 上轴 ${withTime} · canon ${stat('p', 'canon')} · draft ${stat('p', 'draft')} · 悬空 ${items.filter((x) => x.kind === 'dangling').length}`,
   });
+  // ⑧ 目录结构规范（第 89 轮）：世界根只允许 README.md / assets/ / books/（非 md 文件不归平台管）
+  const stray = [];
+  try {
+    for (const ent of fs.readdirSync(worldDir, { withFileTypes: true })) {
+      const n = ent.name;
+      if (n.startsWith('.') || STRUCT.rootDirs.includes(n) || STRUCT.rootFiles.includes(n)) continue;
+      if (ent.isFile() && !n.endsWith('.md')) continue;
+      stray.push(n);
+    }
+  } catch { /* 根目录不可读 */ }
+  if (stray.length) {
+    push({
+      kind: 'structure', severity: 'info', path: '',
+      message: `目录结构：世界根有 ${stray.length} 项非规范内容（${stray.slice(0, 3).join('、')}${stray.length > 3 ? '…' : ''}）——工具箱「结构规范化」可迁移`,
+    });
+  }
   return items;
 }
 
@@ -483,4 +499,131 @@ export function apply(worldDir, tool, items) {
   }
   pruneBackups(worldDir);   // 自动剪枝（保留最近 10 份；尽力而为）
   return { changed, backup: path.relative(worldDir, backupDir) };
+}
+
+// ============ 目录结构规范（第 89 轮）============
+// 世界 = README.md（介绍）+ assets/（资源：covers 封面 / images 正文图 / maps 地图 / exports 发布产物）
+// + books/（书籍一律住这里：`书.md` + `书/` 成对，可嵌套）。平台自身操作只产生此形态；
+// 存量世界用「结构规范化」工具迁移（本文件 scanStructure / applyStructure）。
+
+/** 规范常量（单一来源）——各落盘点引用，禁止散写。 */
+export const STRUCT = {
+  root: 'books',            // 书籍容器
+  covers: 'assets/covers',  // 文档封面
+  images: 'assets/images',  // 文档内图片
+  maps: 'assets/maps',      // 地图文件
+  exports: 'assets/exports',// 发布产物（站点等）
+  rootFiles: ['README.md'], // 根层允许的文件
+  rootDirs: ['assets', 'books'],
+};
+
+/** 结构扫描：根层散落的书/文件 → books/；assets 旧子目录（concepts/imported）→ 规范名 + 引用改写。
+ *  返回 { items, moves }：items 供工具箱 diff 行展示（move 行带 kind:'move' 与 from/to）。 */
+export function scanStructure(worldDir, limit = 500) {
+  const items = [];
+  const moves = [];
+  const push = (it) => { if (items.length < limit) items.push(it); };
+  // ① 根层：除 README.md / assets / books / 点文件外——目录与 .md 文件都归入 books/
+  for (const ent of fs.readdirSync(worldDir, { withFileTypes: true })) {
+    const n = ent.name;
+    if (n.startsWith('.') || STRUCT.rootDirs.includes(n) || STRUCT.rootFiles.includes(n)) continue;
+    if (ent.isFile() && !n.endsWith('.md')) continue;      // 非 md 文件不归平台管
+    const from = n;
+    const to = `${STRUCT.root}/${n}`;
+    if (ent.isDirectory()) {
+      let inner = 0;
+      try { inner = collectMarkdown(path.join(worldDir, n)).length; } catch { /* 不可读 */ }
+      const hasPair = fs.existsSync(path.join(worldDir, `${n}.md`));   // 同级配对 md → 明确是书（可空目录）
+      if (!inner && !hasPair) {
+        push({ path: '', line: 0, manual: true, before: `${from}/ —— 无 md 的目录（资源？）：如为书籍请移入 books/，如为资源请移入 assets/` });
+        continue;
+      }
+    }
+    if (fs.existsSync(path.join(worldDir, to))) {
+      push({ path: from, line: 0, manual: true, before: `${from} —— 目标已存在（${to}），需人工处理` });
+      continue;
+    }
+    const row = {
+      kind: 'move', from, to,
+      path: ent.isFile() ? from : '', line: 0,
+      before: ent.isDirectory() ? `${from}/` : from,
+      after: `${to}${ent.isDirectory() ? '/' : ''}`,
+    };
+    moves.push(row);
+    push(row);
+  }
+
+  // ② assets 旧子目录 → 规范名（concepts → covers / imported → images），文件级移动 + 重名跳过
+  const assetsAbs = path.join(worldDir, 'assets');
+  const remaps = [['concepts', 'covers'], ['imported', 'images']];
+  const movedNames = new Map();   // 旧目录名 → 真正会移动的文件名集合（引用只改这些，冲突的不动）
+  if (fs.existsSync(assetsAbs)) {
+    for (const [oldName, newName] of remaps) {
+      const oldAbs = path.join(assetsAbs, oldName);
+      if (!fs.existsSync(oldAbs) || !fs.statSync(oldAbs).isDirectory()) continue;
+      for (const f of fs.readdirSync(oldAbs)) {
+        const from = `assets/${oldName}/${f}`;
+        const to = `assets/${newName}/${f}`;
+        if (fs.existsSync(path.join(worldDir, to))) {
+          push({ path: from, line: 0, manual: true, before: `${from} —— 目标已存在，需人工处理` });
+          continue;
+        }
+        const row = { kind: 'move', from, to, path: from, line: 0, before: from, after: to };
+        moves.push(row);
+        push(row);
+        if (!movedNames.has(oldName)) movedNames.set(oldName, new Set());
+        movedNames.get(oldName).add(f);
+      }
+    }
+  }
+
+  // ③ 引用改写：正文与 & 行里的 assets/<旧名>/<文件名> → assets/<新名>/<文件名>（仅限真正要移动的文件）
+  if (movedNames.size) {
+    for (const r of collectMarkdown(worldDir)) {
+      let text; try { text = fs.readFileSync(path.join(worldDir, r), 'utf8'); } catch { continue; }
+      const lines = text.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        let after = lines[i];
+        for (const [oldName, newName] of remaps) {
+          for (const f of movedNames.get(oldName) || []) after = after.split(`assets/${oldName}/${f}`).join(`assets/${newName}/${f}`);
+        }
+        if (after !== lines[i]) { const row = { path: r, line: i + 1, before: lines[i], after }; moves.push({ kind: 'ref', ...row }); push(row); }
+      }
+    }
+  }
+  return { items, moves };
+}
+
+/** 结构应用：文本改写（先，按旧路径）+ 移动（后；fs.rename，重名/穿越跳过）；moves 清单存快照目录。 */
+export function applyStructure(worldDir, structMoves) {
+  const rootAbs = path.resolve(worldDir);
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupDir = path.join(rootAbs, '.soliterra', `backup-${ts}`);
+  fs.mkdirSync(backupDir, { recursive: true });
+  const textItems = structMoves.filter((m) => m.kind !== 'move');
+  const moveItems = structMoves.filter((m) => m.kind === 'move');
+  let changed = 0;
+  let moved = 0;
+  // ① 文本改写（搬迁之前做——行匹配按旧路径）
+  if (textItems.length) changed = apply(rootAbs, 'structure', textItems).changed;
+  // ② 移动
+  for (const m of moveItems) {
+    const fromAbs = path.resolve(rootAbs, String(m.from || ''));
+    const toAbs = path.resolve(rootAbs, String(m.to || ''));
+    if (!m.from || !m.to) continue;
+    if (!fromAbs.startsWith(rootAbs + path.sep) || !toAbs.startsWith(rootAbs + path.sep)) continue;   // 防穿越
+    if (!fs.existsSync(fromAbs) || fs.existsSync(toAbs)) continue;                                    // 冲突跳过
+    fs.mkdirSync(path.dirname(toAbs), { recursive: true });
+    fs.renameSync(fromAbs, toAbs);
+    moved++;
+  }
+  // ③ 搬空的旧资产目录清理（concepts / imported）
+  for (const d of ['assets/concepts', 'assets/imported']) {
+    const abs = path.join(rootAbs, d);
+    try { if (fs.existsSync(abs) && fs.readdirSync(abs).length === 0) fs.rmdirSync(abs); } catch { /* 留待人工 */ }
+  }
+  // 移动清单入快照（记录本次搬了什么；回滚靠 git）
+  fs.writeFileSync(path.join(backupDir, 'structure-moves.json'), JSON.stringify({ moves: moveItems, at: ts }, null, 2), 'utf8');
+  pruneBackups(rootAbs);
+  return { changed: changed + moved, moved, refs: changed, backup: path.relative(rootAbs, backupDir) };
 }
