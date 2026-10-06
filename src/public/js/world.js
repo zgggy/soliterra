@@ -1018,6 +1018,20 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     markers.innerHTML = '';
     const cur = items.find((i) => i.path === ctx.currentPath);
     const markerPx = [];
+    // 范围起点刻度（2026-10-06）：最早时间处一个墨色年份刻度；常规刻度让位
+    if (earliestOrd != null) {
+      const px0 = x(earliestOrd);
+      if (px0 > -40 && px0 < width + 40) {
+        markerPx.push(px0);
+        const t0 = document.createElement('span');
+        t0.className = 'tick chrono-marker-tick';
+        t0.style.left = px0 + 'px';
+        const yr0 = Math.round(earliestOrd / YEAR);
+        t0.textContent = yr0 < 0 ? `前${Math.abs(yr0)}` : String(yr0);
+        t0.title = state.lang === 'zh-CN' ? '范围起点（最早时间）' : 'Range start';
+        markers.appendChild(t0);
+      }
+    }
     if (cur && !cur.genesis) {   // 创世条目无时间语义，不起止标记
       const put = (ord) => {
         if (ord == null) return;

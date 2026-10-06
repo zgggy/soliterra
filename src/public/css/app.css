@@ -276,8 +276,7 @@ img { display: block; max-width: 100%; }
 .chrono-canvas { position: absolute; inset: 0 0 28px; }
 .chrono-ticks { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; }   /* 轴线由 .chrono-axis 承担（只画范围内） */
 .chrono-axis {
-  position: absolute; bottom: 28px; height: 0; border-top: 1px solid var(--line-strong);
-  transition: left var(--motion-view) var(--ease), width var(--motion-view) var(--ease);
+  position: absolute; bottom: 28px; height: 0; border-top: 1px solid var(--line-strong);   /* left/width 不过渡：拖动须跟手 */
 }
 .chrono-axis[hidden] { display: none; }
 .tick {
@@ -303,9 +302,9 @@ img { display: block; max-width: 100%; }
   display: flex; flex-direction: column; gap: 1px;
   overflow: hidden; white-space: nowrap;
   max-width: var(--flag-w, 240px);
+  /* left/width 不过渡（拖动/滚轮/取景逐帧更新须跟手）；top 保留过渡（拖高度的动画）；max-width=hover 展开 */
   transition: max-width var(--motion-state) var(--ease-out-quick), border-color var(--motion-quick),
-              left var(--motion-state) var(--ease-out-quick), top var(--motion-state) var(--ease-out-quick),
-              transform var(--motion-quick);
+              top var(--motion-state) var(--ease-out-quick), transform var(--motion-quick);
   background: var(--surface); border: 1px solid var(--line); border-radius: 0;
   padding: 6px 8px; text-align: left;
   box-shadow: var(--shadow-15);
