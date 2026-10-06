@@ -177,6 +177,7 @@ export async function renderWorld(root, worldId, entryPath) {
   const chronoH = parseInt(sessionStorage.getItem('soliterra.chronoH') || '112', 10);
   root.querySelector('.world-view').style.setProperty('--chrono-h', Math.min(Math.round(window.innerHeight * 0.75), Math.max(70, chronoH)) + 'px');   // §A：上限 3/4 屏高（>2/3 即高模式）
   const chrono = initTimeline(ctx, el('chrono'), el('chrono-canvas'), el('chrono-ticks'));
+  ctx.scopeTop = ctx.currentPath ? ctx.currentPath.split('/')[0] : null;   // 时间轴范围当前所属（与 openEntry 的切书判断一致）
   chrono.layout();
   bindChronoResize(root, ctx, chrono);
 
@@ -882,21 +883,19 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     items = inBook
       ? (() => { const set = new Set(flattenTree(node).map((e) => e.path)); return allItems.filter((i) => set.has(i.path)); })()
       : allItems;
-    if (items.length) {
-      const timed = items.filter((i) => !i.genesis && i.s != null);   // 创世条目不计入总范围
-      const base = timed.length ? timed : items.filter((i) => i.s != null);
-      if (base.length) {
-        const lo = Math.min(...base.map((i) => i.s));
-        const hi = Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s)));   // 末覆盖最晚结束（卡片按开始时间定位，轴尾须容下所有绘制）
-        const pad = (hi - lo) * 0.05 || YEAR;
-        view.lo = lo - pad; view.hi = hi + pad;
-      }
+    // 范围**只由非创世条目定义**（2026-10-06：创世永不参与，任何书/任何视图下皆然）——
+    // 本书没有真实时刻（全是创世/无时刻）→ 退回**全库真实范围**，绝不拿创世时刻当范围。
+    const timed = items.filter((i) => !i.genesis && i.s != null);
+    const base = timed.length ? timed : allItems.filter((i) => !i.genesis && i.s != null);
+    if (base.length) {
+      const lo = Math.min(...base.map((i) => i.s));
+      const hi = Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s)));   // 末覆盖最晚结束（卡片按开始时间定位，轴尾须容下所有绘制）
+      const pad = (hi - lo) * 0.05 || YEAR;
+      view.lo = lo - pad; view.hi = hi + pad;
     }
     full.lo = view.lo; full.hi = view.hi;
-    const timed = items.filter((i) => !i.genesis && i.s != null);
-    const base2 = timed.length ? timed : items.filter((i) => i.s != null);
-    earliestOrd = base2.length ? Math.min(...base2.map((i) => i.s)) : null;
-    latestOrd = base2.length ? Math.max(...base2.map((i) => Math.max(i.s, i.e ?? i.s))) : null;
+    earliestOrd = base.length ? Math.min(...base.map((i) => i.s)) : null;
+    latestOrd = base.length ? Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s))) : null;
     return top;
   }
   let earliestOrd = null, latestOrd = null;
@@ -1327,7 +1326,12 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   window.addEventListener('keydown', axisKeyHandler);
 
   window.addEventListener('resize', layout);
-  return { layout, focusPath, focusOrd, isTall: () => tall, view, setScope: () => { rescope(); layout(); } };
+  return {
+    layout, focusPath, focusOrd, isTall: () => tall, view,
+    setScope: () => { rescope(); layout(); },
+    /** 是否为创世条目（打开创世 = 不动时间轴分毫的判断依据）。 */
+    isGenesis: (p) => { const i = allItems.find((x) => x.path === p); return !!(i && i.genesis); },
+  };
 }
 
 // ============ 结构操作（§5.4 ②③④ + 重命名/删除）：右键菜单 ============
@@ -1576,7 +1580,11 @@ async function openEntry(ctx, path, chrono) {
 
   // 目录：换书 → 重建树；同书 → 只移动高亮行（不重建，避免面板闪动）
   const topOf2 = (p2) => (p2 || '').split('/')[0];
-  if (ctx.lastTocTop !== topOf2(path)) chrono?.setScope?.();   // 换书 → 时间轴范围切到本书（视野回该书的默认全幅）
+  // 时间轴范围切换：**打开创世条目不动时间轴分毫**（无时间语义）；仅打开非创世条目且换书才切
+  if (chrono && !chrono.isGenesis?.(path) && ctx.scopeTop !== topOf2(path)) {
+    ctx.scopeTop = topOf2(path);
+    chrono.setScope();
+  }
   if (chrono) chrono.layout();                                 // 打开条目不取景（用户要求：无自动缩放）
   if (ctx.tree && !ctx.panelPainted) {
     if (ctx.lastTocTop && ctx.lastTocTop !== topOf2(path)) renderToc(ctx);
