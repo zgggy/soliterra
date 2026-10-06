@@ -3,12 +3,11 @@
 // 默认在锚点上方，越界翻下；卡在上→按钮在下，卡在下→按钮在上（按钮永远贴锚点一侧）。
 
 import { api, state } from './app.js';
+import { esc } from './ui.js';
 
 const W = 360, H = 336, BTN = 42;
 const cache = new Map();
 let cardEl = null, timer = null, hideTimer = null, activeAnchor = null;
-
-function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
 
 async function fetchPreview(ctx, path) {
   const key = `${ctx.worldId}:${path}`;
@@ -50,37 +49,85 @@ function schedulehide() { clearTimeout(hideTimer); hideTimer = setTimeout(hideCa
 /** 指针离开锚点（链接/节点）——120ms 宽限，期间进卡则保持。 */
 export function leaveAnchor() { activeAnchor = null; schedulehide(); }
 
+/** 卡片定位（锚点上方优先，越界翻下；按钮永远贴锚点一侧）——普通卡与缺条目卡共用。 */
+function placeCard(card, rect) {
+  const above = rect.top - H - 8 >= 8;
+  const below = rect.bottom + 8 + H <= window.innerHeight - 8;
+  const placeAbove = above || !below;
+  const top = placeAbove ? Math.max(8, rect.top - H - 8)
+    : Math.min(window.innerHeight - H - 8, rect.bottom + 8);
+  const left = Math.min(Math.max(12, rect.left + rect.width / 2 - W / 2), window.innerWidth - W - 12);
+  const btnSide = placeAbove ? 'bottom' : 'top';
+  card.style.top = top + 'px';
+  card.style.left = left + 'px';
+  card.className = `link-preview-card btn-${btnSide}`;
+  return btnSide;
+}
+
+/** 缺条目卡（第 91 轮）：双链指向尚不存在的条目 → 展示目标名 + 「创建文件」按钮
+ *  （替代既有条目卡的「稍后阅读」）。创建 = 世界根目录下生成 `<目标>.md`（ctx.onCreateMissing）。 */
+function paintMissing(ctx, target, rect) {
+  const zh = state.lang === 'zh-CN';
+  const card = ensureCard();
+  const btnSide = placeCard(card, rect);
+  card.style.backgroundImage = 'none';
+  card.classList.add('no-cover', 'is-missing');
+  card.innerHTML = `
+    <div class="lpc-scrim"></div>
+    <div class="lpc-body">
+      <div class="lpc-title">${esc(target)}</div>
+      <div class="lpc-sub">${zh ? '该条目尚未创建' : 'Entry not created yet'}</div>
+      <div class="lpc-hairline"></div>
+      <div class="lpc-excerpt">${zh
+        ? '双链指向的条目还不存在——可在这里一键建立文件（生成在世界根目录），把考据缺口变成待写清单。'
+        : 'This link points to an entry that does not exist yet — create it at the world root and turn the gap into a to-write list.'}</div>
+    </div>
+    <button class="lpc-later lpc-create">＋ ${zh ? '创建文件' : 'Create entry'}</button>`;
+  card.querySelector('.lpc-create').addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const btn = e.currentTarget;
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = zh ? '创建中…' : 'Creating…';
+    try {
+      await ctx.onCreateMissing?.(target);
+      hideCard();
+    } catch {
+      btn.disabled = false;
+      btn.textContent = `＋ ${zh ? '创建文件' : 'Create entry'}`;
+    }
+  });
+  card.hidden = false;
+  card.classList.remove('lpc-in');
+  void card.offsetWidth;
+  card.classList.add('lpc-in');
+}
+
 /**
  * 显示预览卡（带 220ms 触发延迟）。
- * @param ctx {worldId, readlater, onAddLater}
- * @param path 条目路径
+ * @param ctx {worldId, readlater, onAddLater, onCreateMissing}
+ * @param path 条目路径（opts.missing 时为双链目标名）
  * @param rect 锚点矩形（链接或图节点）
  * @param delay 触发延迟 ms（默认 220）
+ * @param opts {refuted, missing} missing=目标名 → 缺条目卡（创建文件按钮）
  */
 export function showLinkCard(ctx, path, rect, delay = 220, opts = {}) {
   clearTimeout(timer); clearTimeout(hideTimer);
   activeAnchor = rect;
   timer = setTimeout(async () => {
+    if (opts.missing) { if (activeAnchor === rect) paintMissing(ctx, opts.missing, rect); return; }
     let data;
     try { data = await fetchPreview(ctx, path); }
     catch { return; }
     if (activeAnchor !== rect) return; // 期间已移开
     const card = ensureCard();
-    const above = rect.top - H - 8 >= 8;
-    const below = rect.bottom + 8 + H <= window.innerHeight - 8;
-    const placeAbove = above || !below;
-    const top = placeAbove ? Math.max(8, rect.top - H - 8)
-      : Math.min(window.innerHeight - H - 8, rect.bottom + 8);
-    const left = Math.min(Math.max(12, rect.left + rect.width / 2 - W / 2), window.innerWidth - W - 12);
-    const btnSide = placeAbove ? 'bottom' : 'top';
 
     const already = (ctx.readlater || []).some((x) => x.path === path);
-    card.style.top = top + 'px';
-    card.style.left = left + 'px';
+    const btnSide = placeCard(card, rect);
     card.style.backgroundImage = data.cover
       ? `url("/w/${encodeURIComponent(ctx.worldId)}/${encodeURIComponent(data.cover)}")`
       : 'none';
-    card.className = `link-preview-card btn-${btnSide}${data.cover ? '' : ' no-cover'}`;
+    if (!data.cover) card.classList.add('no-cover');
     const refutedBlock = opts.refuted
       ? `<div class="lpc-refuted"><span class="lpc-refuted-tag">${state.lang === 'zh-CN' ? '已证伪' : 'REFUTED'}</span><div class="lpc-refuted-text">${state.lang === 'zh-CN' ? '此表述已被证伪——正确信息见本条目。' : 'This claim has been refuted — see this entry for the correct account.'}</div></div>`
       : '';

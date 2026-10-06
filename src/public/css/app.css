@@ -19,14 +19,20 @@
   --shadow-1: 0 18px 36px rgba(0, 0, 0, .04);
   --shadow-15: 0 4px 12px rgba(0, 0, 0, .05), 0 24px 48px rgba(0, 0, 0, .08);
   --shadow-2: 0 22px 60px rgba(0, 0, 0, .18);
-  --font-serif: 'Iowan Old Style', 'Baskerville', 'Songti SC', Georgia, serif;
-  --font-ui: 'Helvetica Neue', 'Songti SC', 'Noto Sans SC', sans-serif;   /* 中文一律衬线（Songti），拉丁仍走 Helvetica */
+  /* 第 100 轮字体定案：两档（衬线/无衬线）= 中英文一起切换的平台级栈。
+     --stack-serif = 拉丁衬线 + 中文宋体；--stack-sans = 拉丁 Helvetica + 中文黑体（PingFang）。
+     applyGlobalFont()（app.js，localStorage 级）按档位覆写 --font-serif/--font-ui 两 token。 */
+  --stack-serif: 'Iowan Old Style', 'Baskerville', 'Songti SC', 'Noto Serif SC', Georgia, serif;
+  --stack-sans: 'Helvetica Neue', 'PingFang SC', 'Noto Sans SC', 'Songti SC', sans-serif;
+  --font-serif: var(--stack-serif);
+  --font-ui: var(--stack-serif);   /* 第 100 轮：默认平台英文/中文一律衬线（原拉丁 Helvetica 混合栈删除） */
   --font-mono: 'SFMono-Regular', 'IBM Plex Mono', Consolas, 'Songti SC', monospace;   /* 等宽内容的 CJK 也走衬线 */
   --space-tight: 12px;
   --space: 20px;
   --card-padding: 22px;
   --leading-body: 1.8;
   --chrono-h: 112px;
+  --reading-font: var(--font-serif);   /* 阅读区跟随平台字体档（第 100 轮：根级统一切换） */
   --ease: cubic-bezier(.22, 1, .36, 1);
   /* 交互动画系统（v3 定稿）：三档时长 + 三条曲线 —— 见 design.md「Motion」 */
   --motion-quick: 150ms;   /* 微反馈：颜色/描边/透明度 */
@@ -777,6 +783,10 @@ img { display: block; max-width: 100%; }
 .link-preview-card.btn-top .lpc-later { order: -1; border-top: 0; border-bottom: 1px solid var(--line); }
 .lpc-later:hover { background: var(--bg-soft); }
 .lpc-later.added { color: var(--text-muted); }
+/* 缺条目卡（第 91 轮）：目标未创建 → 「创建文件」按钮（accent 色），创建中置灰 */
+.lpc-create { color: var(--accent); font-weight: 600; }
+.lpc-create:hover { background: var(--bg-soft); }
+.lpc-create:disabled { color: var(--text-muted); cursor: default; }
 
 /* ---------- 关系图半屏（功能设计 §9.0） ---------- */
 .rel-inner { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -981,15 +991,16 @@ details.callout-spoiler-fold .callout-body { margin-top: 6px; }
 .git-layout { display: grid; grid-template-columns: minmax(240px, 34%) minmax(0, 1fr); min-height: 54vh; max-height: 70vh; }
 .git-list { overflow-y: auto; border-right: 1px solid var(--line); scrollbar-width: none; }
 .git-list::-webkit-scrollbar { display: none; }
-.git-commit {
+.git-commit, .git-uncommitted {
   display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: 'h s' 'h w';
   gap: 2px 8px; width: 100%; text-align: left;
   border: 0; border-bottom: 1px solid var(--line); background: transparent;
   padding: 9px 14px; cursor: pointer;
 }
-.git-commit:hover { background: var(--bg-soft); }
-.git-commit.on { background: var(--accent); color: var(--on-accent); }
-.git-commit.on .git-hash, .git-commit.on .git-when { color: var(--on-accent); opacity: .8; }
+.git-commit:hover, .git-uncommitted:hover { background: var(--bg-soft); }
+.git-commit.on, .git-uncommitted.on { background: var(--accent); color: var(--on-accent); }   /* 第 104 轮并组：原 uncommitted.on 未覆盖 .git-subj 写死的 var(--text) → 黑字压墨底看不清 */
+.git-commit.on .git-hash, .git-commit.on .git-when,
+.git-uncommitted.on .git-hash, .git-uncommitted.on .git-when { color: var(--on-accent); opacity: .8; }
 .git-hash { grid-area: h; font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); }
 .git-subj { grid-area: s; font-family: var(--font-ui); font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .git-when { grid-area: w; font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); }
@@ -1110,6 +1121,9 @@ details.callout-spoiler-fold .callout-body { margin-top: 6px; }
   overflow: hidden;
 }
 .book-card-title { padding: 8px 10px 2px; }
+/* 第 99 轮：无标签不渲染 .book-card-tags 时，标题须补回标签区的等高留白——
+   否则标题贴住卡片底框，视觉上"标题行高度变了"（实测差 42px）。:last-child 精准命中无标签卡。 */
+.book-card > .book-card-title:last-child { padding-bottom: 44px; }
 .book-card-tags { padding: 2px 10px 10px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
 .book-card:hover { background: var(--bg-soft); border-color: var(--line-strong); }
 /* 归档态书卡（第 90 轮）：降饱和 + 虚线边缘提示「点击还原」 */
@@ -1136,6 +1150,7 @@ details.callout-spoiler-fold .callout-body { margin-top: 6px; }
 /* 树拖动与强调 */
 .toc-row.drop-into { background: var(--bg-soft); outline: 1px dashed var(--line-strong); outline-offset: -1px; }
 .toc-row.drop-sibling { box-shadow: inset 0 2px 0 var(--line-strong); }
+.toc-row.drop-after { box-shadow: inset 0 -2px 0 var(--line-strong); }   /* 同层重排序·插到目标之后（第 91 轮） */
 .toc-drag-ghost {
   position: fixed; z-index: 95; pointer-events: none;
   background: var(--surface); border: 1px solid var(--line-strong);
@@ -1251,7 +1266,6 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
   margin: 0 0 12px; padding-left: 8px; border-left: 2px solid var(--line-strong);
   font-size: 0.78rem; line-height: 1.55; color: var(--text-muted);
 }
-.meta-ex-example { font-family: var(--font-mono); font-size: 0.68rem; opacity: 0.8; }
 .meta-del { margin-right: auto; color: var(--err); }
 .meta-del:hover { border-color: var(--err); }
 /* 「＋ 添加元数据」菜单 */
@@ -1267,7 +1281,6 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 .am-key { font-family: var(--font-mono); font-size: 0.74rem; color: var(--link); }
 .am-name { font-family: var(--font-serif); font-size: 0.82rem; font-weight: 700; }
 .am-desc { font-size: 0.74rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.am-ex { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted); }
 .am-custom { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .am-custom .text-input { flex: 1; }
 
@@ -1286,3 +1299,47 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
   }
   .reader-column { scroll-behavior: auto; }
 }
+
+/* ---------- 详情面板（第 92 轮：世界 / 书籍 图形化管理，右键进入） ---------- */
+.detail-grid { display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: start; }
+.detail-cover {
+  width: 200px; aspect-ratio: 3 / 4; padding: 0; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg-soft); border-radius: 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+}
+.detail-cover:hover { border-color: var(--line-strong); }
+.detail-cover img { width: 100%; height: 100%; object-fit: cover; }
+.detail-cover-glyph { font-family: var(--font-serif); font-size: 44px; color: var(--text-muted); }
+.detail-cover-hint { color: var(--text-muted); }
+.detail-cover:disabled { opacity: .6; cursor: wait; }
+.detail-name { font-family: var(--font-serif); font-size: 1.35rem; font-weight: 700; margin: 0 0 2px; }
+.detail-sub { color: var(--text-muted); font-size: .86rem; margin: 0 0 10px; }
+.detail-rows .set-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 6px 0; border-top: 1px solid var(--line); }
+.detail-meta-path { font-family: var(--font-mono); font-size: .7rem; color: var(--text-muted); word-break: break-all; }
+@media (max-width: 720px) { .detail-grid { grid-template-columns: 1fr; } }
+
+/* ---------- 提交历史：未提交项（第 94 轮；第 104 轮重做：与历史行完全同款 grid——容器/hover/on 态
+   全部共享 .git-commit 规则，此处只留 warn 前缘与内嵌按钮的差异化） ---------- */
+.git-uncommitted { border-left: 3px solid var(--warn); }
+.git-commit-now {
+  border: 1px solid var(--line-strong); background: var(--surface); border-radius: 0;
+  padding: 1px 9px; font-size: 0.66rem; cursor: pointer; font-family: var(--font-ui); color: var(--text);
+}
+.git-commit-now:hover { background: var(--bg-soft); }
+.git-commit-now:disabled { opacity: .55; cursor: default; }
+.git-uncommitted.on .git-commit-now { background: transparent; border-color: var(--on-accent); color: var(--on-accent); }   /* 选中反白：透明底白字（原白底白字 = 看不见） */
+.git-uncommitted.on .git-commit-now:hover { background: var(--accent-hover); }
+
+/* ---------- git 历史：未提交行选中态与静态文件行（第 96 轮） ---------- */
+.git-uncommitted.on { border-left-color: var(--on-accent); }
+div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
+
+/* ---------- 书籍卡片拖拽排序（第 101 轮；103 轮修：线 = 网格上的独立元素，**悬在两卡间隙正中**——
+   box-shadow 可见部分永远贴元素边缘（overflow:hidden 也裁掉外扩），做不出离边悬线） ---------- */
+.book-drop-line {
+  position: absolute; width: 2px; background: var(--line-strong);
+  display: none; pointer-events: none; z-index: 5;
+}
+.book-card.dragging-src { opacity: .4; }
+/* 封面图：禁原生图片拖拽 + 事件穿透到卡片——否则在图上起手会被浏览器 DnD 接管，pointer 流断掉 */
+.book-card-cover img { -webkit-user-drag: none; user-select: none; pointer-events: none; }

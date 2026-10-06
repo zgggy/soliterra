@@ -205,7 +205,8 @@ export function computeLayout(input) {
           ...first,
           path: first.path,                    // 元素复用键 = 首成员
           cluster: run,
-          flag: isGen ? first.flag : (zh ? '同时' : 'SAME'),   // 创世簇眉题=创世；余为「同时」
+          flag: isGen ? (first.flag || (zh ? '创世' : 'GENESIS'))   // 创世簇眉题=创世（&t 创世无 &f 时兜底，第 91 轮）；余为「同时」
+                       : (zh ? '同时' : 'SAME'),
           title: zh ? `＋${run.length} 条` : `+${run.length}`,
           s: isGen ? (genesisOrd ?? first.s ?? last.s)   // 创世簇 = 虚拟时刻（点击取景不再飞到前 9999）
                    : ((first.s != null && last.s != null) ? (first.s + last.s) / 2 : (first.s ?? last.s ?? earliestOrd)),   // 普通簇 = 成员中心

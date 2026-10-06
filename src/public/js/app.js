@@ -14,9 +14,11 @@ export async function api(path, opts) {
     body: opts?.body ? JSON.stringify(opts.body) : undefined,
   });
   if (!res.ok) {
-    let msg = res.statusText;
-    try { msg = (await res.json()).error || msg; } catch {}
-    throw new Error(msg);
+    let msg = res.statusText, body = {};
+    try { body = await res.json(); msg = body.error || msg; } catch {}
+    const err = new Error(msg);
+    err.status = res.status; err.body = body;   // 第 92 轮：乐观锁 409 等需要按状态码分流的调用方用
+    throw err;
   }
   return res.json();
 }
@@ -64,6 +66,17 @@ export async function copyText(text) {
   }
 }
 
+/** 平台字体档（第 100 轮）：两档 = 中英文一起切换，localStorage 级（首页/世界/所有语言一致）。
+ *  衬线 = 默认（平台英文也衬线）；无衬线 = 拉丁 Helvetica + 中文黑体。
+ *  mono 旧档归入无衬线；覆写 --font-serif/--font-ui 两 token → 全站（含阅读区 --reading-font）跟随。 */
+export function applyGlobalFont(font) {
+  const sans = font === 'sans' || font === 'mono';   // mono（已废档）→ 无衬线
+  const v = sans ? 'var(--stack-sans)' : 'var(--stack-serif)';
+  document.documentElement.style.setProperty('--font-serif', v);
+  document.documentElement.style.setProperty('--font-ui', v);
+}
+export function currentFont() { return localStorage.getItem('soliterra.font') === 'sans' ? 'sans' : 'serif'; }
+
 /** 封面图加载失败 → 替换为大大的首字母（不留破图占位符）。 */
 export function bindCoverFallbacks(scope) {
   (scope || document).querySelectorAll('img[data-glyph]').forEach((img) => {
@@ -102,6 +115,7 @@ async function route() {
 window.addEventListener('hashchange', route);
 
 (async () => {
+  applyGlobalFont(currentFont());   // 第 100 轮：启动即应用平台字体档（首页也生效）
   await setLang(state.lang);
   if (!location.hash) location.hash = '#/';
   await route();

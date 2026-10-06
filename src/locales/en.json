@@ -6,7 +6,6 @@
   "home.new": "New World",
   "home.new.title": "New World",
   "home.new.name": "World name",
-  "home.new.name.ph": "e.g. Carnalis",
   "home.new.subtitle": "One-line description",
   "home.new.timeline": "Initialize timeline (optional — write one event to begin the chronicle)",
   "home.new.submit": "Create",
