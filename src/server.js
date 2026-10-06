@@ -112,11 +112,12 @@ app.post('/api/worlds/duplicate', (req, reply) => {
   try { return { ok: true, ...vault.duplicateWorld(req.body?.id, (req.body?.newName || '').trim()) }; }
   catch (e) { reply.code(400).send({ error: e.message }); }
 });
-app.post('/api/worlds/delete', (req, reply) => {
+// 取消管理（第 90 轮）：世界卡不再删除本地文件夹——库内世界进忽略表、库外链接世界摘链
+app.post('/api/worlds/unmanage', (req, reply) => {
   try {
     const { id, confirm } = req.body || {};
     if (confirm !== id) return reply.code(400).send({ error: 'confirm 须与世界名一致' });
-    return { ok: true, ...vault.deleteWorld(id) };
+    return { ok: true, ...vault.unmanageWorld(id) };
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
@@ -259,6 +260,20 @@ app.post('/api/w/:id/fs/delete', (req, reply) => {
     const { path: rel } = req.body || {};
     return { ok: true, ...vault.deleteEntry(req.params.id, rel) };
   } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+// 归档 / 取消归档（第 90 轮）：书 = `.md → .md.arc`；条目 = 移入 books/archives/ + `&x` 原位置
+app.post('/api/w/:id/fs/archive', (req, reply) => {
+  try { return { ok: true, ...vault.archiveNode(req.params.id, String(req.body?.rel || '')) }; }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.post('/api/w/:id/fs/unarchive', (req, reply) => {
+  try { return { ok: true, ...vault.unarchiveNode(req.params.id, String(req.body?.rel || '')) }; }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.get('/api/w/:id/archives', (req, reply) => {
+  try { return vault.listArchives(req.params.id); }
+  catch (e) { reply.code(500).send({ error: e.message }); }
 });
 
 app.post('/api/w/:id/fs/move', (req, reply) => {

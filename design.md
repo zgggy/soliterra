@@ -373,6 +373,10 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 - **`world-card-path`**：`~/<世界库>/<名>/` 等宽 0.62rem `{colors.text-muted}`，单行 `text-overflow: ellipsis`，`title` = 完整绝对路径（数据 = `/api/worlds` 的 `dir` + `/api/meta.home` 缩写）。
 - **hover 倾斜**：`hover-tilt` 原语（±6deg / 200ms）+ 边框 `line-strong`。
 
+**`archived-card`（归档态书卡，第 90 轮）** — 书籍面板「归档 N」视图中的卡片。
+- 降饱和（`opacity .72` + 封面 `grayscale(.7)`）+ 虚线边缘；标签行写「此书已归档 · 点击还原」/「条目已归档 · 点击还原」（条目卡 `title` 显示归档前路径）；**点击 = 还原**（无二次确认——归档可逆）。
+- 语义：**世界无删除只有取消管理**（文件夹保留原位）· **书无删除只有归档**（`书.md → 书.md.arc`，整棵隐藏）· **条目 = 删除（回收站）+ 归档（`books/archives/` + `&x`）**；树菜单按层级给出对应项（书：归档；条目：归档 + 删除）。
+
 **`books-container`（`books/` 容器扁平化，第 89 轮）** — 目录树与全部书籍面板的取数规则。
 - `books/` 目录（无同名 md）是**书籍容器**，**不渲染容器行**：面板/TOC/关系图「按树分组」直接以 `books/` 的直接子节点为顶层书籍；README 不算书（世界介绍）；未被迁移的旧形态顶层节点照常可见（混合世界不丢行）。
 - 数据源：`bookHost/topBookNodes/topOfPath/currentBookOf`（world.js）；`books/` 内书籍一律成对（`书.md` + `书/`，可嵌套），与旧形态同构。

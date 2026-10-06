@@ -147,7 +147,7 @@ async function showWorldMenu(e, w) {
     <div class="tree-menu-sep"></div>` : ''}
     <button class="tree-menu-item" data-k="rename">${zh ? (w.linked ? '重命名世界（磁盘文件夹一并改名）' : '重命名世界') : 'Rename'}</button>
     <button class="tree-menu-item" data-k="dup">${zh ? '复制世界' : 'Duplicate'}</button>
-    <button class="tree-menu-item" data-k="del">${zh ? (w.linked ? '解除登记（文件夹保留原位）' : '删除世界（回收站）') : (w.linked ? 'Unlink (folder stays)' : 'Delete (trash)')}</button>`;
+    <button class="tree-menu-item" data-k="unmanage">${zh ? '取消管理（文件夹保留原位）' : 'Stop managing (folder stays)'}</button>`;
   document.body.appendChild(menu);
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(e.clientX, innerWidth - r.width - 8) + 'px';
@@ -174,12 +174,14 @@ async function showWorldMenu(e, w) {
         if (!nn || !nn.trim()) return;
         await api('/api/worlds/duplicate', { method: 'POST', body: { id: w.id, newName: nn.trim() } });
         location.reload();
-      } else if (k === 'del') {
-        const conf = await askText(w.linked
-          ? (zh ? `解除「${w.name}」的世界登记？输入世界名完全一致以确认（库外文件夹保留原位）` : `Unlink ${w.name}? Type the name to confirm (the folder stays on disk)`)
-          : (zh ? `删除「${w.name}」？输入世界名完全一致以确认` : `Type the world name to confirm deleting ${w.name}`), '');
-        if (conf !== w.name) { if (conf !== null) showToastLike(state.lang === 'zh-CN' ? '未确认，未删除' : 'Not confirmed'); return; }
-        await api('/api/worlds/delete', { method: 'POST', body: { id: w.id, confirm: w.name } });
+      } else if (k === 'unmanage') {
+        // 第 90 轮：世界卡不删除本地文件——仅把文件夹移出平台管理列表（可再次「新建世界」选中恢复）
+        const conf = await askText(zh
+          ? `取消管理「${w.name}」？输入世界名完全一致以确认（本地文件夹原样保留，可随时重新选择该文件夹恢复管理）`
+          : `Stop managing ${w.name}? Type the name to confirm (the folder stays untouched)`, '');
+        if (conf !== w.name) { if (conf !== null) showToastLike(zh ? '未确认，未取消' : 'Not confirmed'); return; }
+        const r = await api('/api/worlds/unmanage', { method: 'POST', body: { id: w.id, confirm: w.name } });
+        showToastLike(zh ? `已取消管理：${w.name}（文件夹保留在原位${r.mode === 'unlinked' ? '；链接已摘除' : ''}）` : `Unmanaged: ${w.name}`);
         location.reload();
       }
     } catch (err) {

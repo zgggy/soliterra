@@ -6,6 +6,7 @@ import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import chokidar from 'chokidar';
 import { WorldIndex, collectMarkdown } from './indexer.js';
+import { parseEntry } from './parser.js';
 
 export class Vault {
   constructor(worldsDir) {
@@ -77,6 +78,7 @@ export class Vault {
     for (const it of fs.readdirSync(this.worldsDir, { withFileTypes: true })) {
       if (!it.isDirectory() && !it.isSymbolicLink()) continue;
       if (it.name.startsWith('.')) continue;
+      if (this._unmanagedSet().has(it.name)) continue;   // 已「取消管理」（第 90 轮）
       try {
         const dir = path.join(this.worldsDir, it.name);
         const hasMd = collectMarkdown(fs.realpathSync(dir)).length > 0;
@@ -105,6 +107,7 @@ export class Vault {
     const ignored = (p) => {
       const rel = path.relative(dir, p);
       if (!rel) return false;
+      if (rel === `books${path.sep}archives` || rel.startsWith(`books${path.sep}archives${path.sep}`)) return true;   // 条目归档区（第 90 轮）
       return rel.split(path.sep).some((seg) => seg === 'node_modules' || seg === '.soliterra' || seg === 'assets' || seg.startsWith('.'));
     };
     const w = chokidar.watch(dir, {
@@ -114,9 +117,22 @@ export class Vault {
     });
     w.on('error', (err) => console.error(`[watch:${id}]`, err.message));
     const idx = this.indexes.get(id);
-    w.on('add', (f) => { if (f.endsWith('.md')) idx.indexFile(path.relative(dir, f)); });
+    w.on('add', (f) => {
+      if (!f.endsWith('.md')) return;
+      idx.indexFile(path.relative(dir, f));
+      // 归档还原场景（第 90 轮）：书 md 回来时配对目录已在（不触发 addDir）→ 补扫子树
+      const d = f.replace(/\.md$/, '');
+      const rp = path.relative(dir, f).replace(/\.md$/, '');
+      try { if (fs.existsSync(d) && fs.statSync(d).isDirectory()) for (const g of collectMarkdown(d)) idx.indexFile(`${rp}/${g}`); } catch { /* 已消失 */ }
+    });
     w.on('change', (f) => { if (f.endsWith('.md')) idx.indexFile(path.relative(dir, f)); });
-    w.on('unlink', (f) => { if (f.endsWith('.md')) idx.removeFile(path.relative(dir, f)); });
+    w.on('unlink', (f) => {
+      if (!f.endsWith('.md')) return;
+      const r = path.relative(dir, f);
+      // 书归档（第 90 轮）：`X.md` 改名 `X.md.arc` → 整棵（md + X/ 子树）从索引隐藏
+      if (fs.existsSync(`${f}.arc`)) idx.removePrefix(r.replace(/\.md$/, ''));
+      idx.removeFile(r);
+    });
     // 外部新建/删除**目录**（Finder/编辑器建书）——chokidar 对"watcher 启动后才出现的目录"的
     // 初始内容可能漏发 add（第 80 轮实测：顶层新目录里的 md 不被索引）→ 目录事件补扫/补删
     w.on('addDir', (d) => {
@@ -242,6 +258,7 @@ export class Vault {
     if (!name || /[\\/:*?"<>|]/.test(name)) throw new Error('invalid world name');
     const dir = path.join(this.worldsDir, name);
     if (fs.existsSync(dir)) throw new Error('world already exists');
+    this._remanage(name);
     this._initWorldFolder(dir, { name, intro: subtitle, timeline, coverRel: cover, calendar });
     return this.worldInfo(name);
   }
@@ -284,6 +301,7 @@ export class Vault {
   adoptFolder({ dir, intro = '', coverPath = '', calendar = '', timeline = '' }) {
     const { abs, real, name } = this._adoptTarget(dir);
     const { id } = this._registerWorld(abs, real, name);
+    this._remanage(id);   // 重新采纳 = 恢复管理（第 90 轮）
     const coverRel = coverPath ? this._bringCoverIn(real, coverPath) : '';
     this._initWorldFolder(real, { name, intro, timeline, coverRel, calendar });
     this.indexes.delete(id);   // 重新索引（可能是已登记世界的再采纳）
@@ -411,26 +429,208 @@ export class Vault {
     return this.worldInfo(newName);
   }
 
-  deleteWorld(id) {
-    const from = path.join(this.worldsDir, id);
-    if (!fs.existsSync(from)) throw new Error('world not found: ' + id);
-    if (this.isLinked(id)) {
-      // 链接世界：仅摘链（库外真实文件夹保留原位，不进回收站）
-      const target = (() => { try { return fs.realpathSync(from); } catch { return null; } })();
-      fs.unlinkSync(from);
-      this.indexes.delete(id);
-      const w = this.watchers.get(id);
-      if (w) { try { w.close(); } catch {} this.watchers.delete(id); }
-      return { unlinked: target };
+  /** 库内忽略表（第 90 轮「取消管理」）：`worldsDir/.unmanaged.json`——仅记录不管理的名字，
+   *  本地文件夹一律原地保留；再次「新建世界」选中该文件夹（adopt）即恢复管理。 */
+  _unmanagedSet() {
+    if (!this._unmanaged) {
+      try { this._unmanaged = new Set(JSON.parse(fs.readFileSync(path.join(this.worldsDir, '.unmanaged.json'), 'utf8')).ids || []); }
+      catch { this._unmanaged = new Set(); }
     }
-    const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    const trash = path.join(this.worldsDir, `.trash-${ts}`);
-    fs.mkdirSync(trash, { recursive: true });
-    fs.renameSync(from, path.join(trash, id));
+    return this._unmanaged;
+  }
+
+  _saveUnmanaged() {
+    try { fs.writeFileSync(path.join(this.worldsDir, '.unmanaged.json'), JSON.stringify({ ids: [...this._unmanagedSet()].sort() }, null, 2), 'utf8'); }
+    catch { /* 忽略表写入失败不阻断 */ }
+  }
+
+  /** 恢复管理（adopt / create 时调用）：从忽略表移除。 */
+  _remanage(id) {
+    if (this._unmanagedSet().delete(id)) this._saveUnmanaged();
+  }
+
+  /** 取消管理（第 90 轮）：**不删除任何本地文件**——
+   *  库外链接世界 = 摘链；库内世界 = 记入忽略表（list() 跳过）。 */
+  unmanageWorld(id) {
+    const entry = this.worldDir(id);
+    if (!fs.existsSync(entry)) throw new Error('world not found: ' + id);
+    let mode;
+    let target = null;
+    if (this.isLinked(id)) {
+      target = (() => { try { return fs.realpathSync(entry); } catch { return null; } })();
+      fs.unlinkSync(entry);
+      mode = 'unlinked';
+    } else {
+      this._unmanagedSet().add(id);
+      this._saveUnmanaged();
+      mode = 'ignored';
+    }
     this.indexes.delete(id);
     const w = this.watchers.get(id);
     if (w) { try { w.close(); } catch {} this.watchers.delete(id); }
-    return { trashed: path.join(`.trash-${ts}`, id) };
+    return { mode, id, untouched: target || entry };
+  }
+
+  /** 书籍归档（第 90 轮）：`books/书.md` → `books/书.md.arc`（平台即不显示此书，配对目录原样保留）。
+   *  纯目录节点（无配对 md）→ 写 `书.md.arc` 标记；还原时按标记注释删除。 */
+  archiveBook(id, rel) {
+    const dir = this.worldDir(id);
+    const base = String(rel).replace(/\\/g, '/').replace(/\/$/, '').replace(/\.md$/i, '').replace(/\.arc$/i, '');
+    if (!base) throw new Error('invalid path');
+    const mdAbs = this._safe(dir, `${base}.md`);
+    const arcAbs = this._safe(dir, `${base}.md.arc`);
+    if (fs.existsSync(arcAbs)) throw new Error('已是归档状态：' + base);
+    if (fs.existsSync(mdAbs)) fs.renameSync(mdAbs, arcAbs);
+    else fs.writeFileSync(arcAbs, `&n ${path.basename(base)}\n<!-- archived: folder-only -->\n`, 'utf8');
+    const idx = this.index(id);
+    idx.removeFile(`${base}.md`);
+    const bookDir = this._safe(dir, base);
+    if (fs.existsSync(bookDir)) idx.removePrefix(base);
+    return { archived: `${base}.md.arc`, rel: base };
+  }
+
+  /** 取消归档（书）：`.md.arc` → `.md` 并重扫其配对目录；标记文件（纯目录节点）直接删除。 */
+  unarchiveBook(id, rel) {
+    const dir = this.worldDir(id);
+    const base = String(rel).replace(/\\/g, '/').replace(/\/$/, '').replace(/\.md(\.arc)?$/i, '');
+    if (!base) throw new Error('invalid path');
+    const arcAbs = this._safe(dir, `${base}.md.arc`);
+    const mdAbs = this._safe(dir, `${base}.md`);
+    if (!fs.existsSync(arcAbs)) throw new Error('未归档：' + base);
+    const text = fs.readFileSync(arcAbs, 'utf8');
+    if (/^<!-- archived: folder-only -->$/m.test(text)) {
+      fs.unlinkSync(arcAbs);                       // 纯目录节点：标记即全部
+    } else {
+      if (fs.existsSync(mdAbs)) throw new Error('目标已存在同名条目：' + base + '.md');
+      fs.renameSync(arcAbs, mdAbs);
+    }
+    const idx = this.index(id);
+    if (fs.existsSync(mdAbs)) idx.indexFile(`${base}.md`);
+    const bookDir = this._safe(dir, base);
+    if (fs.existsSync(bookDir)) for (const f of collectMarkdown(bookDir)) idx.indexFile(`${base}/${f}`);
+    return { restored: base };
+  }
+
+  /** 条目归档（第 90 轮）：条目（+ 同名文件夹）→ `books/archives/<原路径去掉 books/ 前缀>`；
+   *  条目元数据写入 `&x <归档前相对路径>`（还原依据）。 */
+  archiveEntry(id, rel) {
+    const dir = this.worldDir(id);
+    const clean = String(rel).replace(/\\/g, '/').replace(/\/$/, '');
+    const mdRel = /\.md$/i.test(clean) ? clean : `${clean}.md`;
+    const src = this._safe(dir, mdRel);
+    if (!fs.existsSync(src)) throw new Error('条目不存在: ' + rel);
+    if (mdRel.startsWith('books/archives/')) throw new Error('该条目已在归档区');
+    const inner = mdRel.startsWith('books/') ? mdRel.slice('books/'.length) : mdRel;
+    let destRel = `books/archives/${inner}`;
+    let n = 1;
+    while (fs.existsSync(path.join(dir, destRel)) || fs.existsSync(path.join(dir, destRel.replace(/\.md$/i, '')))) {
+      destRel = `books/archives/${inner.replace(/\.md$/i, `-${n++}.md`)}`;
+    }
+    let text = fs.readFileSync(src, 'utf8');
+    if (!/^&x\s/m.test(text)) text = `&x ${mdRel}\n${text}`;   // 归档状态 + 归档前位置
+    fs.writeFileSync(src, text, 'utf8');
+    const destAbs = path.join(dir, destRel);
+    fs.mkdirSync(path.dirname(destAbs), { recursive: true });
+    fs.renameSync(src, destAbs);
+    const srcDir = this._safe(dir, mdRel.replace(/\.md$/i, ''));
+    const destDir = path.join(dir, destRel.replace(/\.md$/i, ''));
+    if (fs.existsSync(srcDir)) fs.renameSync(srcDir, destDir);
+    const idx = this.index(id);
+    idx.removeFile(mdRel);
+    idx.removePrefix(mdRel.replace(/\.md$/i, ''));
+    return { archived: destRel, orig: mdRel };
+  }
+
+  /** 取消条目归档：按 `&x` 记录的原路径搬回并删掉 `&x` 行；原位置被占 → 报错不硬塞。 */
+  unarchiveEntry(id, rel) {
+    const dir = this.worldDir(id);
+    const clean = String(rel).replace(/\\/g, '/').replace(/\/$/, '');
+    const arcRel = /\.md$/i.test(clean) ? clean : `${clean}.md`;
+    const src = this._safe(dir, arcRel);
+    if (!fs.existsSync(src)) throw new Error('归档条目不存在: ' + rel);
+    let text = fs.readFileSync(src, 'utf8');
+    const m = text.match(/^&x\s+(\S+)\s*$/m);
+    if (!m) throw new Error('缺少 &x 归档前位置，无法还原');
+    const origRel = m[1];
+    const destAbs = this._safe(dir, origRel);
+    if (fs.existsSync(destAbs)) throw new Error('原位置已有同名条目：' + origRel);
+    text = text.replace(/^&x\s+\S+\s*\n/m, '');
+    fs.writeFileSync(src, text, 'utf8');
+    fs.mkdirSync(path.dirname(destAbs), { recursive: true });
+    fs.renameSync(src, destAbs);
+    const srcDir = this._safe(dir, arcRel.replace(/\.md$/i, ''));
+    const destDir = this._safe(dir, origRel.replace(/\.md$/i, ''));
+    if (fs.existsSync(srcDir)) fs.renameSync(srcDir, destDir);
+    const idx = this.index(id);
+    idx.indexFile(origRel);
+    if (fs.existsSync(destDir)) for (const f of collectMarkdown(destDir)) idx.indexFile(`${origRel.replace(/\.md$/i, '')}/${f}`);
+    this._pruneEmptyArchives(dir);
+    return { restored: origRel };
+  }
+
+  /** 归档分发（第 90 轮）：顶层书（`书.md` / `books/书.md`，可无扩展）→ 书归档；更深 → 条目归档。 */
+  archiveNode(id, rel) {
+    const clean = String(rel).replace(/\\/g, '/').replace(/\/$/, '').replace(/\.md$/i, '');
+    const segs = clean.split('/').filter(Boolean);
+    const isBook = segs.length === 1 || (segs.length === 2 && segs[0] === 'books');
+    return isBook ? this.archiveBook(id, clean) : this.archiveEntry(id, clean);
+  }
+
+  unarchiveNode(id, rel) {
+    const clean = String(rel).replace(/\\/g, '/').replace(/\/$/, '').replace(/\.md$/i, '').replace(/\.arc$/i, '');
+    const segs = clean.split('/').filter(Boolean);
+    const isBook = segs.length === 1 || (segs.length === 2 && segs[0] === 'books');
+    return isBook ? this.unarchiveBook(id, clean) : this.unarchiveEntry(id, clean);
+  }
+
+  /** 清掉归档区里的空目录（还原搬走后；`books/archives` 自身空也移除，下次归档自动重创建）。 */
+  _pruneEmptyArchives(dir) {
+    const root = path.join(dir, 'books', 'archives');
+    const prune = (abs) => {
+      let items = [];
+      try { items = fs.readdirSync(abs, { withFileTypes: true }); } catch { return false; }
+      for (const it of items) if (it.isDirectory()) prune(path.join(abs, it.name));
+      let left = [];
+      try { left = fs.readdirSync(abs); } catch { return false; }   // 子目录剪完后重数
+      if (!left.length) { try { fs.rmdirSync(abs); return true; } catch { return false; } }
+      return false;
+    };
+    try { if (fs.existsSync(root)) prune(root); } catch { /* 尽力而为 */ }
+  }
+
+  /** 归档清单（第 90 轮，书籍面板「归档」视图）：书 = `books/*.md.arc`；条目 = `books/archives/**`（读 `&x`）。 */
+  listArchives(id) {
+    const dir = this.worldDir(id);
+    const books = [];
+    const entries = [];
+    const titleOf = (abs, fallback) => {
+      try { return parseEntry(path.relative(dir, abs), fs.readFileSync(abs, 'utf8')).title || fallback; }
+      catch { return fallback; }
+    };
+    try {
+      for (const e of fs.readdirSync(path.join(dir, 'books'), { withFileTypes: true })) {
+        if (!e.isFile() || !e.name.endsWith('.md.arc')) continue;
+        const rel = `books/${e.name.replace(/\.arc$/, '')}`;
+        books.push({ kind: 'book', rel, title: titleOf(path.join(dir, 'books', e.name), e.name.replace(/\.md\.arc$/, '')) });
+      }
+    } catch { /* 无 books/ */ }
+    const walk = (abs, prefix) => {
+      let items = [];
+      try { items = fs.readdirSync(abs, { withFileTypes: true }); } catch { return; }
+      for (const it of items) {
+        if (it.name.startsWith('.')) continue;
+        const r = prefix ? `${prefix}/${it.name}` : it.name;
+        if (it.isDirectory()) walk(path.join(abs, it.name), r);
+        else if (it.name.endsWith('.md')) {
+          const text = (() => { try { return fs.readFileSync(path.join(abs, it.name), 'utf8'); } catch { return ''; } })();
+          const mx = text.match(/^&x\s+(\S+)\s*$/m);
+          if (!mx) continue;   // 只列归档根（带 &x）；随迁的子树文件随根一起还原
+          entries.push({ kind: 'entry', rel: `books/archives/${r}`, title: titleOf(path.join(abs, it.name), it.name.replace(/\.md$/, '')), orig: mx[1] });
+        }
+      }
+    };
+    walk(path.join(dir, 'books', 'archives'), '');
+    return { books, entries };
   }
 
   /** Obsidian 导入（§15.6）：复制整库为新世界，frontmatter 转写 & 元数据，双链原样，图片入 assets/imported/。不动原库。 */

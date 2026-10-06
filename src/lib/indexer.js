@@ -9,19 +9,29 @@ import { parseEntry, extractFences } from './parser.js';
 const IGNORE = new Set(['.git', '.soliterra', 'node_modules', 'assets']);
 const IGNORE_FILES = /^(\.DS_Store|Thumbs\.db|\.gitignore|\.gitattributes)$/i;
 
-/** 递归收集世界内全部 .md（相对路径，POSIX 分隔）。 */
+/** 递归收集世界内全部 .md（相对路径，POSIX 分隔）。
+ *  第 90 轮归档语义：`X.md.arc` = 书籍归档标记 → X.md 与 X/ 整棵子树不收集；
+ *  `books/archives/` = 条目归档区 → 整目录不收集（还原清单另由 vault.listArchives 直扫）。 */
 export function collectMarkdown(root) {
   const out = [];
   const walk = (dir, rel) => {
     let items;
     try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    const archived = new Set();
+    for (const it of items) if (it.isFile() && it.name.endsWith('.md.arc')) archived.add(it.name.slice(0, -'.md.arc'.length));
     for (const it of items) {
       if (it.name.startsWith('.') && it.name !== '.') continue;
       if (IGNORE.has(it.name)) continue;
       if (IGNORE_FILES.test(it.name)) continue;
+      if (rel === 'books' && it.name === 'archives') continue;   // 条目归档区（第 90 轮）
       const r = rel ? `${rel}/${it.name}` : it.name;
-      if (it.isDirectory()) walk(path.join(dir, it.name), r);
-      else if (it.isFile() && it.name.toLowerCase().endsWith('.md')) out.push(r);
+      if (it.isDirectory()) {
+        if (archived.has(it.name)) continue;                     // 归档书的目录（子树隐藏）
+        walk(path.join(dir, it.name), r);
+      } else if (it.isFile() && it.name.toLowerCase().endsWith('.md')) {
+        if (archived.has(it.name.slice(0, -'.md'.length))) continue;
+        out.push(r);
+      }
     }
   };
   walk(root, '');

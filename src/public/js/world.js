@@ -813,9 +813,48 @@ function renderBooksPanel(ctx) {
   const cats = [];
   for (const b of books) for (const tg of (b.tags || [])) if (!cats.includes(tg)) cats.push(tg);
   ctx.booksCat = ctx.booksCat || '全部';
-  if (ctx.booksCat !== '全部' && !cats.includes(ctx.booksCat)) ctx.booksCat = '全部';
+  if (ctx.booksCat !== '全部' && ctx.booksCat !== '归档' && !cats.includes(ctx.booksCat)) ctx.booksCat = '全部';
+  // 归档视图（第 90 轮）：书籍面板的「归档」chip——已归档的书与条目在此还原
+  if (!ctx.archives) {
+    ctx.archives = { books: [], entries: [] };
+    api(`/api/w/${enc(ctx.worldId)}/archives`).then((a) => {
+      ctx.archives = a;
+      if (document.getElementById('books-grid')) renderBooksPanel(ctx);
+    }).catch(() => { /* 无归档 */ });
+  }
+  const archN = (ctx.archives?.books.length || 0) + (ctx.archives?.entries.length || 0);
 
   function paintGrid() {
+    if (ctx.booksCat === '归档') {
+      const arch = ctx.archives || { books: [], entries: [] };
+      if (count) count.textContent = `${archN}`;
+      grid.innerHTML = [
+        ...arch.books.map((a) => `
+        <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="book">
+          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span></div>
+          <div class="book-card-title">${esc(a.title)}</div>
+          <div class="book-card-tags eyebrow">${state.lang === 'zh-CN' ? '此书已归档 · 点击还原' : 'Archived book · click to restore'}</div>
+        </button>`),
+        ...arch.entries.map((a) => `
+        <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="entry">
+          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span></div>
+          <div class="book-card-title">${esc(a.title)}</div>
+          <div class="book-card-tags eyebrow" title="${esc(a.orig)}">${state.lang === 'zh-CN' ? '条目已归档 · 点击还原' : 'Archived entry · click to restore'}</div>
+        </button>`),
+      ].join('') || `<div class="empty-state">${state.lang === 'zh-CN' ? '暂无归档' : 'No archives'}</div>`;
+      grid.querySelectorAll('.book-card.archived').forEach((card) => {
+        attachTilt(card);
+        card.addEventListener('click', async () => {
+          try {
+            const r = await api(`/api/w/${enc(ctx.worldId)}/fs/unarchive`, { method: 'POST', body: { rel: card.dataset.rel } });
+            ctx.archives = null;
+            await refreshTree(ctx);
+            showToast(state.lang === 'zh-CN' ? `已还原：${r.restored || r.archived || ''}` : 'Restored', 'success');
+          } catch (e) { showToast(String(e.message), 'error'); }
+        });
+      });
+      return;
+    }
     const shown = books.filter((b) => ctx.booksCat === '全部' || (b.tags || []).includes(ctx.booksCat));
     if (count) count.textContent = ctx.booksCat === '全部'
       ? `${books.length} ${lt('shelfBooks')}`
@@ -854,8 +893,10 @@ function renderBooksPanel(ctx) {
     bindCoverFallbacks(grid);
   }
   if (filter) {
-    filter.hidden = cats.length === 0;
-    filter.innerHTML = ['全部', ...cats].map((c) => `<button class="bf-chip${c === ctx.booksCat ? ' on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+    const zh2 = state.lang === 'zh-CN';
+    const chips = [['全部', zh2 ? '全部' : 'All'], ...cats.map((c) => [c, c]), ...(archN ? [['归档', `${zh2 ? '归档' : 'Archived'} ${archN}`]] : [])];
+    filter.hidden = chips.length <= 1;
+    filter.innerHTML = chips.map(([val, label]) => `<button class="bf-chip${val === ctx.booksCat ? ' on' : ''}" data-cat="${esc(val)}">${esc(label)}</button>`).join('');
     filter.querySelectorAll('.bf-chip').forEach((b) => b.addEventListener('click', () => {
       ctx.booksCat = b.dataset.cat;
       filter.querySelectorAll('.bf-chip').forEach((x2) => x2.classList.toggle('on', x2 === b));
@@ -1598,7 +1639,10 @@ function showTreeMenu(e, ctx, node) {
   else if (inDir) items.push(['child', zh ? '加子条目（建目录）' : 'Add child (with folder)']);
   if (isDirNode) items.push(['pair', zh ? '补建同名条目（成为书）' : 'Create paired entry']);
   if (hasMd || isDirNode) items.push(['rename', zh ? '重命名' : 'Rename']);
-  if (hasMd || isDirNode) items.push(['del', zh ? '删除（移入回收站）' : 'Delete (trash)']);
+  // 第 90 轮语义：书无删除只有归档（`书.md` → `书.md.arc`）；条目 = 归档 + 删除（移入回收站）
+  const isTopBook = !inDir.includes('/') || (inDir.startsWith('books/') && !inDir.slice('books/'.length).includes('/'));
+  if (hasMd || isDirNode) items.push(['arc', zh ? '归档（从平台隐藏，文件保留）' : 'Archive (hidden, files kept)']);
+  if ((hasMd || isDirNode) && !isTopBook) items.push(['del', zh ? '删除（移入回收站）' : 'Delete (trash)']);
   menu.innerHTML = items.map(([k, label]) => `<button class="tree-menu-item" data-k="${k}">${esc(label)}</button>`).join('');
   document.body.appendChild(menu);
   const r = menu.getBoundingClientRect();
@@ -1641,6 +1685,20 @@ function showTreeMenu(e, ctx, node) {
         await after(state.lang === 'zh-CN' ? '已重命名' : 'Renamed');
         const baseDir = node.md.replace(/[^/]+$/, '');
         navigate(`#/w/${enc(ctx.worldId)}/${enc(baseDir + nn.trim() + '.md')}`);
+      } else if (k === 'arc') {
+        const label = node.title || node.name;
+        const rel = node.md || inDir;
+        const conf = await askText(state.lang === 'zh-CN'
+          ? `归档「${label}」？输入「归档」确认（本地文件保留：${isTopBook ? '书.md → 书.md.arc' : '移入 books/archives/'}，可随时还原）`
+          : `Type 归档 to confirm archiving ${label}`);
+        if (conf !== '归档') { if (conf !== null) showToast(state.lang === 'zh-CN' ? '未确认，未归档' : 'Not confirmed', 'warning'); return; }
+        await api(`/api/w/${enc(ctx.worldId)}/fs/archive`, { method: 'POST', body: { rel } });
+        ctx.archives = null;   // 归档视图重取
+        await after(state.lang === 'zh-CN' ? `已归档：${label}（可在书籍面板「归档」中还原）` : `Archived: ${label}`);
+        const base = String(rel).replace(/\.md$/i, '');
+        if (ctx.currentPath === node.md || (isDirNode && ctx.currentPath && ctx.currentPath.startsWith(inDir + '/')) || (ctx.currentPath || '').startsWith(base + '/')) {
+          navigate(`#/w/${enc(ctx.worldId)}`);
+        }
       } else if (k === 'del') {
         // 两步确认（不弹原生 confirm）
         const label = node.title || node.name;

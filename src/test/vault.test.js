@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { Vault } from '../lib/vault.js';
+import { collectMarkdown } from '../lib/indexer.js';
 
 const mk = () => {
   const root = mkdtempSync(join(tmpdir(), 'soliterra-vault-'));
@@ -253,7 +254,7 @@ test('inspect：文件夹信息（mdCount/hasReadme/insideLibrary）', () => {
   }
 });
 
-test('链接世界：renameWorld 连真实文件夹一起改名并重链；deleteWorld 仅摘链', () => {
+test('链接世界：renameWorld 连真实文件夹一起改名并重链；unmanageWorld 仅摘链（第 90 轮）', () => {
   const { root, lib, v } = mkBare();
   const folder = join(root, '原名');
   try {
@@ -266,8 +267,8 @@ test('链接世界：renameWorld 连真实文件夹一起改名并重链；delet
     assert.ok(existsSync(join(root, '新名')), '真实文件夹已改名');
     assert.equal(realpathSync(join(lib, '新名')), realpathSync(join(root, '新名')));
     assert.ok(readFileSync(join(root, '新名', 'README.md'), 'utf8').startsWith('&n 新名'), '&n 同步');
-    const r = v.deleteWorld('新名');
-    assert.ok(r.unlinked, '返回 unlinked');
+    const r = v.unmanageWorld('新名');
+    assert.equal(r.mode, 'unlinked', '链接世界 → 摘链');
     assert.ok(!existsSync(join(lib, '新名')), '链接移除');
     assert.ok(existsSync(join(root, '新名')), '真实文件夹保留原位');
     assert.ok(!v.list().some((x) => x.id === '新名'), 'list 不再包含');
@@ -342,6 +343,130 @@ test('结构规范：saveAsset → assets/images/（正文图片之家）', () =
     assert.equal(rel2, 'assets/images/照片_1-2.png', '重名加序号');
   } finally {
     v.close('图世界');
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+// ============ 第 90 轮：取消管理 + 归档 ============
+
+test('unmanageWorld：库内世界 → 忽略表（文件夹原地保留）；再采纳恢复管理', () => {
+  const { root, lib, v } = mkBare();
+  const w = join(lib, '库内世界');
+  try {
+    mkdirSync(w, { recursive: true });
+    writeFileSync(join(w, 'README.md'), '&n 库内世界\n\n# 库内世界\n', 'utf8');
+    assert.ok(v.list().some((x) => x.id === '库内世界'), '先在列表');
+    const r = v.unmanageWorld('库内世界');
+    assert.equal(r.mode, 'ignored');
+    assert.ok(existsSync(w), '文件夹原地保留');
+    assert.ok(!v.list().some((x) => x.id === '库内世界'), 'list 不再包含');
+    assert.ok(existsSync(join(lib, '.unmanaged.json')), '忽略表落盘');
+    v.adoptFolder({ dir: w });   // 重新采纳 = 恢复管理
+    assert.ok(v.list().some((x) => x.id === '库内世界'), '恢复管理');
+    assert.ok(!JSON.parse(readFileSync(join(lib, '.unmanaged.json'), 'utf8')).ids.includes('库内世界'), '忽略表已清该名');
+  } finally {
+    v.close('库内世界');
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('archiveBook（配对书）：md → .md.arc，子树从索引隐藏；unarchiveBook 还原并重扫', () => {
+  const { root, lib, v } = mkBare();
+  const w = join(lib, '书世界');
+  try {
+    mkdirSync(join(w, 'books', '卷一卷'), { recursive: true });
+    writeFileSync(join(w, 'README.md'), '&n 书世界\n\n# 书世界\n', 'utf8');
+    writeFileSync(join(w, 'books', '卷一卷.md'), '&n 卷一卷\n\n# 卷一卷\n', 'utf8');
+    writeFileSync(join(w, 'books', '卷一卷', '第一章.md'), '# 第一章\n', 'utf8');
+    const v2 = new Vault(lib);
+    assert.equal(v2.index('书世界').stats().entries, 3);
+    const r = v2.archiveBook('书世界', 'books/卷一卷');
+    assert.equal(r.archived, 'books/卷一卷.md.arc');
+    assert.ok(existsSync(join(w, 'books', '卷一卷.md.arc')), 'md 已改名 .arc');
+    assert.ok(!existsSync(join(w, 'books', '卷一卷.md')));
+    assert.ok(existsSync(join(w, 'books', '卷一卷', '第一章.md')), '配对目录原样保留');
+    assert.equal(collectMarkdown(w).filter((x) => x.startsWith('books/卷一卷')).length, 0, 'collectMarkdown 隐藏整棵');
+    assert.equal(v2.index('书世界').stats().entries, 1, '索引只剩 README');
+    const r2 = v2.unarchiveBook('书世界', 'books/卷一卷');
+    assert.equal(r2.restored, 'books/卷一卷');
+    assert.ok(existsSync(join(w, 'books', '卷一卷.md')));
+    assert.equal(v2.index('书世界').stats().entries, 3, '还原后子树重扫回索引');
+    v2.close('书世界');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('archiveBook（纯目录节点）：写 .arc 标记；unarchiveBook 删标记、目录保留', () => {
+  const { root, lib, v } = mkBare();
+  const w = join(lib, '目录世界');
+  try {
+    mkdirSync(join(w, 'books', '工具'), { recursive: true });
+    writeFileSync(join(w, 'books', '工具', '脚本.md'), '# 脚本\n', 'utf8');
+    writeFileSync(join(w, 'README.md'), '&n 目录世界\n\n# 目录世界\n', 'utf8');
+    const v2 = new Vault(lib);
+    v2.archiveBook('目录世界', 'books/工具');
+    const arc = join(w, 'books', '工具.md.arc');
+    assert.ok(existsSync(arc), '标记文件');
+    assert.ok(existsSync(join(w, 'books', '工具', '脚本.md')), '目录内容保留');
+    assert.equal(v2.index('目录世界').stats().entries, 1);
+    v2.unarchiveBook('目录世界', 'books/工具');
+    assert.ok(!existsSync(arc), '还原 = 删标记');
+    assert.ok(existsSync(join(w, 'books', '工具', '脚本.md')), '目录原样');
+    assert.equal(v2.index('目录世界').stats().entries, 2);
+    v2.close('目录世界');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('archiveEntry：条目（+ 同名文件夹）→ books/archives/ + `&x` 原路径；unarchiveEntry 原样还原', () => {
+  const { root, lib, v } = mkBare();
+  const w = join(lib, '归档世界');
+  try {
+    mkdirSync(join(w, 'books', '黄金时代', '北伐'), { recursive: true });
+    writeFileSync(join(w, 'README.md'), '&n 归档世界\n\n# 归档世界\n', 'utf8');
+    writeFileSync(join(w, 'books', '黄金时代.md'), '&n 黄金时代\n\n# 黄金时代\n', 'utf8');
+    writeFileSync(join(w, 'books', '黄金时代', '北伐.md'), '&s 0662.08.17\n\n# 北伐\n', 'utf8');
+    writeFileSync(join(w, 'books', '黄金时代', '北伐', '附记.md'), '# 附记\n', 'utf8');
+    const v2 = new Vault(lib);
+    const r = v2.archiveEntry('归档世界', 'books/黄金时代/北伐.md');
+    assert.equal(r.archived, 'books/archives/黄金时代/北伐.md');
+    const moved = readFileSync(join(w, 'books', 'archives', '黄金时代', '北伐.md'), 'utf8');
+    assert.ok(moved.startsWith('&x books/黄金时代/北伐.md'), '记录归档前位置');
+    assert.ok(existsSync(join(w, 'books', 'archives', '黄金时代', '北伐', '附记.md')), '同名文件夹随迁');
+    assert.ok(!existsSync(join(w, 'books', '黄金时代', '北伐.md')));
+    assert.equal(collectMarkdown(w).filter((x) => x.includes('archives')).length, 0, '归档区不收集');
+    const list = v2.listArchives('归档世界');
+    assert.equal(list.entries.length, 1);
+    assert.equal(list.entries[0].orig, 'books/黄金时代/北伐.md');
+    assert.equal(list.entries[0].title, '北伐');
+    const r2 = v2.unarchiveEntry('归档世界', 'books/archives/黄金时代/北伐.md');
+    assert.equal(r2.restored, 'books/黄金时代/北伐.md');
+    const back = readFileSync(join(w, 'books', '黄金时代', '北伐.md'), 'utf8');
+    assert.ok(!back.includes('&x'), '还原后去掉 &x');
+    assert.ok(existsSync(join(w, 'books', '黄金时代', '北伐', '附记.md')), '同名文件夹还原');
+    v2.close('归档世界');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('collectMarkdown：.md.arc 书整棵隐藏 + books/archives 整目录隐藏', () => {
+  const root = mkdtempSync(join(tmpdir(), 'soliterra-collect-'));
+  try {
+    mkdirSync(join(root, 'books', '甲'), { recursive: true });
+    mkdirSync(join(root, 'books', '乙'), { recursive: true });
+    mkdirSync(join(root, 'books', 'archives', '甲'), { recursive: true });
+    writeFileSync(join(root, 'README.md'), '# R\n', 'utf8');
+    writeFileSync(join(root, 'books', '甲', '一.md'), '# 一\n', 'utf8');
+    writeFileSync(join(root, 'books', '甲.md.arc'), '&n 甲\n', 'utf8');
+    writeFileSync(join(root, 'books', '乙.md'), '&n 乙\n', 'utf8');
+    writeFileSync(join(root, 'books', '乙', '二.md'), '# 二\n', 'utf8');
+    writeFileSync(join(root, 'books', 'archives', '甲', '一.md'), '# 一\n', 'utf8');
+    const got = collectMarkdown(root);
+    assert.deepEqual(got.sort(), ['README.md', 'books/乙.md', 'books/乙/二.md']);
+  } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
