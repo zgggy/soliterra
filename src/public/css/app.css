@@ -586,11 +586,7 @@ img { display: block; max-width: 100%; }
 
 /* 时间轴智能收拢（下滚 > 80px） */
 .world-view { --chrono-h: 112px; }
-.world-view.shrunk { --chrono-h: 70px; }   /* 收拢最矮：画布 ≥42 */
 .chrono-bar { height: var(--chrono-h); transition: height var(--motion-state) var(--ease-out-quick); }
-.world-view.shrunk .event-flag { height: 30px; padding: 3px 8px; }
-.world-view.shrunk .event-flag .flag-date { display: none; }
-.world-view.shrunk .event-flag::after { height: 8px; }
 .readlater { transition: width var(--motion-state) var(--ease-out-quick) var(--motion-state), top var(--motion-state) var(--ease-out-quick); }
 
 /* ---------- 模态（reader-modal 纸面） ---------- */

@@ -208,8 +208,7 @@ export async function renderWorld(root, worldId, entryPath) {
   const readerCol = el('reader');
   let scrollSaveTimer = null;
   readerCol.addEventListener('scroll', () => {
-    const collapsed = !(chrono?.isTall?.()) && (ctx.settings?.axisCollapse ?? 'on') !== 'off' && readerCol.scrollTop > 80;
-    root.querySelector('.world-view').classList.toggle('shrunk', collapsed);
+    // 智能收拢已删除（2026-10-06）：正文滚动不再改变时间轴高度
     clearTimeout(scrollSaveTimer);
     scrollSaveTimer = setTimeout(() => {
       if (ctx.currentPath) {
@@ -451,8 +450,6 @@ function settingsRowsHTML() {
         <div class="seg" data-set="editor"><button data-val="std">${state.lang === 'zh-CN' ? '标准' : 'Std'}</button><button data-val="min">${state.lang === 'zh-CN' ? '极简' : 'Min'}</button></div></div>
       <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '时代带' : 'Era band'}</span>
         <div class="seg" data-set="axisEra"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
-      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '智能收拢' : 'Smart shrink'}</span>
-        <div class="seg" data-set="axisCollapse"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
       <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '保存间隔' : 'Autosave'}</span>
         <div class="seg" data-set="saveDelay"><button data-val="500">0.5s</button><button data-val="1000">1s</button><button data-val="2000">2s</button><button data-val="0">${state.lang === 'zh-CN' ? '关闭' : 'Off'}</button></div></div>`;
 }
@@ -471,7 +468,6 @@ function bindSettings(ctx, scope) {
         applySettings(ctx);
         await api(`/api/w/${enc(ctx.worldId)}/settings`, { method: 'POST', body: { [key]: b.dataset.val } }).catch(() => {});
         if (key === 'axisEra') ctx.chrono?.layout();                     // 时代带：即时重排
-        if (key === 'axisCollapse' && b.dataset.val === 'off') document.querySelector('.world-view')?.classList.remove('shrunk');
       });
     });
   });
@@ -871,7 +867,13 @@ async function addReadlater(ctx, path) {
 
 // ============ 时间轴（功能设计 §3） ============
 function initTimeline(ctx, wrap, canvas, ticks) {
-  const allItems = ctx.timeline.map((r) => ({ ...r, s: parseOrd(r.start), e: parseOrd(r.end), era: r.era || null })).filter((r) => r.s != null);
+  const allItems = ctx.timeline.map((r) => {
+    let tg = [];
+    try { tg = r.tags_json ? JSON.parse(r.tags_json) : []; } catch {}
+    // 创世条目（&f 创世 或 &t 含「创世」）：不按 &s 上轴、不计入时间轴总范围；显示在「最早时间之前」
+    const genesis = r.flag === '创世' || (Array.isArray(tg) ? tg : String(tg || '').split(/\s+/)).includes('创世');
+    return { ...r, s: parseOrd(r.start), e: parseOrd(r.end), era: r.era || null, genesis };
+  }).filter((r) => r.s != null);
   // 时间轴范围 = 本书（§A 二次定型）：顶层散文件文档 → 全库；换书由 setScope 重建
   let items = [];
   const view = { lo: 0, hi: 1 };
@@ -884,14 +886,19 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       ? (() => { const set = new Set(flattenTree(node).map((e) => e.path)); return allItems.filter((i) => set.has(i.path)); })()
       : allItems;
     if (items.length) {
-      const lo = Math.min(...items.map((i) => i.s));
-      const hi = Math.max(...items.map((i) => i.e ?? i.s));
+      const timed = items.filter((i) => !i.genesis);              // 创世条目不计入总范围
+      const base = timed.length ? timed : items;
+      const lo = Math.min(...base.map((i) => i.s));
+      const hi = Math.max(...base.map((i) => i.e ?? i.s));
       const pad = (hi - lo) * 0.05 || YEAR;
       view.lo = lo - pad; view.hi = hi + pad;
     }
     full.lo = view.lo; full.hi = view.hi;
+    const timed = items.filter((i) => !i.genesis);
+    earliestOrd = timed.length ? Math.min(...timed.map((i) => i.s)) : (items.length ? Math.min(...items.map((i) => i.s)) : null);
     return top;
   }
+  let earliestOrd = null;
   const scopeBook = rescope();
   // 从**当前视图**出发（不跳回默认初值）：同世界同书重渲染沿用上次视野，
   // 之后由 openEntry 的取景补间「从现在的值移动/缩放到目标」；同文档重渲染则不再取景（skipFrame）
@@ -1006,7 +1013,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     markers.innerHTML = '';
     const cur = items.find((i) => i.path === ctx.currentPath);
     const markerPx = [];
-    if (cur) {
+    if (cur && !cur.genesis) {   // 创世条目无时间语义，不起止标记
       const put = (ord) => {
         if (ord == null) return;
         const px = x(ord);
@@ -1038,10 +1045,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     }
     // 旗标布局：正常位置显示；重叠时「越晚图层越高」，较早的卡片依次向左让出 10px（时间位置不变）
     const flagItems = items.filter((i) => displayFlagOf(i)).sort((a, b) => a.s - b.s);
+    const genesisX = earliestOrd != null ? x(earliestOrd) - 8 : -Infinity;   // 创世锚：最早时间坐标左 8px（其前）
     for (let i = 0; i < flagItems.length; i++) {
       const it = flagItems[i];
       it._w = flagBaseW(it.title);
-      it._trueX = x(it.s);
+      it._trueX = it.genesis ? genesisX - it._w : x(it.s);   // 创世条目不按 &s 生效 → 右缘贴「最早时间之前」，级联/分道排开
       it._left = it._trueX;
       it._z = 10 + i;               // 越晚（列表越靠后）图层越高
     }
@@ -1071,6 +1079,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     // 覆盖条 + 旗标：**复用既有元素**（跨 layout 只改样式）→ 缩放/改高时位置与大小平滑过渡
     const shownSpans = new Set();
     for (const it of items) {
+      if (it.genesis) continue;   // 创世条目无覆盖条（不按 &s 生效）
       const sx = x(it.s);
       const ex = it.e != null ? x(it.e) : sx;
       const w = Math.max(ex - sx, it.instant ? 0 : 6);
@@ -1202,6 +1211,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   /** 取景（打开文档）：&s 落在屏幕 1/3、&e 落在屏幕 2/3（瞬时事件置于 1/3）。300ms。 */
   function focusPath(path) {
     const it = items.find((i) => i.path === path);
+    if (it && it.genesis && earliestOrd != null) {
+      const span = (full.hi - full.lo) * 0.12;
+      animateTo(earliestOrd - span * 2, earliestOrd + span, 300);   // 创世排 + 最早时间同框
+      return;
+    }
     if (!it) return;
     const s = it.s;
     const e = it.e != null && it.e > it.s ? it.e : null;

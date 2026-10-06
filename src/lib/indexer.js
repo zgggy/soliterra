@@ -227,7 +227,8 @@ export class WorldIndex {
   timeline() {
     return this.db.prepare(
       `SELECT path,title,start,end,flag,instant,fuzzy,t_ord,
-              json_extract(meta,'$.a[0]') AS era
+              json_extract(meta,'$.a[0]') AS era,
+              json_extract(meta,'$.t') AS tags_json
        FROM entries
        WHERE start IS NOT NULL ORDER BY t_ord ASC`
     ).all();
