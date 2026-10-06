@@ -227,7 +227,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 - CSS：`app.css :root` 的 `--motion-quick/state/view · --ease · --ease-out-quick · --ease-linear`；旧散值已归一（160→200、180→200、280→300、320→300）。
 - JS：唯一补间函数 `world.js initTimeline.animateTo(lo, hi, ms=300)`（rAF + easeOutCubic≈`{motion.ease}`，含打断与降级）；书架 FLIP 用 WAAPI `element.animate`。
-- 布局计算（第 75/76 轮，无样式影响）：时间轴全部几何/碰撞/聚簇规则抽为纯函数 `public/js/timeline-layout.js`（`computeLayout`，常量集中在 `LAYOUT`），`world.js` 只做输入装配与 DOM 应用（`applyFrame`）；`z` 上限压到 79（打开卡恒 80 最上，>70 条目亦然）；`--flag-w` = `min(实测自然宽, 基准宽)`（碰撞箱 ≡ 渲染箱，实测缓存按 paint 签名失效）；回前台 `visibilitychange` 自愈后台冻结的 max-width 过渡。
+- 布局计算（第 75/76/77 轮，无样式影响）：时间轴全部几何/碰撞/聚簇规则抽为纯函数 `public/js/timeline-layout.js`（`computeLayout`，常量集中在 `LAYOUT`），`world.js` 只做输入装配与 DOM 应用（`applyFrame`）；`z` 上限压到 79（打开卡恒 80 最上，>70 条目亦然）；`--flag-w` = `min(实测自然宽, 基准宽)`（碰撞箱 ≡ 渲染箱）；**渲染纪律**：刻度/标记/时代带元素复用（含时代带监听器一次性绑定）、样式幂等写入、**DOM 读必须全部发生在写之前**（写后读会强制同步重算/重排）；`?dev=1` → `window.__tlPerf` 分相探针（engine/apply/nodes）。
 
 ## Components
 

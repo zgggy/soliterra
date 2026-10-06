@@ -209,7 +209,7 @@ function synthWorld(n, seed) {
   return { items, genesisAll };
 }
 
-function runStress(n, seed, label) {
+function buildStressInputs(n, seed) {
   const { items, genesisAll } = synthWorld(n, seed);
   const times = items.map((i) => i.s).filter((v) => v != null);
   const lo = Math.min(...times), hi = Math.max(...times) + YEAR;
@@ -221,27 +221,36 @@ function runStress(n, seed, label) {
   for (const g of genesisAll) flags[g.path] = g.flag;
   const full = { lo: lo - (hi - lo) * 0.05, hi: hi + (hi - lo) * 0.05 };
   const genesisOrd = lo - ((hi - lo) * 0.01 || YEAR);
-  let frames = 0;
+  const inputs = [];
   for (const h of heights) {
     for (const k of zoom) {
       const c = (lo + hi) / 2;
       const span = (full.hi - full.lo) * k;
-      const input = {
+      inputs.push({
         items, genesisAll, flags,
         view: { lo: c - span / 2, hi: c + span / 2 }, full,
         width: 1280, chronoH: h, lang: 'zh-CN', currentPath: openPath,
         genesisOrd, earliestOrd: lo, latestOrd: hi,
         openSize: k === 1 && h === 112 ? { w: 78, h: 64 } : null,   // 混合有无实测尺寸
         prevTops: Object.fromEntries(items.slice(0, 10).map((i) => [i.path, 10 + (i.path.length % 3) * 58])),
-      };
-      const frame = computeLayout(input);
-      const out = checkInvariants(input, frame);
-      assert.equal(out.length, 0, `${label} h=${h} k=${k} 违例:\n${out.slice(0, 6).join('\n')}`);
-      // 确定性：同输入两跑结果一致
-      const frame2 = computeLayout(input);
-      assert.equal(JSON.stringify(frame), JSON.stringify(frame2), `${label} h=${h} k=${k} 非确定性`);
-      frames++;
+        measuredW: {},
+      });
     }
+  }
+  return inputs;
+}
+
+function runStress(n, seed, label) {
+  const inputs = buildStressInputs(n, seed);
+  let frames = 0;
+  for (const input of inputs) {
+    const frame = computeLayout(input);
+    const out = checkInvariants(input, frame);
+    assert.equal(out.length, 0, `${label} h=${input.chronoH} k=${(input.view.hi - input.view.lo) / (input.full.hi - input.full.lo)} 违例:\n${out.slice(0, 6).join('\n')}`);
+    // 确定性：同输入两跑结果一致
+    const frame2 = computeLayout(input);
+    assert.equal(JSON.stringify(frame), JSON.stringify(frame2), `${label} 非确定性`);
+    frames++;
   }
   return frames;
 }
@@ -265,6 +274,22 @@ test('边界：空世界 / 无时刻 / 仅创世 / 无打开卡 不抛异常且�
   const f2 = computeLayout(onlyGen);
   assert.equal(checkInvariants(onlyGen, f2).length, 0);
   assert.equal(f2.placements[0].top, 'axis');   // 打开创世 → 贴轴
+});
+
+// ── 第 77 轮：耗时基线（宽松上界，只拦灾难性退化；绝对毫秒随机器波动，故取 ~10× 实测余量）──
+test('性能基线：500 条 × 20 配置 computeLayout 平均/最差耗时上界', () => {
+  const inputs = buildStressInputs(500, 4242);
+  let total = 0, max = 0;
+  for (const input of inputs) {
+    const t0 = performance.now();
+    computeLayout(input);
+    const dt = performance.now() - t0;
+    total += dt;
+    if (dt > max) max = dt;
+  }
+  const avg = total / inputs.length;
+  assert.ok(avg < 5, `平均单帧 ${avg.toFixed(2)}ms 超界（500 条 × ${inputs.length} 配置）`);
+  assert.ok(max < 25, `最差单帧 ${max.toFixed(2)}ms 超界`);
 });
 
 // ── 第 76 轮：实测宽（碰撞箱 = 渲染箱）与 fuzzy 数据层字段 ────────────

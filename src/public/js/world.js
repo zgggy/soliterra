@@ -10,6 +10,7 @@ import { computeLayout, flagBaseW, LAYOUT, YEAR } from './timeline-layout.js';  
 
 // 世界数据缓存（tree/timeline 变化少）：导航重渲染几乎同步 → 消除闪屏（YEAR 已由引擎导出，单一来源）
 const worldDataCache = new Map();   // worldId -> { tree, timeline, ts }
+const DEV = new URLSearchParams(location.search).has('dev');   // ?dev=1 → 每帧更新 window.__tlPerf（第 77 轮探针）
 const tocOpenDirs = new Set();    // 目录手动展开的目录（跨重渲染记忆，防闪回）
 let activeWorld = null;           // { id, update(path) }：同世界导航走原地更新（不整页重载）
 let lastTimelineView = null;     // { world, lo, hi } 当前时间轴视野（重渲染的起点：从现在的值出发）
@@ -951,8 +952,10 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   wrap.appendChild(eras);
   const flagEls = new Map();     // path -> 旗标元素（跨 layout 复用 → 位置/宽度随缩放平滑过渡）
   const spanEls = new Map();     // path -> 覆盖条元素
+  const tickEls = new Map();     // ord -> 刻度元素（第 77 轮复用，替换逐帧 innerHTML 重建）
+  const markerEls = new Map();   // ord -> 起止标记元素
+  const eraEls = new Map();      // era 名 -> 时代带按钮（点击 handler 一次性绑定，数据存 el.__era）
   const topMemo = new Map();     // path -> 上一帧 top（创世尾箭头单帧滞后取样；第 75 轮起不再写回条目对象）
-  const naturalW = new Map();    // path -> { key, w } 实测自然宽缓存（第 76 轮；key = paint 签名 + compact，内容变才重测）
   let widthRetry = false;        // 实测宽尾随重排的一次性守卫（第 76 轮：新元素/簇成形首帧）
 
   // ---------- 高模式（§A 修正版）：高度 > 2/3 屏 → 本书全部（有时刻）条目上轴 ----------
@@ -993,13 +996,13 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     });
     const hot = () => {
       spanEls.get(path)?.classList.add('show');
-      flag.classList.add('expand'); flag.style.zIndex = '90';
+      flag.classList.add('expand'); flag.style.zIndex = (flag.__zi = '90');
       const t = flag.__altTitle ? flag.querySelector('.flag-title') : null;
       if (t) t.textContent = flag.__altTitle;          // 簇：展开显示成员名单
     };
     const restore = () => {
       spanEls.get(path)?.classList.remove('show');
-      flag.style.zIndex = flag.dataset.z || '10';
+      flag.style.zIndex = (flag.__zi = flag.dataset.z || '10');   // 同步幂等缓存（第 77 轮）
       if (path !== ctx.currentPath) flag.classList.remove('expand');
       const t = flag.__baseTitle ? flag.querySelector('.flag-title') : null;
       if (t) t.textContent = flag.__baseTitle;
@@ -1015,6 +1018,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   /** 卡片内容（对比 dataset 防重建）；pinned 时含 × 取消强调。 */
   function paintFlag(flag, { eyebrow, title, date, fuzzy, pinned }) {
     const key = `${eyebrow}|${title}|${date}|${pinned ? 1 : 0}`;
+    flag.__paint = key;   // expando 镜像：layout 尾部校验用（避免写后再读 dataset 触发强制样式重算）
     if (flag.dataset.paint === key) return;
     flag.dataset.paint = key;
     flag.dataset.eyebrow = eyebrow;
@@ -1047,14 +1051,15 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   function layout() {
     const width = wrap.clientWidth;
     if (!width) return;
+    const t0 = DEV ? performance.now() : 0;   // ?dev=1 探针：整帧（computeLayout + 应用 DOM）耗时
     // 打开卡实测尺寸：**应用前**取样（与本帧样式一致；旧管线亦在应用前读取）
     const oEl0 = flagEls.get(ctx.currentPath);
     const openSize = oEl0 ? { w: oEl0.offsetWidth, h: oEl0.offsetHeight } : null;
     const prevTops = Object.fromEntries(topMemo);   // 上一帧 top（创世尾箭头取样沿用单帧滞后；合并成员保留其上次单独显示的值）
-    // 实测宽（第 76 轮）：缓存值 = 元素**自然宽**（提 --flag-w 上限实测，见 layout 尾部测量段）→
-    // 引擎取 min(实测, 基准宽) = 渲染宽，碰撞箱 ≡ 渲染箱；稳态零 DOM 读取，内容变化才重测
+    // 实测宽（第 76 轮）：缓存挂在元素上（__natW/__natPaint/__natCompact）——自然宽经"提上限实测"取得，
+    // 引擎取 min(自然宽, 基准宽) = 渲染宽，碰撞箱 ≡ 渲染箱；稳态零 DOM 读取
     const measuredW = {};
-    for (const [p, c] of naturalW) measuredW[p] = c.w;
+    for (const [p, el] of flagEls) if (el.__natW > 0) measuredW[p] = el.__natW;
     // 高模式判定（§A）：高度目标 > 2/3 屏进入（退出阈 2/3 − 24px 滞回）；读 --chrono-h（拖动目标值，非过渡值）
     const hTarget = parseInt(getComputedStyle(worldViewEl).getPropertyValue('--chrono-h')) || 112;
     const t1 = window.innerHeight * 2 / 3;
@@ -1066,38 +1071,46 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     for (const i of allItems) if (i.genesis) pool.set(i.path, i);   // 旗标池 = 本书 items ∪ 全世界创世（跨书恒显示）
     const flags = {};
     for (const it of pool.values()) { const e2 = displayFlagOf(it); if (e2) flags[it.path] = e2; }
+    const pe0 = DEV ? performance.now() : 0;   // 探针相位：引擎起
     const frame = computeLayout({
       items, genesisAll: allItems, flags,
       view, full, width, chronoH: hTarget, lang: state.lang, currentPath: ctx.currentPath,
       genesisOrd, earliestOrd, latestOrd,
       openSize, prevTops, measuredW,
     });
+    const pe1 = DEV ? performance.now() : 0;   // 引擎止
     applyFrame(frame);
+    const pa1 = DEV ? performance.now() : 0;   // 应用止
     topMemo.clear();
     for (const p of frame.placements) if (!p.cluster) topMemo.set(p.path, p.top);
     // 实测宽收敛（第 76 轮）：缓存缺失 / 内容变化（paint 签名 + compact）→ 提 --flag-w 上限实测**自然宽**
     // （整批一次同步重排；transition 临时关掉防中间值）；实测与"本帧放置宽"有差异 → 调度**一次** rAF 重排
     // （自终止：重排用上新鲜缓存后 want == w）
+    // 实测宽校验（第 76/77 轮）：**纯 expando 比较、零 DOM 读取**——读必须全部发生在 applyFrame 写之前；
+    // 写后再读 dataset/style 会强制样式重算（300 卡世界实测 ~20ms/帧，本轮修掉的正是这一处）
     const stale = [];
     for (const p of frame.placements) {
       const el = flagEls.get(p.path);
       if (!el) continue;
-      const key = `${el.dataset.paint || ''}|${frame.compact ? 'c' : 'f'}`;
-      if (naturalW.get(p.path)?.key !== key) stale.push({ p, el, key });
+      if (el.__natPaint !== el.__paint || el.__natCompact !== frame.compact) stale.push({ p, el });
     }
     if (stale.length) {
       const prevs = stale.map(({ el }) => [el.style.getPropertyValue('--flag-w'), el.style.transition]);
       for (const { el } of stale) { el.style.transition = 'none'; el.style.setProperty('--flag-w', '9999px'); }
       void stale[0].el.offsetWidth;   // 一次同步重排覆盖整批
       let drift = false;
-      stale.forEach(({ p, el, key }, i) => {
+      stale.forEach(({ p, el }, i) => {
         const nat = el.offsetWidth;
-        naturalW.set(p.path, { key, w: nat });
+        el.__natW = nat; el.__natPaint = el.__paint; el.__natCompact = frame.compact;
         el.style.setProperty('--flag-w', prevs[i][0]);
-        el.style.transition = prevs[i][1];
+        el.__fw = null;   // --flag-w 由本段临时改写 → 失效幂等缓存，下帧重写一次
         if (Math.abs(Math.min(nat, flagBaseW(p.title)) - p.w) > 0.75) drift = true;
       });
       void stale[0].el.offsetWidth;   // 上限归位后再结算一次
+      // 过渡**下一帧**才恢复：若与取值同帧恢复，规范会按"新样式"为 9999→w 起一段滑回动画，
+      // 后台标签页会把它冻在 9999px（盒宽＞上限、卡片互遮）——推迟恢复则后台保持 none（宽度正确），
+      // 前台下一帧恢复且不会起滑回动画（rAF 冻结时由 visibilitychange 自愈兜底）
+      requestAnimationFrame(() => { stale.forEach(({ el }, i) => { el.style.transition = prevs[i][1]; }); });
       if (drift && !widthRetry) {
         widthRetry = true;
         requestAnimationFrame(() => { widthRetry = false; layout(); });
@@ -1106,43 +1119,52 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     // （旗标池装配 / 逐条虚拟时刻 / first-fit 分道 / 三类聚簇 / z 重排 / 同道级联 / O 卡 A·B·C 三通道 /
     //   尾箭头取样 / 出界计数——全部收敛进引擎 timeline-layout.js，本文件不再保留第二份实现）
 
-
-
-
-
-
-
-
-
-
-
     lastTimelineView = { world: ctx.worldId, book: (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, ''), lo: view.lo, hi: view.hi };
+    if (DEV) {
+      const ms = performance.now() - t0;
+      const perf = window.__tlPerf = window.__tlPerf || { frames: 0, last: 0, avg: 0, max: 0, engine: 0, apply: 0, items: 0, placements: 0, nodes: 0, h: 0 };
+      perf.frames++;
+      perf.last = ms;
+      perf.avg += (ms - perf.avg) / perf.frames;   // 累计均值（从载入/重置起）
+      if (ms > perf.max) perf.max = ms;
+      perf.engine += (pe1 - pe0 - perf.engine) / perf.frames;   // 分相：引擎 / 应用
+      perf.apply += (pa1 - pe1 - perf.apply) / perf.frames;
+      perf.items = items.length;
+      perf.placements = frame.placements.length;
+      perf.nodes = canvas.children.length + ticks.children.length + markers.children.length + eras.children.length;
+      perf.h = hTarget;
+    }
   }
 
   /** 应用一帧布局（引擎输出 → DOM）：元素池复用（跨 layout 只改样式）→ 缩放/改高平滑过渡；本函数不做任何布局计算。 */
   function applyFrame(frame) {
     const zh = state.lang === 'zh-CN';
     const COMPACT = frame.compact;
-    // 刻度（第 75 轮起由引擎给 px/text；第 77 轮改元素复用）
-    ticks.innerHTML = '';
+    // 刻度（第 77 轮：按 ord 元素复用 + 幂等写入；替换逐帧 innerHTML 全量重建）
+    const seenTicks = new Set();
     for (const t2 of frame.ticks) {
-      const el = document.createElement('span');
-      el.className = 'tick';
-      el.style.left = t2.px + 'px';
-      el.textContent = t2.text;
-      ticks.appendChild(el);
+      let el = tickEls.get(t2.ord);
+      if (!el) { el = document.createElement('span'); el.className = 'tick'; tickEls.set(t2.ord, el); ticks.appendChild(el); }
+      if (el.__px !== t2.px) { el.__px = t2.px; el.style.left = t2.px + 'px'; }
+      if (el.__txt !== t2.text) { el.__txt = t2.text; el.textContent = t2.text; }
+      seenTicks.add(t2.ord);
     }
-    // 起止标记：范围首尾高刻度（edge）+ 打开文档起止（与标尺同款墨色）
-    markers.innerHTML = '';
+    for (const [k, el] of tickEls) if (!seenTicks.has(k)) { el.remove(); tickEls.delete(k); }
+    // 起止标记：范围首尾高刻度（edge）+ 打开文档起止（与标尺同款墨色）——同款复用
+    const seenMarkers = new Set();
     for (const m of frame.markers) {
-      const el = document.createElement('span');
-      el.className = `tick chrono-marker-tick${m.edge ? ' edge' : ''}`;
-      el.style.left = m.px + 'px';
-      el.textContent = m.text;
-      if (m.kind === 'start') el.title = zh ? '范围起点（最早时间）' : 'Range start';
-      else if (m.kind === 'end') el.title = zh ? '范围终点（最晚结束）' : 'Range end';
-      markers.appendChild(el);
+      let el = markerEls.get(m.ord);
+      if (!el) { el = document.createElement('span'); markerEls.set(m.ord, el); markers.appendChild(el); }
+      const cls = `tick chrono-marker-tick${m.edge ? ' edge' : ''}`;
+      if (el.__cls !== cls) { el.__cls = cls; el.className = cls; }
+      const title = m.kind === 'start' ? (zh ? '范围起点（最早时间）' : 'Range start')
+        : m.kind === 'end' ? (zh ? '范围终点（最晚结束）' : 'Range end') : '';
+      if (el.__title !== title) { el.__title = title; if (title) el.title = title; else el.removeAttribute('title'); }
+      if (el.__px !== m.px) { el.__px = m.px; el.style.left = m.px + 'px'; }
+      if (el.__txt !== m.text) { el.__txt = m.text; el.textContent = m.text; }
+      seenMarkers.add(m.ord);
     }
+    for (const [k, el] of markerEls) if (!seenMarkers.has(k)) { el.remove(); markerEls.delete(k); }
     // 覆盖条
     const shownSpans = new Set();
     for (const s of frame.spans) {
@@ -1162,19 +1184,35 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     }
     for (const [p0, el0] of [...spanEls]) if (!shownSpans.has(p0)) { el0.remove(); spanEls.delete(p0); }
     // 旗标（渲染 = 引擎最终排布列表，含簇；全世界创世在池内）
+    // 第 77 轮：样式**幂等写入**（与元素缓存值比较，不变不写）——拖动时只有 left 逐帧变，其余全跳过
     const shownFlags = new Set();
     for (const p of frame.placements) {
       const flag = ensureFlagEl(p.path);
-      flag.className = `event-flag${p.isOpen ? ' open expand' : ''}${ctx.pins.has(p.path) ? ' pinned' : ''}${COMPACT ? ' compact' : ''}${!COMPACT && p.lane > 0 ? ' lane' : ''}`;
-      flag.dataset.z = String(p.z);
-      flag.style.left = p.left + 'px';
-      if (p.top === 'axis') { flag.style.top = 'auto'; flag.style.bottom = '6px'; flag.classList.add('axis-anchored'); }
-      else { flag.style.top = p.top + 'px'; flag.style.bottom = 'auto'; flag.classList.remove('axis-anchored'); }
-      flag.style.setProperty('--lead-x', (p.trueX - p.left + 10) + 'px');   // 引线始终垂在真实开始时刻
-      flag.style.setProperty('--flag-w', p.w + 'px');                      // 基础宽 = 最多 4 字（内容自然宽，hover 不跳变）
-      // 打开中的卡片恒最上（z=80；expand 态也被显式置 80，不因 hover 逻辑漏设）
-      if (p.isOpen) flag.style.zIndex = '80';
-      else if (!flag.classList.contains('expand')) flag.style.zIndex = String(p.z);
+      const cls = `event-flag${p.isOpen ? ' open expand' : ''}${ctx.pins.has(p.path) ? ' pinned' : ''}${COMPACT ? ' compact' : ''}${!COMPACT && p.lane > 0 ? ' lane' : ''}`;
+      if (flag.__cls !== cls) {
+        flag.__cls = cls;
+        flag.className = cls;   // 重写会清掉 axis-anchored → 下两行按 p.top 重新断言
+        flag.__axis = null;
+      }
+      const anchored = p.top === 'axis';
+      if (flag.__axis !== anchored) { flag.__axis = anchored; flag.classList.toggle('axis-anchored', anchored); }
+      if (flag.__z !== p.z) { flag.__z = p.z; flag.dataset.z = String(p.z); }
+      if (flag.__left !== p.left) { flag.__left = p.left; flag.style.left = p.left + 'px'; }
+      if (flag.__top !== p.top) {
+        flag.__top = p.top;
+        if (anchored) { flag.style.top = 'auto'; flag.style.bottom = '6px'; }
+        else { flag.style.top = p.top + 'px'; flag.style.bottom = 'auto'; }
+      }
+      const lead = (p.trueX - p.left + 10) + 'px';
+      if (flag.__lead !== lead) { flag.__lead = lead; flag.style.setProperty('--lead-x', lead); }   // 引线始终垂在真实开始时刻
+      const fw = p.w + 'px';
+      if (flag.__fw !== fw) { flag.__fw = fw; flag.style.setProperty('--flag-w', fw); }             // 基础宽 = min(实测自然宽, 基准宽)
+      // 打开中的卡片恒最上（z=80；expand 态也被显式置 80，不因 hover 逻辑漏设）——幂等写入；
+      // hover 的 hot()/restore() 同步维护 __zi 缓存（第 77 轮）
+      if (p.isOpen || !flag.classList.contains('expand')) {
+        const wantZ = p.isOpen ? '80' : String(p.z);
+        if (flag.__zi !== wantZ) { flag.__zi = wantZ; flag.style.zIndex = wantZ; }
+      }
       if (flag.dataset.fresh === '1') {       // 新建卡片淡入（160ms；高分道展开/缩回时同样生效）
         flag.dataset.fresh = '';
         flag.classList.add('card-in');
@@ -1196,26 +1234,41 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       }
       shownFlags.add(p.path);
     }
-    for (const [p0, el0] of [...flagEls]) if (!shownFlags.has(p0)) { el0.remove(); flagEls.delete(p0); naturalW.delete(p0); }
+    for (const [p0, el0] of [...flagEls]) if (!shownFlags.has(p0)) { el0.remove(); flagEls.delete(p0); }
     // 时代带（§3.2）：同 &a 条目的时间并集，bg/bg-soft 交替 + 名称；点击取景该时代；「更多设置」可关
+    // 第 77 轮：按 era 名元素复用，点击 handler **一次性绑定**（读 el.__era，不再逐帧新建按钮/闭包）
     const eraOn = (ctx.settings?.axisEra ?? 'on') !== 'off';
     eras.style.display = eraOn ? '' : 'none';
-    eras.innerHTML = '';
+    const seenEras = new Set();
     for (const e2 of frame.eras) {
-      const seg = document.createElement('button');
-      seg.className = `era-band${e2.alt ? ' alt' : ''}`;
-      seg.style.left = e2.left + 'px';
-      seg.style.width = e2.width + 'px';
-      seg.title = e2.name;
-      if (e2.showName) seg.innerHTML = `<span class="era-name">${esc(e2.name)}</span>`;
-      seg.addEventListener('pointerdown', (ev) => ev.stopPropagation());   // 不触发轴拖拽
-      seg.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        const years = Math.max((e2.hi - e2.lo) / YEAR, 10);
-        focusOrd((e2.lo + e2.hi) / 2, years);
-      });
-      eras.appendChild(seg);
+      let seg = eraEls.get(e2.name);
+      if (!seg) {
+        seg = document.createElement('button');
+        seg.addEventListener('pointerdown', (ev) => ev.stopPropagation());   // 不触发轴拖拽
+        seg.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          const cur2 = seg.__era;
+          if (!cur2) return;
+          const years = Math.max((cur2.hi - cur2.lo) / YEAR, 10);
+          focusOrd((cur2.lo + cur2.hi) / 2, years);
+        });
+        eraEls.set(e2.name, seg);
+        eras.appendChild(seg);
+      }
+      seg.__era = e2;   // lo/hi 每次刷新（点击时读取）
+      if (seg.title !== e2.name) seg.title = e2.name;
+      const cls = `era-band${e2.alt ? ' alt' : ''}`;
+      if (seg.__cls !== cls) { seg.__cls = cls; seg.className = cls; }
+      if (seg.__l !== e2.left) { seg.__l = e2.left; seg.style.left = e2.left + 'px'; }
+      if (seg.__w !== e2.width) { seg.__w = e2.width; seg.style.width = e2.width + 'px'; }
+      if (seg.__nameOn !== e2.showName) {
+        seg.__nameOn = e2.showName;
+        if (e2.showName) seg.innerHTML = `<span class="era-name">${esc(e2.name)}</span>`;
+        else seg.textContent = '';
+      }
+      seenEras.add(e2.name);
     }
+    for (const [k, el] of eraEls) if (!seenEras.has(k)) { el.remove(); eraEls.delete(k); }
     // 轴线段：只画 [最早时间, 最晚时间] 与视口的交集（范围外含创世区无线）
     axisLine.hidden = frame.axis.hidden;
     axisLine.style.left = frame.axis.left + 'px';

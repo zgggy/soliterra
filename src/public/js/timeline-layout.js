@@ -97,7 +97,7 @@ export function computeLayout(input) {
     if (px < -MARKER_PAD || px > width + MARKER_PAD) return;
     if (markerPx.some((mp) => Math.abs(mp - px) < MARKER_SAME_GAP)) return;   // 就近让位（同年份同位不重复绘）
     markerPx.push(px);
-    markers.push({ px, text: yLabel(ord), edge: kind !== 'cur', kind });
+    markers.push({ px, ord, text: yLabel(ord), edge: kind !== 'cur', kind });   // ord = 元素复用稳定键（第 77 轮）
   };
   addMarker(earliestOrd, 'start');
   addMarker(latestOrd, 'end');
@@ -117,7 +117,7 @@ export function computeLayout(input) {
     const px = x(ord);
     if (px < -TICK_PAD || px > width + TICK_PAD) continue;
     if (markerPx.some((mp2) => Math.abs(mp2 - px) < TICK_MARKER_GAP)) continue;   // 让位起止标记
-    ticks.push({ px, text: yLabel(ord) });
+    ticks.push({ px, ord, text: yLabel(ord) });   // ord = 元素复用稳定键（第 77 轮）
   }
 
   // ── 旗标池 = 本书 items ∪ **全世界创世条目**（跨书恒显示：创世是世界本源，点进任何书/文档都不消失）
