@@ -673,6 +673,15 @@ img { display: block; max-width: 100%; }
   background: var(--surface); z-index: 5;
 }
 .editor-toolbar .icon-button { padding: 5px 8px; font-family: var(--font-mono); font-size: 0.78rem; }
+.editor-toolbar .icon-button.active { background: var(--ink); color: var(--on-ink); }
+/* §B.3.4 实时预览分屏：drawer+toolbar 满宽顶行，下两栏各半（左 CM6 / 右渲染预览，独立滚动） */
+.editor-shell > .editor-preview { display: none; }
+.editor-shell.split { max-width: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto minmax(56vh, 1fr); }
+.editor-shell.split > .meta-drawer { grid-column: 1 / -1; grid-row: 1; }
+.editor-shell.split > .editor-toolbar { grid-column: 1 / -1; grid-row: 2; }
+.editor-shell.split > .editor-host { grid-column: 1; grid-row: 3; min-width: 0; overflow: auto; }
+.editor-shell.split > .editor-preview { display: block; grid-column: 2; grid-row: 3; min-width: 0; overflow-y: auto; border-left: 1px solid var(--line); padding: 6px 28px 96px; }
+.editor-preview .entry-meta-top { padding-top: 8px; }
 .tb-sep { width: 1px; height: 16px; background: var(--line); margin: 0 6px; }
 .editor-host {
   flex: 1; min-height: 62vh;

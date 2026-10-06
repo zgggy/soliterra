@@ -12,6 +12,7 @@ import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle, syntaxTree } from '@codemirror/language';
 import { autocompletion, startCompletion, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { tags } from '@lezer/highlight';
+import { foldMarks } from './editor-marks.js';   // §B.3 行内标记折叠（纯函数，node 可测）
 
 // ---------- 主题（design.md token） ----------
 const theme = EditorView.theme({
@@ -36,6 +37,10 @@ const theme = EditorView.theme({
   '.cm-h1': { fontFamily: 'var(--font-serif)', fontSize: '1.6rem', fontWeight: '700', lineHeight: '1.3' },
   '.cm-h2': { fontFamily: 'var(--font-serif)', fontSize: '1.3rem', fontWeight: '700', lineHeight: '1.3' },
   '.cm-h3': { fontFamily: 'var(--font-serif)', fontSize: '1.1rem', fontWeight: '700' },
+  // §B.3 块级装饰：围栏区间（左缘线+底色）· 引用左缘 · 分割线真 hairline
+  '.cm-fence-body': { background: 'var(--bg-soft)', borderLeft: '1px solid var(--line)', paddingLeft: '9px' },
+  '.cm-quote-line': { borderLeft: '2px solid var(--line-strong)', paddingLeft: '8px' },
+  '.cm-hr-widget': { height: '1px', background: 'var(--line)', margin: '12px 0', display: 'block' },
 }, { dark: false });
 
 // 语法高亮（markdown token → design token）
@@ -59,6 +64,13 @@ const MD_IMG_RE = /!\[([^\]\n]*)\]\(([^)\s\n]+)\)/g;
 const WIKI_RE = /!?\[\[([^\]\n|#]+)((?:[|#][^\]\n]*)?)\]\]/g;
 
 /** 图片内联缩略图（§B.5）：光标不在该行时折叠原文为预览，点击 = 大图纸面。 */
+/** §B.3 分割线：非光标行整行替换为真 hairline（光标行显原样可编辑）。 */
+class HrWidget extends WidgetType {
+  toDOM() { const d = document.createElement('div'); d.className = 'cm-hr-widget'; return d; }
+  eq() { return true; }
+  ignoreEvent() { return true; }
+}
+
 class ImageWidget extends WidgetType {
   constructor(url, label) { super(); this.url = url; this.label = label || ''; }
   eq(o) { return o.url === this.url && o.label === this.label; }
@@ -91,21 +103,48 @@ function buildDecorations(view, resolveAsset) {
   const sel = view.state.selection.main;
   const curLine = doc.lineAt(sel.head).number;
   const inSelection = (from, to) => sel.from <= to && sel.to >= from;
+  let inFence = false;                     // ``` 区间状态机（§B.3.2：无条件逐行推进）
 
   for (let ln = 1; ln <= doc.lines; ln++) {
     const line = doc.line(ln);
     const text = line.text;
+    const lineDeco = (cls) => items.push({ from: line.from, to: line.from, deco: Decoration.line({ class: cls }) });
 
-    // & 元数据行（行首 &）——整行样式化
+    // ── 围栏区间跟踪（§B.3.2）：状态机每行无条件跑——``` 开关行 + 区间内行 → 左缘线+底色；开关行另给头角标
+    const wasIn = inFence;
+    const isFenceLine = /^\s*```/.test(text);
+    if (wasIn || isFenceLine) lineDeco('cm-fence-body');
+    if (isFenceLine) lineDeco('cm-fence-head');
+    const inCode = wasIn || isFenceLine;   // 围栏内 = 代码原文：不折叠、不染链、不当分割线/引用
+    if (isFenceLine) inFence = !inFence;
+
+    // & 元数据行（行首 &）——整行样式化；点击由 mousedown → opts.onMetaLine 唤 B.2 键编辑卡
     if (/^\s*&[a-z]/.test(text)) {
-      items.push({ from: line.from, to: line.from, deco: Decoration.line({ class: 'cm-meta-line' }) });
+      lineDeco('cm-meta-line');
       continue;
     }
-    // 围栏头 ```type
-    if (/^```\w+/.test(text)) {
-      items.push({ from: line.from, to: line.from, deco: Decoration.line({ class: 'cm-fence-head' }) });
+    const rawLine = ln === curLine;       // 光标行显原文（标记全显、图片不折叠）
+
+    // ── 分割线（§B.3.2）：非光标行整行 replace 为真 hairline（光标行显原 --- 可编辑）
+    if (!inCode && !rawLine && /^-{3,}$/.test(text.trim()) && !inSelection(line.from, line.to)) {
+      items.push({ from: line.from, to: line.to, deco: Decoration.replace({ widget: new HrWidget() }) });
+      continue;
     }
-    const rawLine = ln === curLine;       // 光标行显原文（图片不折叠）
+    // ── 引用 / callout 行（§B.3.2）：左缘 2px line-strong
+    if (!inCode && /^\s*>/.test(text)) lineDeco('cm-quote-line');
+
+    if (inCode) continue;                 // 围栏内到此为止（代码原文）
+
+    // ── 行内标记折叠（§B.3.1）：成对才藏；光标行/选区行/fence 内豁免 → 零宽 replace（字节不动）
+    if (!rawLine) {
+      for (const [a, b] of foldMarks(text)) {
+        const from = line.from + a, to = line.from + b;
+        if (to <= from) continue;
+        if (inSelection(from, to)) continue;
+        items.push({ from, to, deco: Decoration.replace({}) });
+      }
+    }
+
     // [[双链]] / ![[嵌入]]（图片扩展名 → 缩略图 widget）
     let m;
     WIKI_RE.lastIndex = 0;
@@ -453,10 +492,20 @@ window.SoliterraEditor = {
         ],
       }),
     });
+    // §B.3.2：点 & 元数据行 → 唤 B.2 键编辑卡（与抽屉 chip 同源）；光标同时自然落行
+    if (opts.onMetaLine) {
+      view.dom.addEventListener('mousedown', (e) => {
+        const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
+        if (pos == null) return;
+        const m = /^\s*&([a-z])(?=\s|$)/.exec(view.state.doc.lineAt(pos).text);
+        if (m) opts.onMetaLine(m[1]);
+      });
+    }
     return {
       getValue: () => view.state.doc.toString(),
       setValue: (t) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: t } }),
       focus: () => view.focus(),
+      requestMeasure: () => view.requestMeasure(),   // 分屏/容器宽度变化 → CM 重排（§B.3.4）
       h1: () => linePrefix(view, '# '),
       h2: () => linePrefix(view, '## '),
       h3: () => linePrefix(view, '### '),

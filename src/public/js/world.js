@@ -14,6 +14,7 @@ const DEV = new URLSearchParams(location.search).has('dev');   // ?dev=1 → 每
 const tocOpenDirs = new Set();    // 目录手动展开的目录（跨重渲染记忆，防闪回）
 let activeWorld = null;           // { id, update(path) }：同世界导航走原地更新（不整页重载）
 let lastTimelineView = null;     // { world, lo, hi } 当前时间轴视野（重渲染的起点：从现在的值出发）
+let openSeq = 0;                 // openEntry 渲染序号（第 85 轮：过期渲染丢弃，防双开竞态错乱）
 let axisKeyHandler = null;      // 时间轴键盘 handler 单例（重绑即解绑，防多实例叠加）
 let worldKeyHandler = null;     // 世界快捷键 handler 单例（同上）
 // 常驻制：面板不再依赖 proximity（世界面板/书架/稍后阅读常驻；操作栏收为一个按钮）
@@ -1719,6 +1720,17 @@ function updateTocCurrent(ctx, path) {
 
 // ============ 阅读 ============
 async function openEntry(ctx, path, chrono) {
+  // 第 85 轮入口闸：编辑态下换条目 → **先原子退出**（把编辑器内容保存回它所属的条目并销毁），
+  // 杜绝「currentPath 已切新条目 + 编辑器还是旧文本」的串写（实测曾把 A 的正文写进 B）。
+  if (ctx.editing && ctx.editor && path !== ctx.currentPath) {
+    await saveEdit(ctx);
+    await refreshTimeline(ctx);
+    ctx.editing = false;
+    if (ctx.editor) { try { ctx.editor.destroy(); } catch {} ctx.editor = null; }
+    ctx.editorPath = null;
+    setEditFab(ctx, false);
+  }
+  const seq = ++openSeq;                       // 渲染序号：期间有更新的打开 → 本渲染过期作废
   ctx.currentPath = path;
   const reader = document.getElementById('reader');
   reader.innerHTML = `<div class="loading">${t('world.loading')}</div>`;
@@ -1727,6 +1739,7 @@ async function openEntry(ctx, path, chrono) {
     e = await api(`/api/w/${enc(ctx.worldId)}/entry?path=${enc(path)}`);
   }
   catch (err) { reader.innerHTML = `<div class="empty-state">${esc(err.message)}</div>`; return; }
+  if (seq !== openSeq) return;                 // 过期渲染丢弃（reader 交由更新的那次负责）
 
   document.querySelectorAll('.event-flag.open, .span-bar.open').forEach((n) => n.classList.remove('open'));
   const next = nextEntry(ctx.tree, path);
@@ -1836,7 +1849,9 @@ function loadEditor() {
 
 async function enterEdit(ctx) {
   ctx.editing = true;
-  const { text } = await api(`/api/w/${enc(ctx.worldId)}/raw?path=${enc(ctx.currentPath)}`);
+  const snapPath = ctx.currentPath;            // 归属快照：编辑器内容属于这个条目（防后续 currentPath 漂移）
+  const { text } = await api(`/api/w/${enc(ctx.worldId)}/raw?path=${enc(snapPath)}`);
+  ctx.editorPath = snapPath;
   const reader = document.getElementById('reader');
   // 极简编辑器（A 档降级，「更多设置 → 编辑器：极简」）：纯 textarea，无装饰层/工具栏
   if ((ctx.settings?.editor || 'std') === 'min') {
@@ -1879,6 +1894,8 @@ async function enterEdit(ctx) {
         <button class="icon-button" data-cmd="fence">▤</button>
         <button class="icon-button" data-cmd="meta">&amp;</button>
         <button class="icon-button" data-cmd="image">▣</button>
+        <span class="tb-sep"></span>
+        <button class="icon-button" data-cmd="preview" title="${state.lang === 'zh-CN' ? '实时预览分屏（§B.3）' : 'Split preview'}">◐</button>
       </div>
       <div class="editor-host" id="editor-host"></div>
     </div>`;
@@ -1888,14 +1905,22 @@ async function enterEdit(ctx) {
   const drawerD = debounce(() => renderMetaDrawer(ctx), 300);       // 抽屉重扫（§B.2 文档改动 300ms）
   ctx.editor = window.SoliterraEditor.create(document.getElementById('editor-host'), {
     doc: text,
-    onChange: (t) => { scheduleAutoSave(ctx); drawerD(t); },
+    onChange: (t) => {
+      scheduleAutoSave(ctx); drawerD(t);
+      if (document.querySelector('.editor-shell.split')) ctx.__previewDeb?.(t);   // §B.3.4 分屏开着才请求
+    },
+    onMetaLine: (k) => {                                          // §B.3.2 点 & 行 → 与抽屉同源的键编辑卡
+      let meta; try { meta = parseMetaFromDoc(ctx.editor?.getValue() || ''); } catch { return; }
+      const cur2 = meta.get(k)?.value || '';
+      openMetaEditor(ctx, k, cur2).then((v) => { if (v !== null) saveMetaFromEditor(ctx, k, v.trim()); });
+    },
     getEntries: () => flattenTree(ctx.tree),   // [[ 触发双链补全
     lang: state.lang,                                              // §B.4 菜单文案语言
     uploadAsset: (file) => uploadAsset(ctx, file),                             // 粘贴/拖入上传（§B.5）
     resolveAsset: (src) => (/^(https?:)?\/\//.test(src) || src.startsWith('/') ? src : `/w/${enc(ctx.worldId)}/${enc(src)}`),
   });
   const host = document.getElementById('editor-host');
-  new ResizeObserver(() => { /* CM6 自适应 */ }).observe(host);
+  new ResizeObserver(() => ctx.editor?.requestMeasure?.()).observe(host);   // 分屏宽度变化 → CM 重排
 
   // 工具栏接线
   document.getElementById('editor-toolbar').addEventListener('click', async (e) => {
@@ -1915,6 +1940,10 @@ async function enterEdit(ctx) {
     } else if (cmd === 'image') {
       const picked = await openAssetPicker(ctx);   // §B.5 assets 选择纸面（缩略图网格 + 上传）
       if (picked) ed.image(picked.path, picked.alt);
+    } else if (cmd === 'preview') {
+      toggleEditorPreview(ctx);                    // §B.3.4 实时预览分屏
+      updateEditorCount(ctx);
+      return;
     } else if (typeof ed[cmd] === 'function') {
       ed[cmd]();
     }
@@ -1922,6 +1951,35 @@ async function enterEdit(ctx) {
   });
   setEditFab(ctx, true);
   renderMetaDrawer(ctx);       // 抽屉初始渲染（§B.2）
+}
+
+/** §B.3.4 实时预览分屏：工具栏 ◐ toggle → grid 两栏；输入 400ms 防抖 → POST /render（只读）回填。 */
+function toggleEditorPreview(ctx) {
+  const shell = document.querySelector('.editor-shell');
+  if (!shell) return;
+  const on = !shell.classList.contains('split');
+  shell.classList.toggle('split', on);
+  shell.querySelector('[data-cmd="preview"]')?.classList.toggle('active', on);
+  if (!on) return;
+  let pane = shell.querySelector('#editor-preview');
+  if (!pane) {
+    pane = document.createElement('div');
+    pane.className = 'editor-preview';
+    pane.id = 'editor-preview';
+    shell.appendChild(pane);
+    ctx.__previewDeb = debounce(() => renderPreviewNow(ctx), 400);
+  }
+  renderPreviewNow(ctx);
+  ctx.editor?.requestMeasure?.();
+}
+
+async function renderPreviewNow(ctx) {
+  const pane = document.getElementById('editor-preview');
+  if (!pane || !pane.isConnected || !document.querySelector('.editor-shell.split')) return;
+  try {
+    const r = await api(`/api/w/${enc(ctx.worldId)}/render`, { method: 'POST', body: { text: ctx.editor?.getValue() || '' } });
+    pane.innerHTML = `${r.topMetaHTML || ''}<div class="entry-title-row"><h1 class="entry-title">${esc(r.title || '')}</h1>${r.rangeHTML || ''}</div><div class="entry-body">${r.html}</div>`;
+  } catch (e) { pane.innerHTML = `<div class="empty-state">${esc(String(e.message))}</div>`; }
 }
 
 /** 右下编辑 fab：阅读态 = 铅笔细线图标；编辑态 = 保存图标（「保存并退出」）。 */
@@ -1959,13 +2017,14 @@ function scheduleAutoSave(ctx) {
 /** 防抖自动保存（不提交，静默）——保存后立即刷新时间轴（改 &s/&e 即刻上轴、范围随之更新）。 */
 async function autoSave(ctx) {
   if (!ctx.editing || !ctx.editor) return;
-  const ok = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: ctx.editor.getValue() } }).then(() => true).catch(() => false);
+  const ok = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.editorPath || ctx.currentPath, text: ctx.editor.getValue() } }).then(() => true).catch(() => false);
   if (ok) await refreshTimeline(ctx);
 }
 
 async function saveEdit(ctx) {
   if (!ctx.editor) return;
-  await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: ctx.editor.getValue() } });
+  // path 取编辑器归属（第 85 轮保险）：即便状态漂移，内容也只写回它所属条目，永不串写
+  await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.editorPath || ctx.currentPath, text: ctx.editor.getValue() } });
 }
 
 async function exitEdit(ctx) {
@@ -1974,6 +2033,7 @@ async function exitEdit(ctx) {
   await refreshTimeline(ctx);   // 编辑期改动（含 & 行）立即反映到时间轴与范围
   ctx.editing = false;
   if (ctx.editor) { try { ctx.editor.destroy(); } catch {} ctx.editor = null; }
+  ctx.editorPath = null;
   setEditFab(ctx, false);
   await openEntry(ctx, ctx.currentPath, ctx.chrono);
 }

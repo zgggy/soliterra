@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import { Vault } from './lib/vault.js';
 import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
+import { parseEntry } from './lib/parser.js';
 import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard } from './lib/tools.js';
 import { buildSite } from './lib/publish.js';
 
@@ -206,6 +207,17 @@ app.post('/api/w/:id/publish', (req, reply) => {
     const { visibility, lang } = req.body || {};
     return buildSite(vault.worldDir(req.params.id), { visibility, lang: lang || 'zh-CN' });
   } catch (e) { reply.code(500).send({ error: e.message }); }
+});
+
+// §B.3.4 实时预览：只读渲染（不写盘、不索引）——输入原文 → 与阅读态同管线 HTML
+app.post('/api/w/:id/render', (req, reply) => {
+  try {
+    const { text } = req.body || {};
+    if (typeof text !== 'string') return reply.code(400).send({ error: 'text required' });
+    const e = parseEntry('preview.md', text);
+    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, 'zh-CN');
+    return { html, topMetaHTML, rangeHTML, title: e.title };
+  } catch (err) { reply.code(400).send({ error: err.message }); }
 });
 
 app.get('/api/w/:id/settings', (req) => vault.getSettings(req.params.id));
