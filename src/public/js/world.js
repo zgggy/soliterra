@@ -296,6 +296,24 @@ async function addBook(ctx) {
   } catch (e) { showToast(String(e.message), 'error'); }
 }
 
+/** 新建条目（第 81 轮：目录面板 ＋ 的语义 = **在当前书内加条目**；「新建书」归书籍面板 ＋）。 */
+async function addEntry(ctx) {
+  const name = await askText(state.lang === 'zh-CN' ? '新条目名' : 'Entry name');
+  if (!name || !name.trim()) return;
+  try {
+    const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
+    const book = ctx.tree.children.find((c) => c.name === top)
+      || ctx.tree.children.find((c) => c.name === ctx.worldId)
+      || null;
+    const dir = book?.dir || '';   // 书目录（根级散文件书 → ''，落在世界根）
+    const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir, name: name.trim(), pair: false } });
+    await refreshTree(ctx);
+    refreshGitStatus(ctx);
+    showToast(state.lang === 'zh-CN' ? `已新建：${name.trim()}` : `Created: ${name.trim()}`, 'success');
+    if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
+  } catch (e) { showToast(String(e.message), 'error'); }
+}
+
 function renderLeftPanel(ctx, name) {
   const host = document.getElementById('panel-left');
   const resize = (cssVar, storeKey) =>
@@ -304,12 +322,12 @@ function renderLeftPanel(ctx, name) {
     host.innerHTML = `
       ${resize()}
       <div class="panel-head"><span class="eyebrow">${t('tree.title')}</span>
-        <button class="panel-head-btn" id="toc-add-book" title="${state.lang === 'zh-CN' ? '加一本书' : 'New book'}">＋</button>
+        <button class="panel-head-btn" id="toc-add-entry" title="${state.lang === 'zh-CN' ? '新条目（加在当前书内）' : 'New entry'}">＋</button>
       </div>
       <div class="panel-scroll"><div class="toc-body" id="toc-body"></div></div>`;
     renderToc(ctx);
     bindPanelResize(ctx, 'left', '--toc-w', 'soliterra.tocW');
-    document.getElementById('toc-add-book')?.addEventListener('click', () => addBook(ctx));
+    document.getElementById('toc-add-entry')?.addEventListener('click', () => addEntry(ctx));
   } else if (name === 'world') {
     host.innerHTML = `<div class="panel-scroll" id="wp-embed"></div>`;
     renderWorldPanel(ctx);
@@ -753,7 +771,9 @@ function renderBooksPanel(ctx) {
           ? `<img src="/w/${enc(ctx.worldId)}/${enc(b.cover)}" alt="" data-glyph="${esc((b.title || b.name).slice(0, 1))}" data-glyph-class="book-card-glyph">`
           : `<span class="book-card-glyph">${esc((b.title || b.name).slice(0, 1))}</span>`}</div>
         <div class="book-card-title">${esc(b.title || b.name)}</div>
-        <div class="book-card-tags eyebrow">${esc((b.tags || []).slice(0, 2).join(' · ')) || '—'}</div>
+        <div class="book-card-tags eyebrow"${b.md ? '' : ` title="${state.lang === 'zh-CN' ? '此节点还没有同名条目——右键「补建同名条目」即成为正式书籍（可设标签/封面）' : 'No paired entry yet'}"`}>${b.md
+          ? (esc((b.tags || []).slice(0, 2).join(' · ')) || '—')
+          : (state.lang === 'zh-CN' ? '未成书 · 右键补建' : 'No entry · right-click')}</div>
       </button>`).join('');
     grid.querySelectorAll('.book-card').forEach((card) => {
       attachTilt(card);
