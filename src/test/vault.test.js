@@ -470,3 +470,26 @@ test('collectMarkdown：.md.arc 书整棵隐藏 + books/archives 整目录隐藏
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test('新建世界自动 git init 且分支为 main；已是仓库（其它分支）不动（第 90 轮补充）', () => {
+  const { root, v } = mkBare();
+  const folder = join(root, '主分支世界');
+  const other = join(root, '老分支');
+  try {
+    mkdirSync(folder, { recursive: true });
+    v.adoptFolder({ dir: folder });
+    assert.equal(execFileSync('git', ['symbolic-ref', '--short', 'HEAD'], { cwd: folder }).toString().trim(), 'main', '新世界 = main 分支');
+    assert.equal(execFileSync('git', ['log', '-1', '--format=%s'], { cwd: folder }).toString().trim(), 'init: 创建世界 主分支世界');
+    v.close('主分支世界');
+    // 已是仓库：分支与提交历史一切不动
+    mkdirSync(other, { recursive: true });
+    execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: other });
+    writeFileSync(join(other, 'x.md'), '# x\n', 'utf8');
+    v.adoptFolder({ dir: other });
+    assert.equal(execFileSync('git', ['symbolic-ref', '--short', 'HEAD'], { cwd: other }).toString().trim(), 'master', '已有仓库不改分支');
+    assert.throws(() => execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: other }), '不自动提交');
+    v.close('老分支');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

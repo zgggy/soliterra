@@ -196,6 +196,24 @@ export class Vault {
     return out.sort((a, b) => b.mtime - a.mtime);
   }
 
+  /** 世界仓库初始化（create / adopt / 导入共用）：非仓库目录 → `git init` + **main 分支** + 唯一自动提交。
+   *  已是仓库 → 一切不动（返回 false）。git 不可用 → 静默（世界仍可读写）。 */
+  _gitInitCommit(dir, message) {
+    if (fs.existsSync(path.join(dir, '.git'))) return false;
+    try {
+      try {
+        execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });            // git ≥ 2.28
+      } catch {
+        execFileSync('git', ['init', '-q'], { cwd: dir });                          // 老 git：未出生分支先指向 main
+        execFileSync('git', ['symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: dir });
+      }
+      execFileSync('git', ['add', '-A'], { cwd: dir });
+      execFileSync('git', ['-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
+        'commit', '-q', '-m', message], { cwd: dir });
+      return true;
+    } catch { return false; }
+  }
+
   /** 世界文件夹初始化（create / adopt 共用，第 88 轮）：
    *  assets/ 确保存在；根条目 = README.md（介绍与 & 元数据；**已存在则只前置缺失的 & 行，绝不改正文**）；
    *  时间线事件 → `时间线/NN-标题.md`；`.gitignore` 补 `.soliterra/`；非 git 仓库 → init + 唯一自动提交。 */
@@ -242,15 +260,8 @@ export class Vault {
       const t = fs.readFileSync(gi, 'utf8');
       if (!/^\.soliterra\/?\s*$/m.test(t)) fs.writeFileSync(gi, `${t.replace(/\n?$/, '\n')}.soliterra/\n`, 'utf8');
     }
-    // git：仅当目录还不是仓库时 init + 唯一自动提交（已是仓库 → 一切不动，由用户手动提交）
-    if (!fs.existsSync(path.join(dir, '.git'))) {
-      try {
-        execFileSync('git', ['init', '-q'], { cwd: dir });
-        execFileSync('git', ['add', '-A'], { cwd: dir });
-        execFileSync('git', ['-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
-          'commit', '-q', '-m', `init: 创建世界 ${name}`], { cwd: dir });
-      } catch { /* git 不可用时静默（世界仍可读写） */ }
-    }
+    // git：仅当目录还不是仓库时 init（**main 分支**）+ 唯一自动提交（已是仓库 → 一切不动，由用户手动提交）
+    this._gitInitCommit(dir, `init: 创建世界 ${name}`);
   }
 
   /** 创建世界（库里新建文件夹）：目录 + README.md 根条目 + assets + .gitignore + git init。 */
@@ -741,14 +752,9 @@ export class Vault {
       fs.writeFileSync(target, out, 'utf8');
       count++;
     }
-    // 5) git init（同 create）
+    // 5) git init（同 create：main 分支）
     fs.writeFileSync(path.join(dest, '.gitignore'), '.soliterra/\n', 'utf8');
-    try {
-      execFileSync('git', ['init', '-q'], { cwd: dest });
-      execFileSync('git', ['add', '-A'], { cwd: dest });
-      execFileSync('git', ['-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
-        'commit', '-q', '-m', `init: 从 Obsidian 导入 ${name}（${count} 条目，${imgCount} 图片）`], { cwd: dest });
-    } catch { /* git 不可用时静默 */ }
+    this._gitInitCommit(dest, `init: 从 Obsidian 导入 ${name}（${count} 条目，${imgCount} 图片）`);
     return { name, entries: count, images: imgCount };
   }
 
