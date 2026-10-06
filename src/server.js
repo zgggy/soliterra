@@ -48,37 +48,43 @@ const MIME = {
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
   '.webp': 'image/webp', '.gif': 'image/gif', '.woff2': 'font/woff2', '.ico': 'image/x-icon',
 };
-function serveStatic(reply, abs) {
-  if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) { reply.code(404).send('not found'); return; }
-  reply.header('content-type', MIME[path.extname(abs).toLowerCase()] || 'application/octet-stream');
-  reply.header('cache-control', 'no-cache');   // 本地开发：总是重新验证
-  reply.send(fs.readFileSync(abs));
+/** 第 105 轮：全异步静态服务——原 readFileSync 在图片密集世界会阻塞事件循环
+ *  （含正在打字的自动保存）；stat/read 都走 promises，Fastify 对 async handler 的 reply.send 无时序问题。 */
+async function serveStatic(reply, abs) {
+  try {
+    const st = await fs.promises.stat(abs);
+    if (!st.isFile()) { reply.code(404).send('not found'); return; }
+    reply.header('content-type', MIME[path.extname(abs).toLowerCase()] || 'application/octet-stream');
+    reply.header('cache-control', 'no-cache');   // 本地开发：总是重新验证
+    const buf = await fs.promises.readFile(abs);
+    reply.send(buf);
+  } catch { reply.code(404).send('not found'); }
 }
 
-app.get('/', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'index.html')));
-app.get('/css/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'css', req.params['*'])));
-app.get('/js/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'js', req.params['*'])));
-app.get('/locales/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'locales', req.params['*'])));
+app.get('/', async (req, reply) => { await serveStatic(reply, path.join(__dirname, 'public', 'index.html')); });
+app.get('/css/*', async (req, reply) => { await serveStatic(reply, path.join(__dirname, 'public', 'css', req.params['*'])); });
+app.get('/js/*', async (req, reply) => { await serveStatic(reply, path.join(__dirname, 'public', 'js', req.params['*'])); });
+app.get('/locales/*', async (req, reply) => { await serveStatic(reply, path.join(__dirname, 'locales', req.params['*'])); });
 // 共享纯函数模块（shared/：symbols/date——前后端同源单点真相；第 95 轮）
-app.get('/shared/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'shared', req.params['*'])));
+app.get('/shared/*', async (req, reply) => { await serveStatic(reply, path.join(__dirname, 'shared', req.params['*'])); });
 
 // 世界的 assets（封面、图片）
-app.get('/w/:id/assets/*', (req, reply) => {
+app.get('/w/:id/assets/*', async (req, reply) => {
   try {
     const abs = path.join(vault.worldDir(req.params.id), 'assets', req.params['*']);
-    serveStatic(reply, abs);
+    await serveStatic(reply, abs);
   } catch { reply.code(404).send('not found'); }
 });
 
 // 世界文件兜底：接受整段编码路径（assets%2F... 形式，前端 enc() 全编码）；防目录穿越、屏蔽点文件
-app.get('/w/:id/*', (req, reply) => {
+app.get('/w/:id/*', async (req, reply) => {
   try {
     const rel = String(req.params['*'] || '');
     if (!rel || rel.split('/').some((s) => s.startsWith('.'))) { reply.code(404).send('not found'); return; }
     const dir = vault.worldDir(req.params.id);
     const abs = path.resolve(dir, rel);
     if (!abs.startsWith(path.resolve(dir) + path.sep)) { reply.code(404).send('not found'); return; }
-    serveStatic(reply, abs);
+    await serveStatic(reply, abs);
   } catch { reply.code(404).send('not found'); }
 });
 
@@ -170,10 +176,11 @@ app.post('/api/pick/file', async (req, reply) => {
     try {
       const st = fs.statSync(p);
       out.size = st.size;
-      // 预览：≤8MB 直接内联 dataUrl（向导缩略图；大图只回路径）
+      // 预览：≤8MB 直接内联 dataUrl（向导缩略图；大图只回路径）——第 105 轮异步读（原同步阻塞）
       if (st.size <= 8 * 1024 * 1024) {
         const mime = PICK_MIME[path.extname(p).toLowerCase()] || 'application/octet-stream';
-        out.dataUrl = `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+        const buf = await fs.promises.readFile(p);
+        out.dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
       }
     } catch { /* 预览失败不影响返回路径 */ }
     return out;

@@ -104,8 +104,20 @@ export class WorldIndex {
       CREATE TABLE IF NOT EXISTS rels (src TEXT, dst TEXT, type TEXT);
       CREATE INDEX IF NOT EXISTS links_src ON links(src);
       CREATE INDEX IF NOT EXISTS links_dst ON links(dst);
-      CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(path UNINDEXED, title, body);
+      CREATE VIRTUAL TABLE IF NOT EXISTS fts USING fts5(path UNINDEXED, title, body, tokenize='trigram');
     `);
+    // 第 105 轮：trigram 升级——旧 fts（unicode61）**直接重建不写兼容**（index.db 本是可重建缓存，
+    // 旧库不管）：换表 → 从 entries 全量重灌（一次成本，之后启动检测跳过）。
+    const ftsSql = this.db.prepare(`SELECT sql FROM sqlite_master WHERE name='fts'`).get()?.sql || '';
+    if (!/trigram/.test(ftsSql)) {
+      this.db.exec('DROP TABLE IF EXISTS fts');
+      this.db.exec(`CREATE VIRTUAL TABLE fts USING fts5(path UNINDEXED, title, body, tokenize='trigram')`);
+      const ins = this.db.prepare('INSERT INTO fts (path,title,body) VALUES (?,?,?)');
+      const tx = this.db.transaction(() => {
+        for (const r of this.db.prepare('SELECT path, title, body FROM entries').all()) ins.run(r.path, r.title, r.body);
+      });
+      tx();
+    }
     // 旧库迁移（第 76 轮：fuzzy 逐端列）：index.db 是派生缓存，补列后首次 rebuild 即补齐数据
     const cols = this.db.prepare('PRAGMA table_info(entries)').all().map((c) => c.name);
     if (!cols.includes('fuzzy_s')) this.db.exec('ALTER TABLE entries ADD COLUMN fuzzy_s INTEGER');
@@ -236,13 +248,16 @@ export class WorldIndex {
     };
   }
 
+  /** 第 105 轮：trigram 双通道——≥3 字 MATCH（rank 排序 + snippet 高亮，中文任意子串可 MATCH）；
+   *  <3 字（"北伐"等两字词）→ fts 表 LIKE（trigram 分词让 LIKE 走索引加速，plan: INDEX 0:L2）；
+   *  仅 fts 异常才落 entries 全表兜底。 */
   search(q, limit = 30) {
     const term = q?.trim();
     if (!term) return [];
-    // 1) FTS5：英文词 / 长查询（unicode61 分词）
-    let rows = [];
     const clean = term.replace(/["'*()^:]/g, ' ').trim();
-    if (clean) {
+    if (!clean) return [];
+    let rows = [];
+    if (clean.length >= 3) {
       try {
         rows = this.db.prepare(
           `SELECT f.path, f.title, snippet(fts, 2, '<mark>', '</mark>', '…', 12) AS snip
@@ -250,15 +265,20 @@ export class WorldIndex {
         ).all(clean, limit);
       } catch { rows = []; }
     }
-    // 2) LIKE 子串兜底：CJK 短词（"三力"）在 unicode61 下不成词，子串扫描
     if (rows.length === 0) {
-      const like = `%${term}%`;
-      rows = this.db.prepare(
-        `SELECT path, title, body FROM entries
-         WHERE title LIKE ? OR body LIKE ? LIMIT ?`
-      ).all(like, like, limit).map((r) => ({
-        path: r.path, title: r.title, snip: makeSnip(r.body || '', term),
-      }));
+      // <3 字 或 MATCH 无命中 → trigram 表 LIKE（子串；通配符转义 + ESCAPE）；
+      // entries 全表兜底**仅在 fts 查询抛异常**时执行——否则「正常无命中」会被未转义兜底误命中
+      const like = '%' + clean.replace(/[\\%_]/g, (c) => '\\' + c) + '%';
+      try {
+        rows = this.db.prepare(
+          `SELECT path, title, body FROM fts WHERE title LIKE ? ESCAPE '\\' OR body LIKE ? ESCAPE '\\' LIMIT ?`
+        ).all(like, like, limit).map((r) => ({ path: r.path, title: r.title, snip: makeSnip(r.body || '', clean) }));
+      } catch {
+        const like2 = `%${term}%`;
+        rows = this.db.prepare(
+          `SELECT path, title, body FROM entries WHERE title LIKE ? OR body LIKE ? LIMIT ?`
+        ).all(like2, like2, limit).map((r) => ({ path: r.path, title: r.title, snip: makeSnip(r.body || '', term) }));
+      }
     }
     return rows;
   }
