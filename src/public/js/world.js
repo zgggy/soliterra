@@ -1113,6 +1113,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     const COMPACT = chronoH < 84;                                            // 矮：只显示名字
     const maxLanes = Math.max(1, Math.floor((chronoH - 26 - FLAG_H) / (FLAG_H + 6)) + 1);   // 高：允许重叠卡片分道
     const GAP = 10;                                                            // 半箱让位最小间距
+    const GENESIS_PEEK = 10;                                                   // 创世组：紧凑叠排的露边宽（第 62 轮既定形态，不做半箱大级联）
+    const yieldStep = (it) => (it.genesis ? GENESIS_PEEK : it._w / 2 + GAP);   // 让位量：普通卡露左半；创世卡露 10px 边
     const MAX_SHIFT = (it) => 1.5 * it._w;                                     // 让位上限（极端密度护栏）
     const chain = flagItems.filter((it) => it.path !== ctx.currentPath);   // 打开中的卡片恒在最上，不参与堆叠位移
 
@@ -1192,20 +1194,14 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     for (const grp of laneArrange.values()) {
       for (let i = grp.length - 2; i >= 0; i--) {
         const cur = grp[i], nxt = grp[i + 1];
-        const need = nxt._left - cur._w / 2 - GAP;                     // 左半可见所需最右允许 left
+        const need = nxt._left - yieldStep(cur);                       // 普通卡露左半 / 创世卡露 10px 边
         if (cur._left > need) cur._left = Math.max(need, cur._trueX - MAX_SHIFT(cur));
       }
     }
 
-    // 创世组可见性（2026-10-06）：整组超出面板时贴边——锚点被取景/缩放/范围过窄推出左缘 → 贴左缘；
-    // 视窗落在范围之前（右推出）→ 贴右缘。保证创世条目在任何视野下都可见（锚点靠左时宁可压住轴首）。
+    // 创世组：**不钉在屏幕内**（2026-10-06 用户要求）——锚在「最早时间坐标左 8px」处、紧凑叠排向左铺开；
+    // 拖动/缩放时与其他卡片一样自然随之移动（可移出屏幕；出界指示「◀N」可一键带回）。
     const genItems = arrange.filter((it) => it.genesis);
-    if (genItems.length) {
-      let mn = Infinity, mx = -Infinity;
-      for (const it of genItems) { mn = Math.min(mn, it._left); mx = Math.max(mx, it._left + it._w); }
-      if (mn < 6) for (const it of genItems) it._left += 6 - mn;
-      else if (mx > width - 6) for (const it of genItems) it._left += (width - 6) - mx;
-    }
     // ── 打开中的卡片参与碰撞（2026-10-06 用户要求）：它恒在最上（z=80），但与其他卡片互不遮挡。
     //    A) O 是创世 → 创世组（含 O，O 视作组内最上）重排 + 整组归一
     //    B) O 非创世且盖到创世卡左半 → **O 右移越过**（创世恒可见优先，改由打开卡让位）
@@ -1218,15 +1214,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       const oTop = (chronoH - 28) - 6 - oH;
       if (openIt.genesis && genItems.length > 1) {
         const g2 = [...genItems.filter((x) => x !== openIt), openIt];
-        for (let i = g2.length - 2; i >= 0; i--) {         // 组内链式让位（O 最后的"后卡"）
+        for (let i = g2.length - 2; i >= 0; i--) {         // 组内链式叠排（O 最后的"后卡"；紧凑露边，不钉屏）
           const cur2 = g2[i], nxt2 = g2[i + 1];
-          const need = nxt2._left - cur2._w / 2 - GAP;
+          const need = nxt2._left - yieldStep(cur2);
           if (cur2._left > need) cur2._left = Math.max(need, cur2._trueX - MAX_SHIFT(cur2));
         }
-        let mn = Infinity, mx = -Infinity;
-        for (const g of genItems) { mn = Math.min(mn, g._left); mx = Math.max(mx, g._left + g._w); }
-        const shift = mn < 6 ? 6 - mn : (mx > width - 6 ? (width - 6) - mx : 0);
-        if (shift) for (const g of genItems) g._left += shift;
       } else if (genItems.length && !openIt.genesis) {
         for (let it2 = 0; it2 < 4; it2++) {                 // O 右移越过被压的创世卡（循环至稳定）
           let need = openIt._left;
@@ -1250,15 +1242,15 @@ function initTimeline(ctx, wrap, canvas, ticks) {
         }
       }
     }
-    // 创世向左渐隐箭头：跟组左缘（贴边时压在卡下探出一点）；取首道卡行中心
+    // 创世向左渐隐箭头：跟组左缘；组左缘已出屏（或整组出屏）时隐藏——箭头只标"组的左端在哪"
     if (genItems.length) {
       let mnT = Infinity, minTop = Infinity;
       for (const it of genItems) { mnT = Math.min(mnT, it._left); minTop = Math.min(minTop, typeof it._top === 'number' ? it._top : 10); }
-      genesisTail.hidden = false;
-      genesisTail.style.left = Math.max(2, mnT - 26) + 'px';
+      genesisTail.hidden = !(mnT > 6);
+      genesisTail.style.left = (mnT - 26) + 'px';
       genesisTail.style.top = (minTop + FLAG_H / 2 - 6) + 'px';
     } else genesisTail.hidden = true;
-    // 出界指示：完全在视口外的卡片数（按放置位置；簇计入、创世贴边恒在内）
+    // 出界指示：完全在视口外的卡片数（按放置位置；簇计入）
     let offL = 0, offR = 0, nearL = null, nearR = null;
     for (const it of arrange) {
       if (it._left + it._w < 2) { offL++; if (!nearL || it._trueX > nearL._trueX) nearL = it; }

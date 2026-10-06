@@ -429,7 +429,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 **`edge-hint`（出界指示，第 66 轮）** — bar 左右缘 10px 处的「◀ N / N ▶」chip：1px `{colors.line}` 框 + surface 底 + 0 圆角 + 0.6rem mono 数字 + 8px 线条 chevron（stroke 1.6）；hover 仅边框/字色加深；z=95（高于卡片 90）；N = 完全在视口外一侧的卡片数；点击平滑取景（最近出界卡落到 1/4 屏或 3/4 屏）；N=0 隐藏。
 
-**`genesis-tail`（创世向左渐隐箭头，第 66 轮）** — 创世组左缘 −26px 处的 8px 线条 chevron（`{colors.text-muted}`、opacity .55）+ 20px hairline（`{colors.line-strong}`，向左 mask 渐隐）；z=5（压在卡片之下，贴边时自然从卡后探出）；`pointer-events: none`。
+**`genesis-tail`（创世向左渐隐箭头，第 66 轮）** — 创世组左缘 −26px 处的 8px 线条 chevron（`{colors.text-muted}`、opacity .55）+ 20px hairline（`{colors.line-strong}`，向左 mask 渐隐）；z=5（压在卡片之下）；**仅组左缘在屏内（>6px）时显示**（第 68 轮：创世排不再钉屏内、可自然拖出屏幕，左缘出屏则无箭头可指）；`pointer-events: none`。
 
 **`era-band`** — 时代色带，`{colors.bg}` / `{colors.bg-soft}` 交替段 + `{typography.eyebrow}` 时代名，点击跳转时代。
 
