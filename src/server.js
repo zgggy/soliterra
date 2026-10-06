@@ -11,7 +11,7 @@ import Fastify from 'fastify';
 import { Vault } from './lib/vault.js';
 import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
 import { parseEntry } from './lib/parser.js';
-import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard, scanStructure, applyStructure } from './lib/tools.js';
+import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard, scanStructure, applyStructure, scanSymbols } from './lib/tools.js';
 import { buildSite } from './lib/publish.js';
 import { pickFolder, pickImage } from './lib/picker.js';
 
@@ -59,6 +59,8 @@ app.get('/', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', '
 app.get('/css/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'css', req.params['*'])));
 app.get('/js/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'public', 'js', req.params['*'])));
 app.get('/locales/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'locales', req.params['*'])));
+// 共享纯函数模块（shared/：symbols/date——前后端同源单点真相；第 95 轮）
+app.get('/shared/*', (req, reply) => serveStatic(reply, path.join(__dirname, 'shared', req.params['*'])));
 
 // 世界的 assets（封面、图片）
 app.get('/w/:id/assets/*', (req, reply) => {
@@ -136,10 +138,10 @@ app.post('/api/worlds/reveal', (req, reply) => {
 });
 
 // Obsidian 导入（§15.6）
-app.post('/api/worlds/import', (req, reply) => {
+app.post('/api/worlds/import', async (req, reply) => {
   try {
     const { path: src, name } = req.body || {};
-    return vault.importObsidian({ src, name: (name || '').trim() });
+    return await vault.importObsidian({ src, name: (name || '').trim() });
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
@@ -183,17 +185,26 @@ app.post('/api/worlds/inspect', (req, reply) => {
   try { return vault.inspectFolder(req.body?.dir); }
   catch (e) { reply.code(400).send({ error: e.message }); }
 });
-app.post('/api/worlds/adopt', (req, reply) => {
+app.post('/api/worlds/adopt', async (req, reply) => {
   try {
     const { dir, intro, coverPath, calendar, timeline } = req.body || {};
-    return vault.adoptFolder({ dir, intro, coverPath, calendar, timeline });
+    return await vault.adoptFolder({ dir, intro, coverPath, calendar, timeline });
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
-app.post('/api/worlds', (req, reply) => {
+// 封面设置（第 92 轮）：世界 = README.md 的 &m；书/条目 = 各自 md 的 &m——图形化详情面板与元数据抽屉共用。
+// writeMeta=false → 只收图进 assets/covers/（编辑态由编辑器文本写 &m，防 mtime 互踩）。
+app.post('/api/w/:id/cover', async (req, reply) => {
+  try {
+    const { path: rel, image, writeMeta } = req.body || {};
+    return vault.setCover(req.params.id, String(rel || ''), String(image || ''), { writeMeta: writeMeta !== false });
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+app.post('/api/worlds', async (req, reply) => {
   try {
     const { name, subtitle, timeline, cover, calendar } = req.body || {};
-    return vault.create({ name: (name || '').trim(), subtitle, timeline, cover, calendar });
+    return await vault.create({ name: (name || '').trim(), subtitle, timeline, cover, calendar });
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
@@ -224,21 +235,39 @@ app.get('/api/w/:id/entry', (req, reply) => {
       return renderFragment(text);
     };
     const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, req.query.lang || "zh-CN", resolver);
-    return { ...e, raw, html, topMetaHTML, rangeHTML };
+    return { ...e, raw, html, topMetaHTML, rangeHTML, mtime: vault.entryMtime(req.params.id, rel) };
   } catch (err) { reply.code(400).send({ error: err.message }); }
 });
 
 app.get('/api/w/:id/raw', (req, reply) => {
-  try { return { text: vault.readEntryRaw(req.params.id, req.query.path) }; }
+  try {
+    return { text: vault.readEntryRaw(req.params.id, req.query.path), mtime: vault.entryMtime(req.params.id, req.query.path) };
+  }
   catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
+// 第 92 轮：mtime 乐观锁——baseMtime 与磁盘不一致且未 force → 409（前端弹覆盖确认，绝不静默覆盖外部修改）
 app.post('/api/w/:id/save', (req, reply) => {
   try {
-    const { path: rel, text } = req.body || {};
-    vault.saveEntry(req.params.id, rel, text);
-    return { ok: true };
-  } catch (e) { reply.code(400).send({ error: e.message }); }
+    const { path: rel, text, baseMtime, force } = req.body || {};
+    return vault.saveEntry(req.params.id, rel, text, { baseMtime: baseMtime ?? null, force: !!force });
+  } catch (e) {
+    if (e.status === 409) return reply.code(409).send({ error: e.message, serverMtime: e.serverMtime });
+    reply.code(400).send({ error: e.message });
+  }
+});
+
+// 文件监听推送（第 92 轮）：chokidar 事件 → SSE——外部改动（Obsidian/编辑器）前端即时可感知
+app.get('/api/w/:id/events', (req, reply) => {
+  const id = req.params.id;
+  try { vault.index(id); } catch { /* 世界不存在 → 仍可挂流，事件不会来 */ }
+  reply.raw.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' });
+  reply.raw.write(`data: ${JSON.stringify({ type: 'hello' })}\n\n`);
+  const off = vault.onFsChange(id, (data) => {
+    try { reply.raw.write(`data: ${JSON.stringify(data)}\n\n`); } catch { /* 连接已断 */ }
+  });
+  const hb = setInterval(() => { try { reply.raw.write(': hb\n\n'); } catch { /* 已断 */ } }, 25000);
+  req.raw.on('close', () => { off(); clearInterval(hb); try { reply.raw.end(); } catch { /* 已断 */ } });
 });
 
 // 树移动（拖动）：md 与同名目录成对联动；不自动提交（累计未提交）
@@ -259,6 +288,14 @@ app.post('/api/w/:id/fs/delete', (req, reply) => {
   try {
     const { path: rel } = req.body || {};
     return { ok: true, ...vault.deleteEntry(req.params.id, rel) };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+// 目录内自定义排序（第 91 轮）：按给定顺序整层重写 `&r`（1 起）；纯目录节点自动跳过
+app.post('/api/w/:id/fs/order', (req, reply) => {
+  try {
+    const { dir, order } = req.body || {};
+    return { ok: true, ...vault.setOrder(req.params.id, dir || '', order) };
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
@@ -336,18 +373,18 @@ app.post('/api/w/:id/readlater', (req) => {
   return vault.getReadlater(req.params.id);
 });
 
-app.get('/api/w/:id/dashboard', (req) => {
+app.get('/api/w/:id/dashboard', async (req) => {
   const d = vault.index(req.params.id).dashboard(vault.worldDir(req.params.id));
-  d.commitsWeek = vault.gitCommitsSince(req.params.id, 7);
+  d.commitsWeek = await vault.gitCommitsSince(req.params.id, 7);
   return d;
 });
-app.get('/api/w/:id/git', (req) => vault.gitInfo(req.params.id));
-app.get('/api/w/:id/git/status', (req) => vault.gitStatus(req.params.id));
-app.get('/api/w/:id/git/log', (req) => ({ commits: vault.gitLog(req.params.id) }));
-app.get('/api/w/:id/git/show', (req) => ({ files: vault.gitShow(req.params.id, req.query.rev) }));
-app.get('/api/w/:id/git/file', (req) => ({ text: vault.gitFile(req.params.id, req.query.rev, req.query.path) }));
-app.post('/api/w/:id/git/rollback', (req) => {
-  const r = vault.gitRollback(req.params.id, req.body?.rev);
+app.get('/api/w/:id/git', async (req) => vault.gitInfo(req.params.id));
+app.get('/api/w/:id/git/status', async (req) => vault.gitStatus(req.params.id));
+app.get('/api/w/:id/git/log', async (req) => ({ commits: await vault.gitLog(req.params.id) }));
+app.get('/api/w/:id/git/show', async (req) => ({ files: await vault.gitShow(req.params.id, req.query.rev) }));
+app.get('/api/w/:id/git/file', async (req) => ({ text: await vault.gitFile(req.params.id, req.query.rev, req.query.path) }));
+app.post('/api/w/:id/git/rollback', async (req, reply) => {
+  const r = await vault.gitRollback(req.params.id, req.body?.rev);
   if (!r.ok) return reply.code(400).send({ error: r.error });
   try { vault.index(req.params.id).rebuild?.(); } catch { /* 索引由监听器兜底 */ }
   return r;
@@ -380,6 +417,10 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
     try { return { items: scanOnboard(vault.worldDir(req.params.id)) }; }
     catch (e) { return reply.code(500).send({ error: e.message }); }
   }
+  if (tool === 'symbols') {
+    try { return { items: scanSymbols(vault.worldDir(req.params.id)) }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
   if (tool === 'structure') {
     try { return { items: scanStructure(vault.worldDir(req.params.id)).items }; }
     catch (e) { return reply.code(500).send({ error: e.message }); }
@@ -391,7 +432,7 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
 
 app.post('/api/w/:id/tools/apply', (req, reply) => {
   const { tool, items } = req.body || {};
-  const APPLY_TOOLS = ['date', 'brackets', 'dup', 'drift', 'images', 'regex', 'onboard', 'structure'];
+  const APPLY_TOOLS = ['date', 'brackets', 'symbols', 'dup', 'drift', 'images', 'regex', 'onboard', 'structure'];
   if (!APPLY_TOOLS.includes(tool) || !Array.isArray(items)) {
     return reply.code(400).send({ error: 'bad request' });
   }
@@ -409,7 +450,7 @@ app.post('/api/w/:id/tools/apply', (req, reply) => {
     return r;
   } catch (e) { reply.code(500).send({ error: e.message }); }
 });
-app.post('/api/w/:id/commit', (req) => vault.gitCommit(req.params.id, req.body?.message || 'edit'));
+app.post('/api/w/:id/commit', async (req) => vault.gitCommit(req.params.id, req.body?.message || 'edit'));
 
 app.get('/api/w/:id/resolve', (req, reply) => {
   const hit = vault.index(req.params.id).resolve(req.query.target);

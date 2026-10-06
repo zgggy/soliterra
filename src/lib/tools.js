@@ -5,10 +5,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { collectMarkdown } from './indexer.js';
 import { parseEntry, parseMetadataLine, parseDate, extractFences, KEYS } from './parser.js';
+import { containsSymbol, normalizeSymbols } from '../shared/symbols.js';
 
 // ---------- 规则 ----------
 
-/** 日期：705.9.10→0705.09.10；705/9/10、705-9-10 同理；705.9→0705.09.*.*；705年9月10日→0705.09.10 */
+/** 日期：705.9.10→0705.09.10；705/9/10、705-9-10 同理；705.9→0705.09.*（第 95 轮修：曾误补成四段 0705.09.*.*，parseDate/lint 三段不认）；705年9月10日→0705.09.10 */
 function normalizeDatesInLine(line) {
   let out = line;
   // 中文式：0705年09月10日 / 705年9月10日
@@ -37,11 +38,11 @@ function normalizeTimesInLine(line) {
 function normalizeMetaRange(line) {
   let out = line;
   out = out.replace(/&([se])\s+前(\d{1,4})(?=\s|&|$)/g, (_, k, y) => `&${k} -${padYear(y)}.*.*`);
-  // &s/&e 后的值若为「年.月」两段 → yyyy.mm.*.*
+  // &s/&e 后的值若为「年.月」两段 → yyyy.mm.*（三段；第 95 轮修：原 `.*.*` 是四段违规值）
   out = out.replace(/&([se])\s+(-?\d{1,4})\.(\d{1,2}|\*)(?=\s|&|$)/g,
     (_, k, y, m) => {
       const yy = y.startsWith('-') ? '-' + padYear(y.slice(1)) : padYear(y);
-      return `&${k} ${yy}.${m === '*' ? '*' : pad2(m)}.*.*`;
+      return `&${k} ${yy}.${m === '*' ? '*' : pad2(m)}.*`;
     });
   return out;
 }
@@ -132,6 +133,23 @@ export function scanDrift(worldDir, limit = 500) {
         return `[[${best}${rest}]]`;
       });
       if (hit) { out.push({ path: rel, line: i + 1, before: lines[i], after }); if (out.length >= limit) return out; }
+    }
+  }
+  return out;
+}
+
+// ---------- 符号规范化（第 93 轮）：全角 ASCII 标点 / 弯引号 → 半角 ----------
+// 表见 shared/symbols.js（单点真相）：[[别名｜]]、![]（...）、& 行值里的全角符号是常见误用；
+// 「」『』（）与中文句读保留（不入表，扫描不报）。
+export function scanSymbols(worldDir, limit = 500) {
+  const out = [];
+  for (const rel of collectMarkdown(worldDir)) {
+    let text; try { text = fs.readFileSync(path.join(worldDir, rel), 'utf8'); } catch { continue; }
+    const lines = text.split('\n');
+    for (let i = 0; i < lines.length; i++) {
+      if (!containsSymbol(lines[i])) continue;
+      const after = normalizeSymbols(lines[i]);
+      if (after !== lines[i]) { out.push({ path: rel, line: i + 1, before: lines[i], after }); if (out.length >= limit) return out; }
     }
   }
   return out;

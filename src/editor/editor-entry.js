@@ -13,6 +13,7 @@ import { syntaxHighlighting, HighlightStyle, syntaxTree } from '@codemirror/lang
 import { autocompletion, startCompletion, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { tags } from '@lezer/highlight';
 import { foldMarks } from './editor-marks.js';   // §B.3 行内标记折叠（纯函数，node 可测）
+import { containsSymbol, normalizeSymbols } from '../shared/symbols.js';   // 第 93 轮：符号规范化单点表
 
 // ---------- 主题（design.md token） ----------
 const theme = EditorView.theme({
@@ -118,7 +119,7 @@ function buildDecorations(view, resolveAsset) {
     const inCode = wasIn || isFenceLine;   // 围栏内 = 代码原文：不折叠、不染链、不当分割线/引用
     if (isFenceLine) inFence = !inFence;
 
-    // & 元数据行（行首 &）——整行样式化；点击由 mousedown → opts.onMetaLine 唤 B.2 键编辑卡
+    // & 元数据行（行首 &）——整行样式化（点击 = 光标就地直接编辑，第 98 轮）
     if (/^\s*&[a-z]/.test(text)) {
       lineDeco('cm-meta-line');
       continue;
@@ -216,14 +217,14 @@ function pasteDropUpload(opts) {
         upload(view, files);
         return true;
       }
-      // 粘贴净化（§B.4）：【【X】】 / 〔〔〕〕 / 〖〖〗〗 → [[X]]（仅当纯文本含这些符号时接管）
+      // 粘贴净化（§B.4 + 第 93 轮）：【【X】】等 → [[X]]，并整套过符号规范化（全角→半角；「」保留）
       const text = event.clipboardData?.getData('text/plain') || '';
       if (/【【|〔〔|〖〖/.test(text)) {
         event.preventDefault();
-        const clean = text
+        const clean = normalizeSymbols(text
           .replace(/【【(.+?)】】/g, '[[$1]]')
           .replace(/〔〔(.+?)〕〕/g, '[[$1]]')
-          .replace(/〖〖(.+?)〗〗/g, '[[$1]]');
+          .replace(/〖〖(.+?)〗〗/g, '[[$1]]'));
         view.dispatch(view.state.replaceSelection(clean));
         return true;
       }
@@ -296,18 +297,42 @@ function cjkBracketRules() {
   });
 }
 
-/** 键表（§B.2 解释文案；zh/en 按 opts.lang）——「词表是建议不是锁」。 */
+// ---------- 符号自动转英文（第 93 轮 §B.4 扩展） ----------
+// 与工具箱「符号规范化」同一张表（shared/symbols.js）：全角 ASCII 标点 / 弯引号 → 半角；
+// 「」『』（）与中文句读**保留**。作用于「刚键入/粘贴的插入」（与 cjkBracketRules 同守卫：
+// 程序化长插入如 setValue 不改写既有文档）；每次转换是一个事务，⌘Z 可撤。
+function symbolRules() {
+  return EditorState.transactionFilter.of((tr) => {
+    if (tr.changes.empty) return tr;
+    let count = 0, hit = false, fromA = -1, toA = -1, ins = '';
+    tr.changes.iterChanges((a, b, c, d, inserted) => {
+      const s = String(inserted);
+      fromA = a; toA = b; ins = s; count++;
+      if (containsSymbol(s)) hit = true;
+    });
+    if (!hit || !ins || count !== 1) return tr;                    // 多光标/多段改动不改写
+    const ue = tr.annotations.some((a) => typeof a.value === 'string' && a.value.startsWith('input.'));
+    if (!ue && ins.length > 4) return tr;                          // 程序化长插入不改写；粘贴（input.paste）放行
+    const clean = normalizeSymbols(ins);
+    if (clean === ins) return tr;
+    // 全表 1:1 字符映射 → 长度不变；光标落在转换后文本末尾（单光标惯例）
+    return { changes: { from: fromA, to: toA, insert: clean },
+      selection: { anchor: fromA + clean.length }, userEvent: 'input.type' };
+  });
+}
+
+/** 键表（§B.2 解释文案；zh/en 按 opts.lang）——「词表是建议不是锁」（第 93 轮：删除示例列，只留解释）。 */
 const META_DEFS = [
-  ['s', '起始时间', '时间轴定位起点；* 模糊段，公元前加 -', 'Start time (timeline anchor; * fuzzy, - for BCE)', '0705.09.04'],
-  ['e', '结束时间', '缺省 = 瞬时事件（轴上一个点）', 'End time; omit = instant event', '0705.09.30'],
-  ['n', '标题', '不写则用文件名', 'Title; defaults to filename', '血色婚礼'],
-  ['t', '标签', '空格分隔；书籍分类与图筛选', 'Tags (space separated)', '设定 世界本源'],
-  ['f', '事件分类', '时间轴旗标的分组维度', 'Flag group on the timeline', '灾变'],
-  ['a', '时代', '时间轴时代带：同代条目时间并集', 'Era band grouping', '黄金时代'],
-  ['p', '状态', '存储英文 token（UI 显示中文）', 'Status (stored as English token)', 'canon / draft / disputed / deprecated'],
-  ['v', '可见性', '读者视图分级（存中文值）', 'Visibility (reader-view gating)', '公众 / 秘传 / 作者'],
-  ['q', '可信度', '卡片徽章前置（存中文值）', 'Reliability badge', '可靠 / 存疑 / 已证伪 / 立场鲜明'],
-  ['m', '封面图', 'assets/ 相对路径', 'Cover image path', 'assets/covers/cover.png'],
+  ['s', '起始时间', '时间轴定位起点；* 模糊段，公元前加 -', 'Start time (timeline anchor; * fuzzy, - for BCE)'],
+  ['e', '结束时间', '缺省 = 瞬时事件（轴上一个点）', 'End time; omit = instant event'],
+  ['n', '标题', '不写则用文件名', 'Title; defaults to filename'],
+  ['t', '标签', '空格分隔；书籍分类与图筛选', 'Tags (space separated)'],
+  ['f', '事件分类', '时间轴旗标的分组维度', 'Flag group on the timeline'],
+  ['a', '时代', '时间轴时代带：同代条目时间并集', 'Era band grouping'],
+  ['p', '状态', '存储英文 token（UI 显示中文）', 'Status (stored as English token)'],
+  ['v', '可见性', '读者视图分级（存中文值）', 'Visibility (reader-view gating)'],
+  ['q', '可信度', '卡片徽章前置（存中文值）', 'Reliability badge'],
+  ['m', '封面图', 'assets/ 相对路径', 'Cover image path'],
 ];
 const CALLOUT_TYPES = [
   ['档案', '档案（平铺叙述，常规展示）', 'Archive (plain, always shown)'],
@@ -336,7 +361,7 @@ function metaMenu(source, lang) {
     const zh = lang !== 'en';
     return {
       from: before.from,
-      options: META_DEFS.map(([k, nzh, dzh, den, ex]) => ({
+      options: META_DEFS.map(([k, nzh, dzh, den]) => ({
         label: `&${k} ${zh ? nzh : dzh.split(' (')[0]}`,
         detail: zh ? dzh : den,
         type: 'property',
@@ -480,6 +505,7 @@ window.SoliterraEditor = {
           decoPlugin(opts.resolveAsset),
           ...(opts.uploadAsset ? [pasteDropUpload(opts)] : []),
           cjkBracketRules(),                                  // 【【 → [[|]]、】】 → ]]
+          symbolRules(),                                      // 第 93 轮：全角符号/弯引号 → 半角（「」保留）
           theme,
           keymap.of([
             { key: 'Mod-b', run: (v) => (wrapSelection(v, '**'), true) },
@@ -492,15 +518,7 @@ window.SoliterraEditor = {
         ],
       }),
     });
-    // §B.3.2：点 & 元数据行 → 唤 B.2 键编辑卡（与抽屉 chip 同源）；光标同时自然落行
-    if (opts.onMetaLine) {
-      view.dom.addEventListener('mousedown', (e) => {
-        const pos = view.posAtCoords({ x: e.clientX, y: e.clientY });
-        if (pos == null) return;
-        const m = /^\s*&([a-z])(?=\s|$)/.exec(view.state.doc.lineAt(pos).text);
-        if (m) opts.onMetaLine(m[1]);
-      });
-    }
+    // 第 98 轮：点 & 元数据行不再弹编辑卡——CM6 默认光标落点即「直接编辑」（结构化入口在抽屉/阅读态）
     return {
       getValue: () => view.state.doc.toString(),
       setValue: (t) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: t } }),

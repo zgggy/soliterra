@@ -205,11 +205,20 @@ export class WorldIndex {
         try {
           const mm = JSON.parse(r?.meta || '{}');
           node.cover = mm.m?.[0] || null;
-          const v = (mm.v && mm.v[0]) || '';
-
+          const ord = mm.r?.[0];
+          node.order = ord != null && ord !== '' && !Number.isNaN(Number(ord)) ? Number(ord) : null;   // &r 同层顺序（第 91 轮）
         } catch { node.cover = null; }
       }
       node.children.forEach(decorate);
+      // 第 91 轮：&r 自定义排序——带 &r 的子女按数值升序在前（同值按名称）；无 &r（含纯目录，
+      // 元数据无处写）按名称排在其后。未拖动过的目录全部无 &r → 与原名称序逐位一致。
+      node.children.sort((a, b) => {
+        const ra = a.order ?? null, rb = b.order ?? null;
+        if (ra != null && rb != null) return ra - rb || a.name.localeCompare(b.name, 'zh');
+        if (ra != null) return -1;
+        if (rb != null) return 1;
+        return a.name.localeCompare(b.name, 'zh');
+      });
     };
     decorate(tree);
     return tree;

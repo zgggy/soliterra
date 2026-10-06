@@ -1,7 +1,7 @@
 // 第 86 轮：深层 YAML frontmatter 兼容读取（§15.6）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntry, splitFrontmatter } from '../lib/parser.js';
+import { parseEntry, splitFrontmatter, KEYS } from '../lib/parser.js';
 
 test('splitFrontmatter：文件头块剥离 + 至少一行 key: 才认定', () => {
   const fm = '---\ntitle: 章名\ntags: [a, b]\nstatus: canon\nsub:\n  nested: v\n---\n# 正文\n';
@@ -35,4 +35,15 @@ test('parseEntry：三键映射（& 行优先）+ 正文不含 YAML', () => {
   const plain = parseEntry('b.md', '# 普通\n\n---\n\n分割线后。\n');
   assert.equal(plain.title, '普通');
   assert.ok(plain.body.includes('分割线后。'));
+});
+
+// 第 91 轮：&r 同层目录顺序键
+test('parseEntry：&r 顺序键解析 + KEYS 登记（lint 不报未知键）', () => {
+  const e = parseEntry('a.md', '&r 2\n&s 0700.01.01\n\n# 标题\n\n正文。\n');
+  assert.deepEqual(e.meta.r, ['2']);
+  assert.ok(KEYS.includes('r'), 'r 在键表中');
+  // 同行多键：&r 原位改值时不得吞掉同行的其他键（vault.setOrder 依赖此行形态）
+  const mixed = parseEntry('b.md', '&r 9 &t 设定\n\n# 标题\n');
+  assert.deepEqual(mixed.meta.r, ['9']);
+  assert.deepEqual(mixed.meta.t, ['设定']);
 });

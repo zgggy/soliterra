@@ -2,7 +2,7 @@
 // 规则来源：website/平台设计方案.md §二.5 / §五，website/功能设计.md §1 / §3.1。
 
 // 单字母键表（可扩展；未知键原样保留并可由 lint 提示）
-export const KEYS = ['s', 'e', 't', 'f', 'n', 'a', 'p', 'v', 'q', 'm'];
+export const KEYS = ['s', 'e', 't', 'f', 'n', 'a', 'p', 'v', 'q', 'm', 'r'];   // &r = 同层目录顺序（第 91 轮）
 
 // 匹配「& + 一个小写字母 + 空格或行尾」——正文里的 "A & B"、"Tom & Jerry" 不受影响
 const KEY_RE = /&([a-z])(?=\s|$)/g;

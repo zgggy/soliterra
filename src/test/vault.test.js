@@ -25,11 +25,11 @@ const mk = () => {
 
 const withWorld = async (fn) => {
   const { root, v, w } = mk();
-  try { await fn(v, w); }
+  try { await fn(v, w, root); }
   finally { v.close('测试世界'); rmSync(root, { recursive: true, force: true }); }
 };
 
-test('renameEntry：纯目录节点改名（子文件保留、配对 md 若有则联动、&n 同步）', () => withWorld((v, w) => {
+test('renameEntry：纯目录节点改名（子文件保留、配对 md 若有则联动、&n 同步）', () => withWorld(async (v, w) => {
   // ① 纯目录：黄金时代 → 白银时代
   const r1 = v.renameEntry('测试世界', '黄金时代', '白银时代');
   assert.equal(r1.path, '白银时代');
@@ -48,7 +48,7 @@ test('renameEntry：纯目录节点改名（子文件保留、配对 md 若有�
   assert.ok(idx.entry('银湾港/附记.md') && idx.entry('银湾港.md'), '配对书两侧都在索引');
 }));
 
-test('deleteEntry：纯目录节点整书入回收站（+ 配对 md 联动）', () => withWorld((v, w) => {
+test('deleteEntry：纯目录节点整书入回收站（+ 配对 md 联动）', () => withWorld(async (v, w) => {
   const res = v.deleteEntry('测试世界', '黄金时代');
   assert.match(res.trashed, /^\.soliterra\/trash-.*\/黄金时代$/);
   assert.ok(!existsSync(join(w, '黄金时代')), '目录已移走');
@@ -72,20 +72,20 @@ test('removePrefix：按目录前缀清索引（外部整目录删除的 watcher
   assert.ok(idx.entry('银湾/附记.md'), '前缀外条目不受影响');
 }));
 
-test('renameEntry 仍支持 md 路径（原行为不回退）', () => withWorld((v, w) => {
+test('renameEntry 仍支持 md 路径（原行为不回退）', () => withWorld(async (v, w) => {
   const r = v.renameEntry('测试世界', '银湾.md', '银湾湾');
   assert.equal(r.path, '银湾湾.md');
   assert.ok(existsSync(join(w, '银湾湾.md')) && existsSync(join(w, '银湾湾', '附记.md')));
 }));
 
-test('worldInfo/list 带 dir：世界真实存储位置（第 87 轮）', () => withWorld((v, w) => {
+test('worldInfo/list 带 dir：世界真实存储位置（第 87 轮）', () => withWorld(async (v, w) => {
   const info = v.worldInfo('测试世界');
   assert.equal(info.dir, realpathSync(w), 'worldInfo.dir = 世界目录绝对路径');
   const li = v.list();
   assert.equal(li.find((x) => x.id === '测试世界').dir, realpathSync(w), 'list 条目带 dir');
 }));
 
-test('符号链接世界：dir 显示真实目标（库外文件夹接入）', () => {
+test('符号链接世界：dir 显示真实目标（库外文件夹接入）', async () => {
   const root = mkdtempSync(join(tmpdir(), 'soliterra-vault-'));
   const ext = mkdtempSync(join(tmpdir(), 'soliterra-ext-'));
   const worldsDir = join(root, 'worlds');
@@ -115,14 +115,14 @@ const mkBare = () => {
   return { root, lib, v };
 };
 
-test('adopt：空文件夹（库外）→ README.md + assets/covers/ 封面 + .gitignore + git init + 链接登记', () => {
+test('adopt：空文件夹（库外）→ README.md + assets/covers/ 封面 + .gitignore + git init + 链接登记', async () => {
   const { root, lib, v } = mkBare();
   const folder = join(root, '我的新世界');
   const cover = join(root, 'cover.png');
   try {
     mkdirSync(folder);
     writeFileSync(cover, 'PNGDATA-1', 'utf8');
-    const info = v.adoptFolder({ dir: folder, intro: '一句话介绍', coverPath: cover });
+    const info = await v.adoptFolder({ dir: folder, intro: '一句话介绍', coverPath: cover });
     assert.equal(info.name, '我的新世界');
     assert.equal(info.rootRel, 'README.md');
     assert.equal(info.linked, true, '库外文件夹 → 链接登记');
@@ -147,12 +147,12 @@ test('adopt：空文件夹（库外）→ README.md + assets/covers/ 封面 + .g
   }
 });
 
-test('adopt：库内直接子文件夹 → 原地（无链接）', () => {
+test('adopt：库内直接子文件夹 → 原地（无链接）', async () => {
   const { root, lib, v } = mkBare();
   const folder = join(lib, '库内世界');
   try {
     mkdirSync(folder, { recursive: true });
-    const info = v.adoptFolder({ dir: folder, intro: '库内的' });
+    const info = await v.adoptFolder({ dir: folder, intro: '库内的' });
     assert.equal(info.id, '库内世界');
     assert.equal(info.linked, false, '直接子文件夹不建链接');
     assert.ok(!lstatSync(folder).isSymbolicLink());
@@ -163,7 +163,7 @@ test('adopt：库内直接子文件夹 → 原地（无链接）', () => {
   }
 });
 
-test('adopt：已有 README.md → 正文一字不动、只补 & 行、重复采纳幂等', () => {
+test('adopt：已有 README.md → 正文一字不动、只补 & 行、重复采纳幂等', async () => {
   const { root, v } = mkBare();
   const folder = join(root, '旧稿世界');
   try {
@@ -171,7 +171,7 @@ test('adopt：已有 README.md → 正文一字不动、只补 & 行、重复采
     writeFileSync(join(folder, 'README.md'), '# 我的旧说明\n\n正文第一段。\n', 'utf8');
     writeFileSync(join(folder, '.gitignore'), 'node_modules/\n', 'utf8');
     execFileSync('git', ['init', '-q'], { cwd: folder });
-    const info = v.adoptFolder({ dir: folder, intro: '（不应写入）', coverPath: '' });
+    const info = await v.adoptFolder({ dir: folder, intro: '（不应写入）', coverPath: '' });
     assert.equal(info.name, '旧稿世界', '&n = 文件夹名');
     const t1 = readFileSync(join(folder, 'README.md'), 'utf8');
     assert.ok(t1.startsWith('&n 旧稿世界\n'), '仅前置 &n');
@@ -181,7 +181,7 @@ test('adopt：已有 README.md → 正文一字不动、只补 & 行、重复采
     assert.equal(execFileSync('git', ['rev-list', '--count', '--all'], { cwd: folder }).toString().trim(), '0', '已有仓库 → 不自动提交');
     // 再次采纳：& 行不重复
     v.close('旧稿世界');
-    v.adoptFolder({ dir: folder });
+    await v.adoptFolder({ dir: folder });
     const t2 = readFileSync(join(folder, 'README.md'), 'utf8');
     assert.equal(t2.split('&n ').length, 2, '&n 只出现一次');
     assert.ok(t2.includes('正文第一段。'));
@@ -191,13 +191,13 @@ test('adopt：已有 README.md → 正文一字不动、只补 & 行、重复采
   }
 });
 
-test('adopt：封面——已在文件夹内不复制；重名不同内容自动加序号', () => {
+test('adopt：封面——已在文件夹内不复制；重名不同内容自动加序号', async () => {
   const { root, v } = mkBare();
   const folder = join(root, '封面世界');
   try {
     mkdirSync(join(folder, 'assets'), { recursive: true });
     writeFileSync(join(folder, 'pic.png'), 'INNER', 'utf8');
-    const info = v.adoptFolder({ dir: folder, coverPath: join(folder, 'pic.png') });
+    const info = await v.adoptFolder({ dir: folder, coverPath: join(folder, 'pic.png') });
     assert.ok(readFileSync(join(folder, 'README.md'), 'utf8').includes('&m pic.png'), '文件夹内图片 → 相对路径不复制');
     assert.ok(!existsSync(join(folder, 'assets', 'pic.png')));
     // 重名不同内容：已存在 assets/covers/cover.png（大小不同）→ 新增 cover-1.png
@@ -205,7 +205,7 @@ test('adopt：封面——已在文件夹内不复制；重名不同内容自动
     writeFileSync(join(folder, 'assets', 'covers', 'cover.png'), 'OLD-XXXX', 'utf8');
     const c2 = join(root, 'cover.png');
     writeFileSync(c2, 'NEW', 'utf8');
-    const info2 = v.adoptFolder({ dir: folder, coverPath: c2 });
+    const info2 = await v.adoptFolder({ dir: folder, coverPath: c2 });
     assert.ok(info2, 'ok');
     assert.ok(existsSync(join(folder, 'assets', 'covers', 'cover-1.png')), '重名自动加序号');
     assert.equal(readFileSync(join(folder, 'assets', 'covers', 'cover.png'), 'utf8'), 'OLD-XXXX', '原文件不动');
@@ -215,25 +215,25 @@ test('adopt：封面——已在文件夹内不复制；重名不同内容自动
   }
 });
 
-test('adopt 守卫：世界库本身 / 库的父级 / 同名冲突', () => {
+test('adopt 守卫：世界库本身 / 库的父级 / 同名冲突', async () => {
   const { root, lib, v } = mkBare();
   const other = join(root, '另一个'); 
   try {
     mkdirSync(other, { recursive: true });
     mkdirSync(join(lib, '重名'), { recursive: true });
-    assert.throws(() => v.adoptFolder({ dir: lib }), /世界库本身/);
-    assert.throws(() => v.adoptFolder({ dir: root }), /上级文件夹/);
-    assert.throws(() => v.adoptFolder({ dir: join(root, '不存在的') }), /文件夹不存在/);
+    await assert.rejects(() => v.adoptFolder({ dir: lib }), /世界库本身/);
+    await assert.rejects(() => v.adoptFolder({ dir: root }), /上级文件夹/);
+    await assert.rejects(() => v.adoptFolder({ dir: join(root, '不存在的') }), /文件夹不存在/);
     const dup = join(root, '重名');
     mkdirSync(dup, { recursive: true });
-    assert.throws(() => v.adoptFolder({ dir: dup }), /同名条目/);
+    await assert.rejects(() => v.adoptFolder({ dir: dup }), /同名条目/);
     assert.throws(() => v.inspectFolder(dup), /同名条目/, 'inspect 同样预判冲突');
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('inspect：文件夹信息（mdCount/hasReadme/insideLibrary）', () => {
+test('inspect：文件夹信息（mdCount/hasReadme/insideLibrary）', async () => {
   const { root, lib, v } = mkBare();
   const folder = join(root, '勘察');
   try {
@@ -254,12 +254,12 @@ test('inspect：文件夹信息（mdCount/hasReadme/insideLibrary）', () => {
   }
 });
 
-test('链接世界：renameWorld 连真实文件夹一起改名并重链；unmanageWorld 仅摘链（第 90 轮）', () => {
+test('链接世界：renameWorld 连真实文件夹一起改名并重链；unmanageWorld 仅摘链（第 90 轮）', async () => {
   const { root, lib, v } = mkBare();
   const folder = join(root, '原名');
   try {
     mkdirSync(folder, { recursive: true });
-    v.adoptFolder({ dir: folder, intro: 'x' });
+    await v.adoptFolder({ dir: folder, intro: 'x' });
     const info = v.renameWorld('原名', '新名');
     assert.equal(info.name, '新名');
     assert.ok(!existsSync(join(lib, '原名')), '旧链接已摘');
@@ -279,7 +279,7 @@ test('链接世界：renameWorld 连真实文件夹一起改名并重链；unman
   }
 });
 
-test('根条目兜底：世界名书迁入 books/ 后仍认（第 89 轮）', () => {
+test('根条目兜底：世界名书迁入 books/ 后仍认（第 89 轮）', async () => {
   const { root, lib } = mkBare();
   const w = join(lib, '卡纳利斯');
   try {
@@ -296,7 +296,7 @@ test('根条目兜底：世界名书迁入 books/ 后仍认（第 89 轮）', ()
   }
 });
 
-test('根条目优先级：README.md 优先于 <世界名>.md', () => {
+test('根条目优先级：README.md 优先于 <世界名>.md', async () => {
   const { root, lib } = mkBare();
   const w = join(lib, '双根');
   try {
@@ -313,12 +313,12 @@ test('根条目优先级：README.md 优先于 <世界名>.md', () => {
   }
 });
 
-test('结构规范（第 89 轮）：_initWorldFolder 建 books/ 容器 + 时间线 → books/时间线/ 成对书', () => {
+test('结构规范（第 89 轮）：_initWorldFolder 建 books/ 容器 + 时间线 → books/时间线/ 成对书', async () => {
   const { root, v } = mkBare();
   const folder = join(root, '时间线世界');
   try {
     mkdirSync(folder, { recursive: true });
-    const info = v.adoptFolder({ dir: folder, intro: 'x', timeline: '&s 0705.01.01 &f 纪元开启 黄金纪元' });
+    const info = await v.adoptFolder({ dir: folder, intro: 'x', timeline: '&s 0705.01.01 &f 纪元开启 黄金纪元' });
     assert.ok(existsSync(join(folder, 'books')), 'books/ 容器');
     assert.ok(existsSync(join(folder, 'books', '时间线.md')), '时间线配对条目');
     assert.ok(existsSync(join(folder, 'books', '时间线', '01-纪元开启.md')), '事件条目在 books/时间线/ 下');
@@ -330,12 +330,12 @@ test('结构规范（第 89 轮）：_initWorldFolder 建 books/ 容器 + 时间
   }
 });
 
-test('结构规范：saveAsset → assets/images/（正文图片之家）', () => {
+test('结构规范：saveAsset → assets/images/（正文图片之家）', async () => {
   const { root, v } = mkBare();
   const folder = join(root, '图世界');
   try {
     mkdirSync(folder, { recursive: true });
-    v.adoptFolder({ dir: folder });
+    await v.adoptFolder({ dir: folder });
     const rel = v.saveAsset('图世界', '照片 1.png', Buffer.from('IMG'));
     assert.equal(rel, 'assets/images/照片_1.png');
     assert.ok(existsSync(join(folder, 'assets', 'images', '照片_1.png')));
@@ -349,7 +349,7 @@ test('结构规范：saveAsset → assets/images/（正文图片之家）', () =
 
 // ============ 第 90 轮：取消管理 + 归档 ============
 
-test('unmanageWorld：库内世界 → 忽略表（文件夹原地保留）；再采纳恢复管理', () => {
+test('unmanageWorld：库内世界 → 忽略表（文件夹原地保留）；再采纳恢复管理', async () => {
   const { root, lib, v } = mkBare();
   const w = join(lib, '库内世界');
   try {
@@ -361,7 +361,7 @@ test('unmanageWorld：库内世界 → 忽略表（文件夹原地保留）；�
     assert.ok(existsSync(w), '文件夹原地保留');
     assert.ok(!v.list().some((x) => x.id === '库内世界'), 'list 不再包含');
     assert.ok(existsSync(join(lib, '.unmanaged.json')), '忽略表落盘');
-    v.adoptFolder({ dir: w });   // 重新采纳 = 恢复管理
+    await v.adoptFolder({ dir: w });   // 重新采纳 = 恢复管理
     assert.ok(v.list().some((x) => x.id === '库内世界'), '恢复管理');
     assert.ok(!JSON.parse(readFileSync(join(lib, '.unmanaged.json'), 'utf8')).ids.includes('库内世界'), '忽略表已清该名');
   } finally {
@@ -370,7 +370,7 @@ test('unmanageWorld：库内世界 → 忽略表（文件夹原地保留）；�
   }
 });
 
-test('archiveBook（配对书）：md → .md.arc，子树从索引隐藏；unarchiveBook 还原并重扫', () => {
+test('archiveBook（配对书）：md → .md.arc，子树从索引隐藏；unarchiveBook 还原并重扫', async () => {
   const { root, lib, v } = mkBare();
   const w = join(lib, '书世界');
   try {
@@ -397,7 +397,7 @@ test('archiveBook（配对书）：md → .md.arc，子树从索引隐藏；unar
   }
 });
 
-test('archiveBook（纯目录节点）：写 .arc 标记；unarchiveBook 删标记、目录保留', () => {
+test('archiveBook（纯目录节点）：写 .arc 标记；unarchiveBook 删标记、目录保留', async () => {
   const { root, lib, v } = mkBare();
   const w = join(lib, '目录世界');
   try {
@@ -420,7 +420,7 @@ test('archiveBook（纯目录节点）：写 .arc 标记；unarchiveBook 删标�
   }
 });
 
-test('archiveEntry：条目（+ 同名文件夹）→ books/archives/ + `&x` 原路径；unarchiveEntry 原样还原', () => {
+test('archiveEntry：条目（+ 同名文件夹）→ books/archives/ + `&x` 原路径；unarchiveEntry 原样还原', async () => {
   const { root, lib, v } = mkBare();
   const w = join(lib, '归档世界');
   try {
@@ -452,7 +452,7 @@ test('archiveEntry：条目（+ 同名文件夹）→ books/archives/ + `&x` 原
   }
 });
 
-test('collectMarkdown：.md.arc 书整棵隐藏 + books/archives 整目录隐藏', () => {
+test('collectMarkdown：.md.arc 书整棵隐藏 + books/archives 整目录隐藏', async () => {
   const root = mkdtempSync(join(tmpdir(), 'soliterra-collect-'));
   try {
     mkdirSync(join(root, 'books', '甲'), { recursive: true });
@@ -471,13 +471,13 @@ test('collectMarkdown：.md.arc 书整棵隐藏 + books/archives 整目录隐藏
   }
 });
 
-test('新建世界自动 git init 且分支为 main；已是仓库（其它分支）不动（第 90 轮补充）', () => {
+test('新建世界自动 git init 且分支为 main；已是仓库（其它分支）不动（第 90 轮补充）', async () => {
   const { root, v } = mkBare();
   const folder = join(root, '主分支世界');
   const other = join(root, '老分支');
   try {
     mkdirSync(folder, { recursive: true });
-    v.adoptFolder({ dir: folder });
+    await v.adoptFolder({ dir: folder });
     assert.equal(execFileSync('git', ['symbolic-ref', '--short', 'HEAD'], { cwd: folder }).toString().trim(), 'main', '新世界 = main 分支');
     assert.equal(execFileSync('git', ['log', '-1', '--format=%s'], { cwd: folder }).toString().trim(), 'init: 创建世界 主分支世界');
     v.close('主分支世界');
@@ -485,7 +485,7 @@ test('新建世界自动 git init 且分支为 main；已是仓库（其它分�
     mkdirSync(other, { recursive: true });
     execFileSync('git', ['init', '-q', '-b', 'master'], { cwd: other });
     writeFileSync(join(other, 'x.md'), '# x\n', 'utf8');
-    v.adoptFolder({ dir: other });
+    await v.adoptFolder({ dir: other });
     assert.equal(execFileSync('git', ['symbolic-ref', '--short', 'HEAD'], { cwd: other }).toString().trim(), 'master', '已有仓库不改分支');
     assert.throws(() => execFileSync('git', ['rev-parse', '--verify', 'HEAD'], { cwd: other }), '不自动提交');
     v.close('老分支');
@@ -493,3 +493,60 @@ test('新建世界自动 git init 且分支为 main；已是仓库（其它分�
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// 第 91 轮：目录内 &r 自定义排序（拖动改序的服务端语义）
+test('setOrder：整层 &r 连续化重写 + tree() 按序输出；纯目录跳过；越层拒绝；同行多键保留', () => withWorld(async (v, w) => {
+  writeFileSync(join(w, '黄金时代', '甲.md'), '# 甲\n', 'utf8');
+  writeFileSync(join(w, '黄金时代', '乙.md'), '&r 9\n\n# 乙\n', 'utf8');
+  writeFileSync(join(w, '黄金时代', '丙.md'), '&r 5 &t 设定\n\n# 丙\n', 'utf8');
+  mkdirSync(join(w, '黄金时代', '子卷'));   // 纯目录同层节点（无配对 md → &r 无处写，应跳过）
+  v.index('测试世界');
+  // 新顺序：乙（旧 &r 9 → 原位改 1）、甲（前置 &r 2）、北伐（前置 &r 3）、丙（同行 &t 保留）、纯目录占位 → 跳过
+  const r = v.setOrder('测试世界', '黄金时代',
+    ['黄金时代/乙.md', '黄金时代/甲.md', '黄金时代/北伐.md', '黄金时代/丙.md', '黄金时代/子卷']);
+  assert.equal(r.updated, 4, '纯目录（无 md）跳过不报错');
+  assert.match(readFileSync(join(w, '黄金时代', '乙.md'), 'utf8'), /^&r 1$/m, '已有 &r 原位改值');
+  assert.match(readFileSync(join(w, '黄金时代', '甲.md'), 'utf8'), /^&r 2\n# 甲/, '无 &r 前置一行');
+  assert.match(readFileSync(join(w, '黄金时代', '北伐.md'), 'utf8'), /^&r 3\n&s 0662\.08\.17/, '北伐 &r 3');
+  assert.match(readFileSync(join(w, '黄金时代', '丙.md'), 'utf8'), /^&r 4 &t 设定$/m, '同行其他键保留');
+  // tree()：带 &r 的子女升序在前（拖动结果即渲染顺序）
+  const node = v.index('测试世界').tree().children.find((c) => c.name === '黄金时代');
+  assert.deepEqual(node.children.map((c) => c.name), ['乙', '甲', '北伐', '丙']);
+  // 越层清单拒绝（防误写他层）
+  assert.throws(() => v.setOrder('测试世界', '黄金时代', ['银湾/附记.md']), /越层/);
+}));
+
+test('gitStatus：files 对象化 {status, path}（第 96 轮：未提交行右侧文件清单用）', async () => {
+  const { root, v, w } = mk();
+  try {
+    // mk 的目录不是仓库 → 先 init + 基线提交（与 create 世界的初始状态一致）
+    const inited = await v._gitInitCommit(w, 'init: baseline');
+    assert.equal(inited, true, 'git init + 首提交成功');
+    // 改一个已跟踪文件 + 新增一个未跟踪文件
+    writeFileSync(join(w, '银湾.md'), '&n 银湾港\n\n# 改动\n', 'utf8');
+    writeFileSync(join(w, '新增条目.md'), '# 新\n', 'utf8');
+    const st = await v.gitStatus('测试世界');
+    assert.equal(st.dirty, 2, '两个未提交');
+    const byPath = Object.fromEntries(st.files.map((f) => [f.path, f.status]));
+    assert.equal(byPath['银湾.md'], 'M', '已跟踪文件改动 = M');
+    assert.equal(byPath['新增条目.md'], '??', '未跟踪新文件 = ??');
+    assert.equal(typeof st.files[0].path, 'string', 'path 是字符串');
+  } finally { v.close('测试世界'); rmSync(root, { recursive: true, force: true }); }
+});
+
+test('setCover：世界内相对路径直接用（不复制）；绝对路径复制进 assets/covers（第 97 轮）', () => withWorld(async (v, w, root) => {
+  mkdirSync(join(w, 'assets', 'covers'), { recursive: true });
+  writeFileSync(join(w, 'assets', 'covers', '已有.png'), 'PNG', 'utf8');
+  // 相对路径（assets 选择器入口）→ 原样写 &m（mk fixture 无 README → 用书条目）
+  const r1 = v.setCover('测试世界', '银湾.md', 'assets/covers/已有.png');
+  assert.equal(r1.cover, 'assets/covers/已有.png', '相对路径不复制');
+  assert.match(readFileSync(join(w, '银湾.md'), 'utf8'), /^&m assets\/covers\/已有\.png$/m);
+  // 相对路径穿越 → 拒绝
+  assert.throws(() => v.setCover('测试世界', '银湾.md', 'assets/../../越界.png'), /invalid path|图片不存在/);
+  // 绝对路径 → 复制
+  const outside = join(root, '外图.png');   // 世界外 → 才走复制分支
+  writeFileSync(outside, 'PNG2', 'utf8');
+  const r2 = v.setCover('测试世界', '银湾.md', outside);
+  assert.ok(r2.cover.startsWith('assets/covers/'), '复制到 covers');
+  assert.match(readFileSync(join(w, '银湾.md'), 'utf8'), new RegExp(`^&m ${r2.cover.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'), '&m 原位改值');
+}));

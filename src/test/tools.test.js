@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { scan, scanSymbols } from '../lib/tools.js';
+import { normalizeSymbols } from '../shared/symbols.js';
 import { apply, pruneBackups, lint, scanStructure, applyStructure } from '../lib/tools.js';
 
 const mkWorld = () => mkdtempSync(join(tmpdir(), 'soliterra-test-'));
@@ -229,5 +231,42 @@ test('lint：世界根非规范内容 → 结构提示行（第 89 轮）', () =
     assert.ok(row, '有结构提示');
     assert.match(row.message, /黄金时代|散记/);
     assert.match(row.message, /结构规范化/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// 第 93 轮：符号规范化（共享表 + 工具箱扫描）
+test('符号规范化表：全角 ASCII 标点/弯引号 → 半角；「」『』（）与中文句读保留', () => {
+  assert.equal(normalizeSymbols('[[角色｜别名]]'), '[[角色|别名]]', '全角竖线 → |（wikilink 别名分隔）');
+  assert.equal(normalizeSymbols('“双引”‘单引’'), "\"双引\"'单引'", '弯引号 → 直引号');
+  assert.equal(normalizeSymbols('［方］｛花｝＜尖＞～波～．点'), '[方]{花}<尖>~波~.点', '其余全角 ASCII 标点（内容保留）');
+  assert.equal(normalizeSymbols('「保留」『也保留』'), '「保留」『也保留』', '中文引号/书名号保留');
+  assert.equal(normalizeSymbols('（括号），顿号、句号。感叹！疑问？冒号：分号；'), '（括号），顿号、句号。感叹！疑问？冒号：分号；', '中文句读与括号保留');
+  assert.equal(normalizeSymbols('全角　空格'), '全角　空格', '全角空格保留（中文缩进）');
+});
+
+test('日期规范化：年.月两段 → 三段 yyyy.mm.*（第 95 轮修：曾产四段违规值）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'soliterra-date-'));
+  try {
+    writeFileSync(join(dir, 'd.md'), '&s 0705.9\n', 'utf8');
+    const items = scan(dir, 'date');
+    assert.equal(items.length, 1);
+    assert.equal(items[0].after.trim(), '&s 0705.09.*', '两段补成三段（非四段）');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('scanSymbols + apply：逐行列出并应用（含 & 行与 wikilink 行）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'soliterra-sym-'));
+  try {
+    writeFileSync(join(dir, 'a.md'), '&s 0705．09.04\n\n正文“引号”与[[角色｜别名]]。\n\n「这句保留」。\n', 'utf8');
+    const items = scanSymbols(dir);
+    assert.equal(items.length, 2, '两行可修（& 行 + 正文行）；「」行不报');
+    assert.equal(items[0].path, 'a.md');
+    assert.ok(items[0].after.includes('0705.09.04'), '全角点 → 半角点（& 行日期）');
+    assert.ok(items[1].after.includes('"引号"') && items[1].after.includes('[[角色|别名]]'));
+    const r = apply(dir, 'symbols', items);
+    assert.equal(r.changed, 2);
+    const text = readFileSync(join(dir, 'a.md'), 'utf8');
+    assert.ok(text.includes('&s 0705.09.04') && text.includes('[[角色|别名]]') && text.includes('「这句保留」'));
+    assert.equal(scanSymbols(dir).length, 0, '应用后零残留（幂等）');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

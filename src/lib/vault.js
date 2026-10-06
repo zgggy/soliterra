@@ -3,8 +3,11 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import chokidar from 'chokidar';
+
+const exec = promisify(execFile);   // git 全异步（第 92 轮）：大仓库 commit/log 不再阻塞事件循环与正在打字的自动保存
 import { WorldIndex, collectMarkdown } from './indexer.js';
 import { parseEntry } from './parser.js';
 
@@ -14,6 +17,7 @@ export class Vault {
     fs.mkdirSync(this.worldsDir, { recursive: true });
     this.indexes = new Map();   // worldId -> WorldIndex
     this.watchers = new Map();  // worldId -> chokidar watcher
+    this.changeListeners = new Map();   // worldId -> Set<fn>（第 92 轮 SSE：文件变化推给前端）
   }
 
   /** 关停某世界的文件监听与索引（测试 / 退出清理用；幂等）。 */
@@ -100,6 +104,18 @@ export class Vault {
     return this.indexes.get(id);
   }
 
+  /** 订阅某世界的文件变化（server 的 SSE 路由用）；返回退订函数。 */
+  onFsChange(id, fn) {
+    if (!this.changeListeners.has(id)) this.changeListeners.set(id, new Set());
+    this.changeListeners.get(id).add(fn);
+    return () => this.changeListeners.get(id)?.delete(fn);
+  }
+  _notify(id, data) {
+    const set = this.changeListeners.get(id);
+    if (!set) return;
+    for (const fn of set) { try { fn(data); } catch { /* 单个订阅者出错不断链 */ } }
+  }
+
   watch(id) {
     if (this.watchers.has(id)) return;
     const dir = this.worldDir(id);
@@ -120,18 +136,24 @@ export class Vault {
     w.on('add', (f) => {
       if (!f.endsWith('.md')) return;
       idx.indexFile(path.relative(dir, f));
+      this._notify(id, { type: 'add', path: path.relative(dir, f).replace(/\\/g, '/') });
       // 归档还原场景（第 90 轮）：书 md 回来时配对目录已在（不触发 addDir）→ 补扫子树
       const d = f.replace(/\.md$/, '');
       const rp = path.relative(dir, f).replace(/\.md$/, '');
       try { if (fs.existsSync(d) && fs.statSync(d).isDirectory()) for (const g of collectMarkdown(d)) idx.indexFile(`${rp}/${g}`); } catch { /* 已消失 */ }
     });
-    w.on('change', (f) => { if (f.endsWith('.md')) idx.indexFile(path.relative(dir, f)); });
+    w.on('change', (f) => {
+      if (!f.endsWith('.md')) return;
+      idx.indexFile(path.relative(dir, f));
+      this._notify(id, { type: 'change', path: path.relative(dir, f).replace(/\\/g, '/') });
+    });
     w.on('unlink', (f) => {
       if (!f.endsWith('.md')) return;
       const r = path.relative(dir, f);
       // 书归档（第 90 轮）：`X.md` 改名 `X.md.arc` → 整棵（md + X/ 子树）从索引隐藏
       if (fs.existsSync(`${f}.arc`)) idx.removePrefix(r.replace(/\.md$/, ''));
       idx.removeFile(r);
+      this._notify(id, { type: 'unlink', path: r.replace(/\\/g, '/') });
     });
     // 外部新建/删除**目录**（Finder/编辑器建书）——chokidar 对"watcher 启动后才出现的目录"的
     // 初始内容可能漏发 add（第 80 轮实测：顶层新目录里的 md 不被索引）→ 目录事件补扫/补删
@@ -142,16 +164,65 @@ export class Vault {
     this.watchers.set(id, w);
   }
 
-  /** 保存条目正文（MVP：仅正文 + 原元数据行保留）。 */
-  saveEntry(id, rel, text) {
+  /** 保存条目正文（第 92 轮：mtime 乐观锁——baseMtime 不匹配且未 force → 409 冲突，拒绝覆盖外部修改）。
+   *  返回 { ok, mtime }（新 mtime 供前端作为下一次的 baseMtime）。 */
+  saveEntry(id, rel, text, { baseMtime = null, force = false } = {}) {
     const dir = this.worldDir(id);
     const abs = path.join(dir, rel);
     const resolved = path.resolve(abs);
     if (!resolved.startsWith(path.resolve(dir) + path.sep)) throw new Error('invalid path');
     if (!resolved.endsWith('.md')) throw new Error('not markdown');
+    if (!force && baseMtime != null) {
+      let disk = null;
+      try { disk = fs.statSync(resolved).mtimeMs; } catch { /* 文件不存在 → 直接写 */ }
+      if (disk != null && Math.abs(disk - baseMtime) > 2) {
+        const err = new Error('文件已被外部修改——保存被拒绝（可强制覆盖）');
+        err.status = 409;
+        err.serverMtime = disk;
+        throw err;
+      }
+    }
     fs.writeFileSync(resolved, text, 'utf8');
     this.index(id).indexFile(rel);
-    return true;
+    let mtime = null;
+    try { mtime = fs.statSync(resolved).mtimeMs; } catch { /* 刚写过必在 */ }
+    return { ok: true, mtime };
+  }
+
+  /** 条目文件的磁盘 mtime（乐观锁基准；/entry 与 /raw 返回给前端）。 */
+  entryMtime(id, rel) {
+    const dir = this.worldDir(id);
+    const resolved = path.resolve(path.join(dir, rel));
+    if (!resolved.startsWith(path.resolve(dir) + path.sep)) return null;
+    try { return fs.statSync(resolved).mtimeMs; } catch { return null; }
+  }
+
+  /** 设置封面（第 92 轮）：图片进 assets/covers/（已在内则原位）→ 目标条目写 `&m <相对路径>`（已有 &m 原位改值）。
+   *  世界封面 = README.md（根条目）；书/条目封面 = 各自 <名>.md —— 与 &m 既有语义同一条单点真相。
+   *  writeMeta=false → 只把图片收进 assets/covers/ 并返回相对路径（编辑态由编辑器文本路径写 &m，防 mtime 互踩）。 */
+  setCover(id, rel, imagePath, { writeMeta = true } = {}) {
+    const dir = this.worldDir(id);
+    // 两种入参：世界内相对路径（assets/… ，如从 assets 选择器选的图）→ 校验后直接用；
+    // 本机绝对路径 → 复制进 assets/covers/（第 97 轮：新建书籍向导两入口共用）。
+    let coverRel;
+    const img = String(imagePath || '');
+    if (img.startsWith('assets/')) {
+      const abs = this._safe(dir, img);
+      if (!fs.existsSync(abs)) throw new Error('图片不存在: ' + img);
+      coverRel = img;
+    } else {
+      coverRel = this._bringCoverIn(this.realDir(id), img);
+    }
+    if (!writeMeta) return { cover: coverRel };
+    const mdRel = /\.md$/i.test(String(rel)) ? String(rel) : `${String(rel)}.md`;
+    const abs = this._safe(dir, mdRel);
+    if (!fs.existsSync(abs)) throw new Error('条目不存在: ' + mdRel);
+    let text = fs.readFileSync(abs, 'utf8');
+    if (/^&m\s+/m.test(text)) text = text.replace(/^(&m\s+)(\S+)(.*)$/m, (m2, p1, p2, p3) => p1 + coverRel + p3);
+    else text = `&m ${coverRel}\n${text}`;
+    fs.writeFileSync(abs, text, 'utf8');
+    this.index(id).indexFile(mdRel);
+    return { cover: coverRel };
   }
 
   readEntryRaw(id, rel) {
@@ -198,17 +269,17 @@ export class Vault {
 
   /** 世界仓库初始化（create / adopt / 导入共用）：非仓库目录 → `git init` + **main 分支** + 唯一自动提交。
    *  已是仓库 → 一切不动（返回 false）。git 不可用 → 静默（世界仍可读写）。 */
-  _gitInitCommit(dir, message) {
+  async _gitInitCommit(dir, message) {
     if (fs.existsSync(path.join(dir, '.git'))) return false;
     try {
       try {
-        execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir });            // git ≥ 2.28
+        await exec('git', ['init', '-q', '-b', 'main'], { cwd: dir });            // git ≥ 2.28
       } catch {
-        execFileSync('git', ['init', '-q'], { cwd: dir });                          // 老 git：未出生分支先指向 main
-        execFileSync('git', ['symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: dir });
+        await exec('git', ['init', '-q'], { cwd: dir });                          // 老 git：未出生分支先指向 main
+        await exec('git', ['symbolic-ref', 'HEAD', 'refs/heads/main'], { cwd: dir });
       }
-      execFileSync('git', ['add', '-A'], { cwd: dir });
-      execFileSync('git', ['-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
+      await exec('git', ['add', '-A'], { cwd: dir });
+      await exec('git', ['-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
         'commit', '-q', '-m', message], { cwd: dir });
       return true;
     } catch { return false; }
@@ -217,7 +288,7 @@ export class Vault {
   /** 世界文件夹初始化（create / adopt 共用，第 88 轮）：
    *  assets/ 确保存在；根条目 = README.md（介绍与 & 元数据；**已存在则只前置缺失的 & 行，绝不改正文**）；
    *  时间线事件 → `时间线/NN-标题.md`；`.gitignore` 补 `.soliterra/`；非 git 仓库 → init + 唯一自动提交。 */
-  _initWorldFolder(dir, { name, intro = '', timeline = '', coverRel = '', calendar = '' }) {
+  async _initWorldFolder(dir, { name, intro = '', timeline = '', coverRel = '', calendar = '' }) {
     fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
     fs.mkdirSync(path.join(dir, 'books'), { recursive: true });   // 书籍容器（第 89 轮规范）
     const calLine = calendar ? `<!-- calendar: ${calendar} -->` : '';
@@ -261,16 +332,16 @@ export class Vault {
       if (!/^\.soliterra\/?\s*$/m.test(t)) fs.writeFileSync(gi, `${t.replace(/\n?$/, '\n')}.soliterra/\n`, 'utf8');
     }
     // git：仅当目录还不是仓库时 init（**main 分支**）+ 唯一自动提交（已是仓库 → 一切不动，由用户手动提交）
-    this._gitInitCommit(dir, `init: 创建世界 ${name}`);
+    await this._gitInitCommit(dir, `init: 创建世界 ${name}`);
   }
 
   /** 创建世界（库里新建文件夹）：目录 + README.md 根条目 + assets + .gitignore + git init。 */
-  create({ name, subtitle = '', timeline = '', cover = '', calendar = '' }) {
+  async create({ name, subtitle = '', timeline = '', cover = '', calendar = '' }) {
     if (!name || /[\\/:*?"<>|]/.test(name)) throw new Error('invalid world name');
     const dir = path.join(this.worldsDir, name);
     if (fs.existsSync(dir)) throw new Error('world already exists');
     this._remanage(name);
-    this._initWorldFolder(dir, { name, intro: subtitle, timeline, coverRel: cover, calendar });
+    await this._initWorldFolder(dir, { name, intro: subtitle, timeline, coverRel: cover, calendar });
     return this.worldInfo(name);
   }
 
@@ -309,12 +380,12 @@ export class Vault {
 
   /** 采纳本地文件夹为世界（第 88 轮）：就地接入（不复制）；文件夹名 = 世界名；
    *  介绍/元数据 → README.md；封面图片 → 复制进 `assets/`（已在文件夹内则只记相对路径）。 */
-  adoptFolder({ dir, intro = '', coverPath = '', calendar = '', timeline = '' }) {
+  async adoptFolder({ dir, intro = '', coverPath = '', calendar = '', timeline = '' }) {
     const { abs, real, name } = this._adoptTarget(dir);
     const { id } = this._registerWorld(abs, real, name);
     this._remanage(id);   // 重新采纳 = 恢复管理（第 90 轮）
     const coverRel = coverPath ? this._bringCoverIn(real, coverPath) : '';
-    this._initWorldFolder(real, { name, intro, timeline, coverRel, calendar });
+    await this._initWorldFolder(real, { name, intro, timeline, coverRel, calendar });
     this.indexes.delete(id);   // 重新索引（可能是已登记世界的再采纳）
     return this.worldInfo(id);
   }
@@ -645,7 +716,7 @@ export class Vault {
   }
 
   /** Obsidian 导入（§15.6）：复制整库为新世界，frontmatter 转写 & 元数据，双链原样，图片入 assets/imported/。不动原库。 */
-  importObsidian({ src, name }) {
+  async importObsidian({ src, name }) {
     if (!name || /[\\/:*?"<>|]/.test(name)) throw new Error('invalid world name');
     const srcAbs = path.resolve(src || '');
     if (!src || !fs.existsSync(srcAbs) || !fs.statSync(srcAbs).isDirectory()) throw new Error('库路径不存在: ' + src);
@@ -754,7 +825,7 @@ export class Vault {
     }
     // 5) git init（同 create：main 分支）
     fs.writeFileSync(path.join(dest, '.gitignore'), '.soliterra/\n', 'utf8');
-    this._gitInitCommit(dest, `init: 从 Obsidian 导入 ${name}（${count} 条目，${imgCount} 图片）`);
+    await this._gitInitCommit(dest, `init: 从 Obsidian 导入 ${name}（${count} 条目，${imgCount} 图片）`);
     return { name, entries: count, images: imgCount };
   }
 
@@ -958,6 +1029,32 @@ export class Vault {
     return { moves };
   }
 
+  /** 目录内自定义排序（第 91 轮）：按给定顺序给各条目写 `&r <序号>`（1 起，整层重写）。
+   *  只处理存在配对 md 的路径（纯目录无处写元数据 → 跳过，排序时按名称排在 &r 节点之后）；
+   *  已有 `&r` 行 → 原位改值（同行其他键保留）；无 → 前置一行。顺序值序号连续化 = 拖一次即固化整层。 */
+  setOrder(id, dir, ordered) {
+    const dirClean = String(dir || '').replace(/\\/g, '/').replace(/\/$/, '');
+    const list = (Array.isArray(ordered) ? ordered : []).map((p) => String(p || '').replace(/\\/g, '/').replace(/\.md\.arc$/i, '.md'));
+    const dirAbs = this.worldDir(id);
+    let updated = 0;
+    list.forEach((rel, i) => {
+      const mdRel = /\.md$/i.test(rel) ? rel : `${rel}.md`;
+      const parent = mdRel.includes('/') ? mdRel.slice(0, mdRel.lastIndexOf('/')) : '';
+      if (parent !== dirClean) throw new Error(`顺序清单越层：${mdRel} 不在 ${dirClean || '(根)'}`);
+      const abs = this._safe(dirAbs, mdRel);
+      if (!fs.existsSync(abs)) return;   // 纯目录节点 / 已消失：跳过不报错
+      let text;
+      try { text = fs.readFileSync(abs, 'utf8'); } catch { return; }
+      const line = `&r ${i + 1}`;
+      if (/^&r\s+/m.test(text)) text = text.replace(/^(&r\s+)(\S+)(.*)$/m, (m2, p1, p2, p3) => p1 + (i + 1) + p3);
+      else text = `${line}\n${text}`;
+      fs.writeFileSync(abs, text, 'utf8');
+      this.index(id).indexFile(mdRel);
+      updated++;
+    });
+    return { updated, dir: dirClean };
+  }
+
   // ---------- UI 偏好与稍后阅读（.soliterra/，允许的非 .md 文件） ----------
   settingsPath(id) { return path.join(this.worldDir(id), '.soliterra', 'settings.json'); }
   getSettings(id) {
@@ -991,21 +1088,26 @@ export class Vault {
     return this.setReadlater(id, this.getReadlater(id).filter((x) => x.path !== relPath));
   }
 
-  // ---------- git ----------
-  gitInfo(id) {
+  // ---------- git（第 92 轮：全异步 execFile——不再阻塞事件循环） ----------
+  async _git(args, opts = {}) {
+    const { stdout } = await exec('git', args, { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, ...opts });
+    return stdout;
+  }
+
+  async gitInfo(id) {
     const dir = this.worldDir(id);
     try {
-      const branch = execFileSync('git', ['-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD'], { encoding: 'utf8' }).trim();
-      const last = execFileSync('git', ['-C', dir, 'log', '-1', '--format=%h%x09%s%x09%cr'], { encoding: 'utf8' }).trim().split('\t');
+      const branch = (await this._git(['-C', dir, 'rev-parse', '--abbrev-ref', 'HEAD'])).trim();
+      const last = (await this._git(['-C', dir, 'log', '-1', '--format=%h%x09%s%x09%cr'])).trim().split('\t');
       return { ok: true, branch, hash: last[0] || '', message: last[1] || '', when: last[2] || '' };
     } catch { return { ok: false }; }
   }
 
   /** 提交历史（功能设计 §15.6）：等宽 hash + 消息 + 时间。 */
-  gitLog(id, limit = 50) {
+  async gitLog(id, limit = 50) {
     const dir = this.worldDir(id);
     try {
-      const out = execFileSync('git', ['-C', dir, 'log', `-${limit}`, '--format=%h%x09%s%x09%ad', '--date=format:%Y-%m-%d %H:%M'], { encoding: 'utf8' });
+      const out = await this._git(['-C', dir, 'log', `-${limit}`, '--format=%h%x09%s%x09%ad', '--date=format:%Y-%m-%d %H:%M']);
       return out.trim().split('\n').filter(Boolean).map((l) => {
         const [hash, subject, when] = l.split('\t');
         return { hash, subject, when };
@@ -1014,18 +1116,18 @@ export class Vault {
   }
 
   /** 近 N 天提交数（仪表盘 git 活跃）。 */
-  gitCommitsSince(id, days = 7) {
+  async gitCommitsSince(id, days = 7) {
     try {
-      const out = execFileSync('git', ['-C', this.worldDir(id), 'log', `--since=${days} days ago`, '--oneline'], { encoding: 'utf8' }).trim();
+      const out = (await this._git(['-C', this.worldDir(id), 'log', `--since=${days} days ago`, '--oneline'])).trim();
       return out ? out.split('\n').filter(Boolean).length : 0;
     } catch { return 0; }
   }
 
   /** 某提交的文件清单（含状态 M/A/D 对比上一提交）。 */
-  gitShow(id, rev) {
+  async gitShow(id, rev) {
     const dir = this.worldDir(id);
     try {
-      const out = execFileSync('git', ['-C', dir, '-c', 'core.quotepath=false', 'show', '--name-status', '--format=', rev], { encoding: 'utf8' });
+      const out = await this._git(['-C', dir, '-c', 'core.quotepath=false', 'show', '--name-status', '--format=', rev]);
       return out.trim().split('\n').filter(Boolean).map((l) => {
         const [status, ...rest] = l.split('\t');
         return { status, path: rest.join('\t') };
@@ -1034,50 +1136,53 @@ export class Vault {
   }
 
   /** 某提交下某文件的内容。 */
-  gitFile(id, rev, path2) {
+  async gitFile(id, rev, path2) {
     const dir = this.worldDir(id);
-    try {
-      return execFileSync('git', ['-C', dir, '-c', 'core.quotepath=false', 'show', `${rev}:${path2}`], { encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
-    } catch { return ''; }
+    try { return await this._git(['-C', dir, '-c', 'core.quotepath=false', 'show', `${rev}:${path2}`]); }
+    catch { return ''; }
   }
 
   /** 回滚为新提交：把工作区恢复到该提交（git checkout rev -- .）→ 立即提交（不重写历史）。 */
-  gitRollback(id, rev) {
+  async gitRollback(id, rev) {
     const dir = this.worldDir(id);
     try {
-      execFileSync('git', ['-C', dir, 'checkout', rev, '--', '.'], { encoding: 'utf8' });
-      execFileSync('git', ['-C', dir, 'add', '-A'], { encoding: 'utf8' });
-      const out = execFileSync('git', ['-C', dir, '-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
-        'commit', '-q', '-m', `rollback: 恢复到 ${rev}`], { encoding: 'utf8' });
+      await this._git(['-C', dir, 'checkout', rev, '--', '.']);
+      await this._git(['-C', dir, 'add', '-A']);
+      await this._git(['-C', dir, '-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
+        'commit', '-q', '-m', `rollback: 恢复到 ${rev}`]);
       return { ok: true };
     } catch (e) { return { ok: false, error: String(e.stderr || e.message).slice(0, 300) }; }
   }
 
-  /** 未提交状态（git status --porcelain）。 */
-  gitStatus(id) {
+  /** 未提交状态（git status --porcelain）——第 96 轮：files 对象化 {status, path}
+   *  （XY 状态列取首字母语义：M/A/D/R/??；历史提交的 showCommit 同款状态字母展示）。 */
+  async gitStatus(id) {
     const dir = this.worldDir(id);
     try {
-      const out = execFileSync('git', ['-C', dir, 'status', '--porcelain'], { encoding: 'utf8' }).trim();
-      const files = out ? out.split('\n').map((l) => l.slice(3).trim()) : [];
+      // quotepath=false：非 ASCII 文件名（中文条目名）不转义成 "\351..." 十六进制串（gitShow 同款）
+      const out = await this._git(['-C', dir, '-c', 'core.quotepath=false', 'status', '--porcelain']);
+      // 逐行过滤空行——**不能整体 trim**：首行的状态列前导空格（` M path`）会被 trim 吃掉 → 切片错位丢首字
+      const files = out.split('\n').filter((l) => l.trim())
+        .map((l) => ({ status: l.slice(0, 2).trim() || 'M', path: l.slice(3).trim() }));
       return { dirty: files.length, files: files.slice(0, 80) };
     } catch { return { dirty: 0, files: [] }; }
   }
 
   /** 手动提交（提交按钮在设置里；编辑退出只保存不提交）。 */
-  gitCommit(id, message) {
+  async gitCommit(id, message) {
     const dir = this.worldDir(id);
     try {
-      execFileSync('git', ['-C', dir, 'add', '-A'], { encoding: 'utf8' });
-      const out = execFileSync('git', ['-C', dir, '-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
-        'commit', '-q', '-m', message], { encoding: 'utf8' });
-      return { ok: true, detail: out.trim() };
-    } catch (e) {
+      await this._git(['-C', dir, 'add', '-A']);
+      await this._git(['-C', dir, '-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
+        'commit', '-q', '-m', message]);
+      return { ok: true, detail: '' };
+    } catch {
       // 无改动时 commit 会以非零退出——不视为错误
       return { ok: true, detail: 'nothing to commit' };
     }
   }
 
-  closeAll() {
+  async closeAll() {
     for (const w of this.watchers.values()) w.close();
     for (const i of this.indexes.values()) i.close();
   }

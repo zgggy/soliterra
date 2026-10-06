@@ -345,3 +345,39 @@ test('fuzzy 数据层：字段优先、缺字段回退原文串（逐端语义�
   assert.deepEqual([sp('z.md').fuzzyS, sp('z.md').fuzzyE], [true, false]);   // 回退：start 含 * 且 instant → 止端恒 false
   assert.equal(checkInvariants(input, fr).length, 0);
 });
+
+// ── 第 91 轮回归：非创世条目与创世条目**同起始时间**，打开非创世卡 ──
+// displayFlagOf（world.js）第 91 轮起对 &t 创世也产出旗标 → 引擎侧保证：创世卡恒在 placements、
+// 恒在打开卡左侧（虚拟时刻 < 最早真实时刻 ≤ 打开卡 x），不存在被打开卡盒盖住的几何可能。
+test('创世恒显示：同起始的非创世打开卡不给创世卡让位/遮挡——创世卡恒在 placements 且在打开卡左侧', () => {
+  const S = -9999 * YEAR;
+  const mk = (path, title, s, genesis, flag) => ({ path, title, s, e: null, start: '-9999.*.*', end: null, instant: true, fuzzy: true, flag, era: null, genesis });
+  const items = [
+    mk('N.md', '北伐', S, false, '事件'),          // 与创世同起始的非创世条目（被打开）
+    mk('B.md', '中期', 0, false, '事件'),
+    mk('C.md', '晚期', 900 * YEAR, false, '事件'),
+  ];
+  const genesisAll = [...items, mk('G1.md', '创世一', S, true, null), mk('G2.md', '创世二', S, true, null)];
+  const timed = items;
+  const lo = Math.min(...timed.map((i) => i.s)), hi = Math.max(...timed.map((i) => Math.max(i.s, i.e ?? i.s)));
+  const pad = ((hi - lo) * LAYOUT.RANGE_PAD) || YEAR;
+  const full = { lo: lo - pad, hi: hi + pad };
+  const input = {
+    items, genesisAll,
+    flags: { 'N.md': '事件', 'B.md': '事件', 'C.md': '事件', 'G1.md': '创世', 'G2.md': '创世' },
+    view: { ...full }, full, width: 1280, chronoH: 112, lang: 'zh-CN',
+    currentPath: 'N.md',
+    genesisOrd: lo - (((hi - lo) * LAYOUT.GENESIS_RATIO) || YEAR),
+    earliestOrd: lo, latestOrd: hi,
+    openSize: { w: 240, h: 64 }, prevTops: {}, measuredW: {},
+  };
+  const frame = computeLayout(input);
+  const openP = frame.placements.find((p) => p.isOpen);
+  assert.ok(openP, '打开卡在 placements');
+  for (const gp of ['G1.md', 'G2.md']) {
+    const g = frame.placements.find((p) => p.path === gp);
+    assert.ok(g, `创世卡 ${gp} 恒在 placements（不被丢弃/合并掉）`);
+    assert.ok(g.left + g.w <= openP.left + TOL, `创世卡 ${gp} 恒在打开卡左侧（无重叠）`);
+  }
+  assert.equal(checkInvariants(input, frame).length, 0);
+});
