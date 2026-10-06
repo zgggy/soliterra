@@ -98,6 +98,7 @@ start_server() {
     cur_port="$(port_of_pid "${pid}")"
     if [ "${cur_port}" = "${port}" ]; then
       echo "服务器已在运行（pid ${pid}，端口 ${port}）：http://127.0.0.1:${port}"
+      echo "提示：刚更新过代码（尤其新增/修改路由）时，先 ./soliterra.sh stop 再启动，否则旧进程仍跑旧代码。"
       return 0
     fi
     echo "已有实例在运行（pid ${pid}${cur_port:+，端口 ${cur_port}}），先关闭再切换到端口 ${port}……"
