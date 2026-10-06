@@ -899,9 +899,12 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     }
     earliestOrd = base.length ? Math.min(...base.map((i) => i.s)) : null;
     latestOrd = base.length ? Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s))) : null;
+    // 创世**虚拟时刻**（第 73 轮）：范围起点前 1%（range=0 退 1 年）——由范围派生、**不反馈进范围**（第 62 轮
+    // 「创世不计入总范围」不变）；创世的定位/取景/出界带回全部走它 → 缩放、拖动、合并、点击逻辑统一。
+    genesisOrd = earliestOrd != null ? earliestOrd - (((latestOrd - earliestOrd) * 0.01) || YEAR) : null;
     return top;
   }
-  let earliestOrd = null, latestOrd = null;
+  let earliestOrd = null, latestOrd = null, genesisOrd = null;
   const axisLine = document.createElement('div');   // 轴线段：只显示范围（最早→最晚时间）内，范围外（含创世排区）不画
   axisLine.className = 'chrono-axis';
   wrap.appendChild(axisLine);
@@ -979,7 +982,10 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     flagEls.set(path, flag);
     flag.addEventListener('click', () => {
       if (flag.__unpin) { flag.__unpin = false; return; }
-      if (flag.__clusterSpan) { focusOrd(flag.__clusterOrd, flag.__clusterSpan); return; }   // 聚合簇（§E.3）：点击 = 取景该时刻
+      if (flag.__clusterSpan) {
+        if (flag.__clusterOrd != null) focusOrd(flag.__clusterOrd, flag.__clusterSpan);   // 聚合簇（§E.3）：点击 = 取景该时刻（创世 = 虚拟时刻）
+        return;
+      }
       navigate(`#/w/${enc(ctx.worldId)}/${enc(path)}`);
     });
     const hot = () => {
@@ -1099,7 +1105,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     const pool = new Map(items.map((i) => [i.path, i]));
     for (const i of allItems) if (i.genesis) pool.set(i.path, i);
     const flagItems = [...pool.values()].filter((i) => displayFlagOf(i)).sort((a, b) => (a.s ?? -Infinity) - (b.s ?? -Infinity));
-    const genesisX = earliestOrd != null ? x(earliestOrd) - 8 : 6;   // 创世锚：最早时间坐标左 8px（其前）；全库无时刻时直接贴左缘
+    const genesisX = genesisOrd != null ? x(genesisOrd) : 6;   // 创世锚 = **虚拟时刻坐标**（与普通卡同式 x(ord)）；全库无时刻时贴左缘
     for (let i = 0; i < flagItems.length; i++) {
       const it = flagItems[i];
       it._w = flagBaseW(it.title);
@@ -1174,7 +1180,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
             cluster: run,
             flag: isGen ? first.flag : (zh ? '同时' : 'SAME'),   // 创世簇眉题=创世；余为「同时」
             title: zh ? `＋${run.length} 条` : `+${run.length}`,
-            s: (first.s != null && last.s != null) ? (first.s + last.s) / 2 : (first.s ?? last.s ?? earliestOrd),   // 中心时刻（首成员时刻会与同刻打开卡混淆左右侧）
+            s: isGen ? (genesisOrd ?? first.s ?? last.s)   // 创世簇 = **虚拟时刻**（点击取景不再飞到前 9999）
+                     : ((first.s != null && last.s != null) ? (first.s + last.s) / 2 : (first.s ?? last.s ?? earliestOrd)),   // 普通簇 = 成员中心（首成员时刻会与同刻打开卡混淆左右侧）
             e: null, instant: true,
             fuzzy: run.some((m) => m.fuzzy),
             genesis: isGen,                      // 创世簇保持创世身份（尾箭头/互避链照常）
@@ -1283,11 +1290,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       else if (it._left > width - 2) { offR++; if (!nearR || it._trueX < nearR._trueX) nearR = it; }
     }
     hintL.hidden = offL === 0;
-    hintL.__ord = nearL ? nearL.s : null;   // 时间序数（animateTo 的输入；勿传像素）
+    hintL.__ord = nearL ? (nearL.genesis ? genesisOrd : nearL.s) : null;   // 时间序数（animateTo 输入；创世取虚拟时刻，勿传真实 -9999）
     hintL.querySelector('.hint-n').textContent = String(offL);
     hintL.title = zh ? `还有 ${offL} 条在视野外 · 点击带回` : `${offL} off-screen · click to bring back`;
     hintR.hidden = offR === 0;
-    hintR.__ord = nearR ? nearR.s : null;
+    hintR.__ord = nearR ? (nearR.genesis ? genesisOrd : nearR.s) : null;
     hintR.querySelector('.hint-n').textContent = String(offR);
     hintR.title = zh ? `还有 ${offR} 条在视野外 · 点击带回` : `${offR} off-screen · click to bring back`;
     for (const it of arrange) {
@@ -1347,7 +1354,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       if (it.cluster) {
         const last = it.cluster[it.cluster.length - 1];
         flag.__clusterOrd = it.s;
-        flag.__clusterSpan = Math.max(((last.s - it.cluster[0].s) / YEAR) * 3, 1);   // 簇跨度×3，≥1 年
+        // 取景跨度：普通簇 = 成员跨度×3（≥1 年）；**创世簇 = 全范围的 25%**（成员同刻跨度为 0，
+        // 1 年深缩会把轴线与起点刻度全部推出屏外）——取景落在虚拟时刻上，轴首与创世排同框。
+        flag.__clusterSpan = it.cluster[0].genesis
+          ? Math.max(((full.hi - full.lo) / YEAR) * 0.25, 1)
+          : Math.max(((last.s - it.cluster[0].s) / YEAR) * 3, 1);
         flag.__baseTitle = it.title;
         flag.__altTitle = it.cluster.map((m) => m.title).slice(0, 3).join('、') + (it.cluster.length > 3 ? '…' : '');
         flag.title = it.cluster.map((m) => m.title).join('、');
@@ -1469,7 +1480,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
    *  仅剩「强调」拖拽（显式手势，把条目拖进屏幕）调用本函数。 */
   function focusPath(path) {
     const it = items.find((i) => i.path === path);
-    if (!it || it.genesis) return;
+    if (!it) return;
+    if (it.genesis) {   // 创世：取景到**虚拟时刻**（仅「强调」拖拽显式手势触发；打开条目不调用本函数）
+      if (genesisOrd != null) focusOrd(genesisOrd, Math.max(((full.hi - full.lo) / YEAR) * 0.25, 1));
+      return;
+    }
     const s = it.s;
     const e = it.e != null && it.e > it.s ? it.e : null;
     const dur = e != null ? e - s : Math.max(YEAR, (full.hi - full.lo) * 0.02);
