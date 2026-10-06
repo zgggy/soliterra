@@ -475,7 +475,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 **`ask-dialog`** — 样式化输入弹层（**替代一切原生 prompt/confirm**）：窄 modal 纸面 + 单行 `text-input` + 取消/确定；Enter 确定、Esc 取消。所有"填一个值"的交互（提交信息、围栏类型、元数据键、图片路径）一律走它。
 
-**`scroll-indicator`** — **全站滚动条的唯一形态**：内容区顶部 3px **横向百分比条**（宽 = 可视比例、左移 = 滚动位置），色 = `{colors.text-muted}`（日间黑灰 #666、夜间自动变 #999），sticky top:0，`pointer-events:none`；**原生滚动条全部隐藏**（`scrollbar-width:none` + `::-webkit-scrollbar{display:none}`）。应用区：reader-column / toc-panel / books-grid（面板滚动）/ tools-list / search-results / modal-scroll / 稍后阅读列表（手动模式特制）。
+**`scroll-indicator`** — **全站滚动条的唯一形态**：内容区顶部 3px **横向进度条**（**左端恒在面板最左；右端 = 文档顶端→屏幕底端已显示的百分比**，2026-10-06 定案），色 = `{colors.text-muted}`，sticky top:0，`pointer-events:none`；**原生滚动条全部隐藏**。附着判据 = bar 实际存在（innerHTML 重写删 bar 后自动重建）。应用区：reader-column / toc-panel / books-grid（面板滚动）/ tools-list / search-results / modal-scroll / 稍后阅读列表（手动模式特制）。
 
 ### Examples (illustrative)
 

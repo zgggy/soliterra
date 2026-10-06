@@ -130,21 +130,7 @@ app.post('/api/worlds', (req, reply) => {
 app.get('/api/w/:id/tree', (req) => vault.index(req.params.id).tree());
 app.get('/api/w/:id/stats', (req) => vault.index(req.params.id).stats());
 app.get('/api/w/:id/timeline', (req) => vault.index(req.params.id).timeline());
-app.get('/api/w/:id/search', (req) => {
-  const rows = vault.index(req.params.id).search(req.query.q || '');
-  // 视图分级（§15.3）：读者视图下 &v 作者 整行排除（snippet 会泄正文）；&v 秘传 保留标题但清空片段
-  const view = req.query.view || vault.getSettings(req.params.id).view || 'author';
-  if (view !== 'reader') return rows;
-  return rows.filter((r) => {
-    try {
-      const m = vault.index(req.params.id).entry(r.path)?.meta || {};   // entry().meta 已是对象，勿再 JSON.parse
-      const v = (m.v || [])[0] || '';
-      if (v === '作者') return false;
-      if (v === '秘传') { r.snip = ''; r.title = r.title + ' · ' + (req.query.lang === 'en' ? 'sealed' : '秘传'); }
-      return true;
-    } catch { return true; }
-  });
-});
+app.get('/api/w/:id/search', (req) => vault.index(req.params.id).search(req.query.q || ''));
 
 app.get('/api/w/:id/entry', (req, reply) => {
   const rel = req.query.path;
@@ -152,34 +138,22 @@ app.get('/api/w/:id/entry', (req, reply) => {
     const idx = vault.index(req.params.id);
     const e = idx.entry(rel);
     if (!e) return reply.code(404).send({ error: 'entry not found' });
-    const settings = vault.getSettings(req.params.id);
-    const view = req.query.view || settings.view || 'author';
-    // 视图分级（§15.3）：读者视图下 &v 作者 → 受限；&v 秘传 → 需揭示；不下发正文与 raw
-    if (view === 'reader') {
-      const v = (e.meta && e.meta.v && e.meta.v[0]) || '';
-      if (v === '作者') return { restricted: 'author', title: e.title, path: rel, meta: e.meta, backlinks: e.backlinks };
-      if (v === '秘传') return { sealed: true, title: e.title, path: rel, meta: e.meta, backlinks: e.backlinks };
-    }
     const raw = vault.readEntryRaw(req.params.id, rel);
-    // 方向 B（§8.4）：![[条目#锚]] 真嵌入（深度 1；读者视图下受限条目不嵌入）
+    // 方向 B（§8.4）：![[条目#锚]] 真嵌入（深度 1）
     const resolver = (target, anchor) => {
       const hit = idx.resolve(target);
       if (!hit) return null;
       const row = idx.entry(hit.path);
       if (!row) return null;
-      let m2 = {};
-      try { m2 = JSON.parse(row.meta || '{}'); } catch {}
-      const v = (m2.v && m2.v[0]) || '';
-      if (view === 'reader' && (v === '作者' || v === '秘传')) return null;
       let text = row.body || '';
       if (anchor) {
         const sec = sectionOf(text, anchor);
         if (!sec) return null;
         text = sec;
       }
-      return renderFragment(text, view);
+      return renderFragment(text);
     };
-    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, req.query.lang || "zh-CN", view, resolver);
+    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, req.query.lang || "zh-CN", resolver);
     return { ...e, raw, html, topMetaHTML, rangeHTML };
   } catch (err) { reply.code(400).send({ error: err.message }); }
 });

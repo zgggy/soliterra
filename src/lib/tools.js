@@ -297,38 +297,14 @@ export function lint(worldDir, limit = 800) {
       }
     }
   }
-  // ⑥ 可见性越权：&v 作者 条目被其它条目引用（读者视图下链接暴露其存在与标题）
-  const authorNames = new Set();
-  const authorRels = new Set();
-  for (const { rel, e } of entries) {
-    if (e.meta?.v?.[0] !== '作者') continue;
-    authorRels.add(rel);
-    for (const n of nameOf(rel, e.title)) authorNames.add(n);
-  }
-  if (authorNames.size) {
-    for (const { rel, text } of entries) {
-      if (authorRels.has(rel)) continue;                 // 作者条目之间互引不算越权
-      const lines = text.split('\n');
-      for (let i = 0; i < lines.length; i++) {
-        let m;
-        LINK_RE.lastIndex = 0;
-        while ((m = LINK_RE.exec(lines[i]))) {
-          const t = m[1].trim();
-          if (authorNames.has(t) || authorNames.has(t + '.md')) {
-            push({ kind: 'overreach', severity: 'warn', path: rel, line: i + 1, message: `越权引用：[[${t}]] 为 &v 作者（读者视图不可见）` });
-          }
-        }
-      }
-    }
-  }
-  // ⑦ 孤立条目（无出链且无入链；跳过根书）
+  // ⑥ 孤立条目（无出链且无入链；跳过根书）
   for (const { rel, e } of entries) {
     if (!rel.includes('/')) continue;
     if ((e.links || []).length) continue;
     if (nameOf(rel, e.title).some((n) => allLinkTexts.has(n))) continue;
     push({ kind: 'orphan', severity: 'info', path: rel, message: '孤立条目：无入链也无出链' });
   }
-  // ⑧ 状态体检（汇总）
+  // ⑦ 状态体检（汇总）
   const stat = (k, v) => entries.filter((x) => x.e.meta?.[k]?.[0] === v).length;
   const withTime = entries.filter((x) => (x.e.meta?.s || []).length).length;
   push({

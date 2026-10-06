@@ -176,8 +176,8 @@ export class WorldIndex {
           const mm = JSON.parse(r?.meta || '{}');
           node.cover = mm.m?.[0] || null;
           const v = (mm.v && mm.v[0]) || '';
-          node.restricted = v === '作者' ? 'author' : v === '秘传' ? 'sealed' : null;   // 视图分级（§15.3）
-        } catch { node.cover = null; node.restricted = null; }
+
+        } catch { node.cover = null; }
       }
       node.children.forEach(decorate);
     };

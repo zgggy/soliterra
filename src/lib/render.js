@@ -88,12 +88,12 @@ export function sectionOf(text, anchor) {
 }
 
 /** 嵌入片段渲染（深度 1：片段内 ![[ ]] 退回链接；callout 带视图分级；勘误态由 renderFences 继承）。 */
-export function renderFragment(text, view = 'author') {
+export function renderFragment(text) {
   const prev = md.renderer.rules.wikilink;
   md.renderer.rules.wikilink = DEFAULT_WIKILINK;
   let html = md.render(text);
   md.renderer.rules.wikilink = prev;
-  html = renderCallouts(html, view);
+  html = renderCallouts(html);
   html = renderFences(html);
   return { html };
 }
@@ -127,16 +127,12 @@ export function entryMetaParts(meta, lang) {
 }
 
 // callout：> [!档案] 标题\n> 内容
-function renderCallouts(html, view = 'author') {   // 视图分级 §15.3：读者视图 [!作者] 隐藏、[!剧透] 折叠
+function renderCallouts(html) {   // callout 全部照常渲染（视图分级已删除，2026-10-06）
   return html.replace(/<blockquote>\s*<p>\[!(\S+?)\]\s*([^<]*?)(?:<br\s*\/?>|\n)?([\s\S]*?)<\/p>\s*<\/blockquote>/g,
     (_, kind, title, rest) => {
       const map = { '档案': 'archive', '存疑': 'doubt', '作者': 'author', '剧透': 'spoiler' };
       const cls = map[kind] || 'note';
       const cleanRest = rest.replace(/<\/p>\s*<p>/g, '</p><p>');
-      if (view === 'reader' && kind === '作者') return '';
-      if (view === 'reader' && kind === '剧透') {
-        return `<details class="callout callout-spoiler-fold"><summary><span class="callout-kind">剧透</span>${title ? `<span class="callout-title">${esc(title)}</span>` : ''}</summary><div class="callout-body"><p>${cleanRest}</p></div></details>`;
-      }
       return `<aside class="callout callout-${cls}"><span class="callout-kind">${esc(kind)}</span>${title ? `<span class="callout-title">${esc(title)}</span>` : ''}<div class="callout-body"><p>${cleanRest}</p></div></aside>`;
     });
 }
@@ -187,7 +183,7 @@ function renderFences(html) {
  * @param {string} body 已剥离元数据行的正文
  * @param {object} meta 元数据
  */
-export function renderEntry(body, meta, title, lang, view = 'author', resolver = null) {
+export function renderEntry(body, meta, title, lang, resolver = null) {
   // 正文首个 H1 与条目标题相同时移除（避免与 entry-title 重复）
   let src = body;
   const h1 = src.match(/^#\s+(.+)\s*$/m);
@@ -198,7 +194,7 @@ export function renderEntry(body, meta, title, lang, view = 'author', resolver =
   md.renderer.rules.wikilink = resolver ? makeWikilink(resolver) : DEFAULT_WIKILINK;
   let html = md.render(src);
   md.renderer.rules.wikilink = prevWiki;
-  html = renderCallouts(html, view);
+  html = renderCallouts(html);
   html = renderFences(html);
   const { topMetaHTML, rangeHTML } = entryMetaParts(meta || {}, lang);
   return { html, topMetaHTML, rangeHTML };

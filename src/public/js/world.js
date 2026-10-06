@@ -444,11 +444,6 @@ function settingsRowsHTML() {
         <div class="seg" data-set="${key}">
           ${opts.map(([v, t2]) => `<button data-val="${v}">${t2}</button>`).join('')}
         </div></div>`).join('') + `
-      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '视图' : 'View'}</span>
-        <div class="seg" data-set="view">
-          <button data-val="author">${state.lang === 'zh-CN' ? '作者' : 'Author'}</button>
-          <button data-val="reader">${state.lang === 'zh-CN' ? '读者' : 'Reader'}</button>
-        </div></div>
       <div class="set-row"><span class="eyebrow">${lt('language')}</span>
         <div class="seg" data-lang></div>
       </div>
@@ -457,7 +452,9 @@ function settingsRowsHTML() {
       <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '时代带' : 'Era band'}</span>
         <div class="seg" data-set="axisEra"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
       <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '智能收拢' : 'Smart shrink'}</span>
-        <div class="seg" data-set="axisCollapse"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>`;
+        <div class="seg" data-set="axisCollapse"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
+      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '保存间隔' : 'Autosave'}</span>
+        <div class="seg" data-set="saveDelay"><button data-val="500">0.5s</button><button data-val="1000">1s</button><button data-val="2000">2s</button><button data-val="0">${state.lang === 'zh-CN' ? '关闭' : 'Off'}</button></div></div>`;
 }
 
 /** 设置条目接线（即时生效 + 持久化）。 */
@@ -475,7 +472,6 @@ function bindSettings(ctx, scope) {
         await api(`/api/w/${enc(ctx.worldId)}/settings`, { method: 'POST', body: { [key]: b.dataset.val } }).catch(() => {});
         if (key === 'axisEra') ctx.chrono?.layout();                     // 时代带：即时重排
         if (key === 'axisCollapse' && b.dataset.val === 'off') document.querySelector('.world-view')?.classList.remove('shrunk');
-        if (key === 'view') location.reload();   // 视图分级在渲染层生效 → 重载当前条目
       });
     });
   });
@@ -875,21 +871,33 @@ async function addReadlater(ctx, path) {
 
 // ============ 时间轴（功能设计 §3） ============
 function initTimeline(ctx, wrap, canvas, ticks) {
-  const items = ctx.timeline.map((r) => ({ ...r, s: parseOrd(r.start), e: parseOrd(r.end), era: r.era || null })).filter((r) => r.s != null);
-  let lo = 0, hi = 1;
-  if (items.length) {
-    lo = Math.min(...items.map((i) => i.s));
-    hi = Math.max(...items.map((i) => i.e ?? i.s));
-    const pad = (hi - lo) * 0.05 || YEAR;
-    lo -= pad; hi += pad;
+  const allItems = ctx.timeline.map((r) => ({ ...r, s: parseOrd(r.start), e: parseOrd(r.end), era: r.era || null })).filter((r) => r.s != null);
+  // 时间轴范围 = 本书（§A 二次定型）：顶层散文件文档 → 全库；换书由 setScope 重建
+  let items = [];
+  const view = { lo: 0, hi: 1 };
+  const full = { lo: 0, hi: 1 };
+  function rescope() {
+    const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
+    const node = ctx.tree.children.find((c) => c.name === top);
+    const inBook = !!(node && node.children && node.children.length);
+    items = inBook
+      ? (() => { const set = new Set(flattenTree(node).map((e) => e.path)); return allItems.filter((i) => set.has(i.path)); })()
+      : allItems;
+    if (items.length) {
+      const lo = Math.min(...items.map((i) => i.s));
+      const hi = Math.max(...items.map((i) => i.e ?? i.s));
+      const pad = (hi - lo) * 0.05 || YEAR;
+      view.lo = lo - pad; view.hi = hi + pad;
+    }
+    full.lo = view.lo; full.hi = view.hi;
+    return top;
   }
-  const view = { lo, hi };
-  // 从**当前视图**出发（不跳回默认全库初值）：同一世界重渲染沿用上次视野，
+  const scopeBook = rescope();
+  // 从**当前视图**出发（不跳回默认初值）：同世界同书重渲染沿用上次视野，
   // 之后由 openEntry 的取景补间「从现在的值移动/缩放到目标」；同文档重渲染则不再取景（skipFrame）
-  if (lastTimelineView && lastTimelineView.world === ctx.worldId) {
+  if (lastTimelineView && lastTimelineView.world === ctx.worldId && lastTimelineView.book === scopeBook) {
     view.lo = lastTimelineView.lo; view.hi = lastTimelineView.hi;
   }
-  const full = { lo, hi };        // 全库视野（无打开文档时的常规尺度）
   let anim = null;                // rAF 补间句柄（仅用于打开取景）
   const markers = document.createElement('div');
   markers.className = 'chrono-markers';
@@ -1136,7 +1144,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       eraIdx++;
     }
 
-    lastTimelineView = { world: ctx.worldId, lo: view.lo, hi: view.hi };
+    lastTimelineView = { world: ctx.worldId, book: (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, ''), lo: view.lo, hi: view.hi };
   }
 
   /** 视野补间：300ms cubic-bezier(.22,1,.36,1)（≈easeOutCubic）；reduced-motion 瞬时。 */
@@ -1266,7 +1274,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   window.addEventListener('keydown', axisKeyHandler);
 
   window.addEventListener('resize', layout);
-  return { layout, focusPath, focusOrd, isTall: () => tall, view };
+  return { layout, focusPath, focusOrd, isTall: () => tall, view, setScope: () => { rescope(); layout(); } };
 }
 
 // ============ 结构操作（§5.4 ②③④ + 重命名/删除）：右键菜单 ============
@@ -1361,10 +1369,6 @@ function renderToc(ctx) {
     const isOpenable = !!node.md;
     row.classList.toggle('openable', isOpenable);
     // 视图分级（§15.3）：读者视图下受限条目行淡化（点击仍可开，打开时占位卡）
-    if (node.restricted && ctx.settings?.view === 'reader') {
-      row.classList.add('restricted');
-      row.title = node.restricted === 'author' ? (state.lang === 'zh-CN' ? '仅作者可见' : 'Author only') : (state.lang === 'zh-CN' ? '秘传条目' : 'Sealed');
-    }
     if (node.md === ctx.currentPath) row.classList.add('current');
 
     const arrow = document.createElement('span');
@@ -1457,36 +1461,9 @@ async function openEntry(ctx, path, chrono) {
   reader.innerHTML = `<div class="loading">${t('world.loading')}</div>`;
   let e;
   try {
-    e = await api(`/api/w/${enc(ctx.worldId)}/entry?path=${enc(path)}${ctx.viewOverride ? '&view=author' : ''}`);
+    e = await api(`/api/w/${enc(ctx.worldId)}/entry?path=${enc(path)}`);
   }
   catch (err) { reader.innerHTML = `<div class="empty-state">${esc(err.message)}</div>`; return; }
-  // 视图分级（§15.3）：读者视图下 &v 作者 → 受限卡；&v 秘传 → 揭示卡；按钮以作者视图重取
-  if (e.restricted || e.sealed) {
-    const isAuthor = e.restricted === 'author';
-    reader.innerHTML = `
-      <article class="entry">
-        <div class="entry-title-row"><h1 class="entry-title">${esc(e.title)}</h1></div>
-        <div class="view-gate">
-          <span class="eyebrow">${isAuthor ? (state.lang === 'zh-CN' ? '仅作者可见' : 'Author only') : (state.lang === 'zh-CN' ? '秘传条目' : 'Sealed')}</span>
-          <p>${isAuthor
-            ? (state.lang === 'zh-CN' ? '读者视图下，&v 作者 条目的正文不显示、不下发。' : 'In reader view, &v 作者 entries are not shown.')
-            : (state.lang === 'zh-CN' ? '读者视图下，&v 秘传 的条目默认隐藏，点击揭示。' : 'In reader view, &v 秘传 entries are sealed; click to reveal.')}</p>
-          <button class="button-primary" id="view-reveal">${isAuthor ? (state.lang === 'zh-CN' ? '以作者视图显示' : 'Show as author') : (state.lang === 'zh-CN' ? '揭示' : 'Reveal')}</button>
-        </div>
-      </article>`;
-    reader.querySelector('#view-reveal').addEventListener('click', async () => {
-      ctx.viewOverride = true;
-      await openEntry(ctx, path, chrono);
-      ctx.viewOverride = false;
-    });
-    if (chrono && !ctx.skipFrame) chrono.focusPath(path);
-    if (chrono) chrono.layout();
-    if (ctx.tree && !ctx.panelPainted) updateTocCurrent(ctx, path);
-    ctx.panelPainted = false;
-    ctx.lastTocTop = (path || '').split('/')[0];
-    document.querySelectorAll('.rlf-card').forEach((c) => c.classList.toggle('open', c.dataset.path === path));
-    return;
-  }
 
   document.querySelectorAll('.event-flag.open, .span-bar.open').forEach((n) => n.classList.remove('open'));
   const next = nextEntry(ctx.tree, path);
@@ -1544,10 +1521,11 @@ async function openEntry(ctx, path, chrono) {
     im.addEventListener('click', (ev) => { ev.preventDefault(); openImagePaper(im.getAttribute('src') || ''); });
   });
 
-  if (chrono && !ctx.skipFrame) chrono.focusPath(path);
-  if (chrono) chrono.layout();
   // 目录：换书 → 重建树；同书 → 只移动高亮行（不重建，避免面板闪动）
   const topOf2 = (p2) => (p2 || '').split('/')[0];
+  if (ctx.lastTocTop !== topOf2(path)) chrono?.setScope?.();   // 换书 → 时间轴范围切到本书
+  if (chrono && !ctx.skipFrame) chrono.focusPath(path);
+  if (chrono) chrono.layout();
   if (ctx.tree && !ctx.panelPainted) {
     if (ctx.lastTocTop && ctx.lastTocTop !== topOf2(path)) renderToc(ctx);
     else updateTocCurrent(ctx, path);
@@ -1604,7 +1582,6 @@ async function enterEdit(ctx) {
       </div>`;
     const ta = reader.querySelector('#editor-min');
     ta.value = text;
-    const saveD = debounce(() => autoSave(ctx), 500);
     const drawerD = debounce(() => renderMetaDrawer(ctx), 300);
     ctx.editor = {
       getValue: () => ta.value,
@@ -1612,7 +1589,7 @@ async function enterEdit(ctx) {
       insertMetaLine: (k) => { ta.value = insertMetaIntoText(ta.value, k); ta.dispatchEvent(new Event('input')); ta.focus(); },
       destroy: () => ta.remove(),
     };
-    ta.addEventListener('input', () => { saveD(); drawerD(); });
+    ta.addEventListener('input', () => { scheduleAutoSave(ctx); drawerD(); });
     ta.focus();
     setEditFab(ctx, true);
     renderMetaDrawer(ctx);
@@ -1642,11 +1619,10 @@ async function enterEdit(ctx) {
   await loadEditor();
   window.__soliterraImgClick = (url, label) => openImagePaper(url, label);   // 编辑器缩略图 → 大图纸面
   window.__soliterraToast = (msg, kind) => showToast(msg, kind);
-  const saveD = debounce(() => autoSave(ctx), 500);
   const drawerD = debounce(() => renderMetaDrawer(ctx), 300);       // 抽屉重扫（§B.2 文档改动 300ms）
   ctx.editor = window.SoliterraEditor.create(document.getElementById('editor-host'), {
     doc: text,
-    onChange: (t) => { saveD(t); drawerD(t); },
+    onChange: (t) => { scheduleAutoSave(ctx); drawerD(t); },
     getEntries: () => flattenTree(ctx.tree),   // [[ 触发双链补全
     lang: state.lang,                                              // §B.4 菜单文案语言
     uploadAsset: (file) => uploadAsset(ctx, file),                             // 粘贴/拖入上传（§B.5）
@@ -1694,6 +1670,15 @@ function setEditFab(ctx, editing) {
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+/** 自动保存调度（§「保存间隔」设置：500/1000/2000ms 或 0=仅保存并退出时落盘）——动态读取，即时生效。 */
+let saveTimer = null;
+function scheduleAutoSave(ctx) {
+  clearTimeout(saveTimer);
+  const ms = Number(ctx.settings?.saveDelay ?? 500) || 0;
+  if (ms <= 0) return;
+  saveTimer = setTimeout(() => autoSave(ctx), ms);
 }
 
 /** 防抖自动保存（不提交，静默）。 */
@@ -2664,8 +2649,8 @@ export function attachScrollIndicators(root) {
     '.reader-column, .panel-scroll, .tools-list, .search-results, .modal-scroll, .editor-shell'
   );
   zones.forEach((zone) => {
-    if (zone.dataset.sbar) return;
-    zone.dataset.sbar = '1';
+    // 附着判据 = bar 实际存在（innerHTML 重写会删掉 bar；dataset 标记会误跳过重建——既有 bug，2026-10-06 修）
+    if (zone.querySelector(':scope > .scroll-indicator')) return;
     const bar = document.createElement('div');
     bar.className = 'scroll-indicator';
     bar.innerHTML = '<span></span>';
@@ -2676,10 +2661,10 @@ export function attachScrollIndicators(root) {
       const ch = zone.scrollHeight, vh = zone.clientHeight;
       if (ch <= vh + 2) { bar.style.display = 'none'; return; }
       bar.style.display = '';
-      const ratio = vh / ch;
-      const max = ch - vh;
-      span.style.width = (ratio * 100) + '%';
-      span.style.left = ((zone.scrollTop / max) * (100 - ratio * 100)) + '%';
+      // 左端恒在面板最左；右端 = 文档顶端→屏幕底端已显示的百分比（进度条语义）
+      const shown = Math.min(1, (zone.scrollTop + vh) / ch);
+      span.style.width = (shown * 100) + '%';
+      span.style.left = '0';
       // 滚动时出现，停止后延迟淡出
       bar.classList.add('active');
       clearTimeout(hideTimer);
