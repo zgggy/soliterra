@@ -291,7 +291,7 @@ img { display: block; max-width: 100%; }
 .span-bar {
   position: absolute; top: auto; bottom: 0; height: 6px;   /* 紧贴时间轴线 */
   border: 1px solid var(--text); background: var(--bg-soft); border-radius: 0;
-  opacity: 0; transition: opacity var(--motion-quick), left var(--motion-state) var(--ease-out-quick), width var(--motion-state) var(--ease-out-quick);
+  opacity: 0; transition: opacity var(--motion-quick);   /* left/width 不过渡：拖动/缩放须跟手 */
 }
 .span-bar.show, .span-bar.open { opacity: 1; }
 .span-bar.fuzzy { border-style: dashed; }
@@ -336,6 +336,7 @@ img { display: block; max-width: 100%; }
 /* 打开文档的起止时刻：与标尺刻度同款（轴下方一个年份），墨色加粗区分；不遮挡指针 */
 .chrono-markers { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none; }
 .chrono-marker-tick { color: var(--text); font-weight: 600; }
+.chrono-marker-tick.edge::before { height: 12px; top: -12px; }   /* 范围首尾：更高的刻度 */
 
 /* ---------- push 面板通用（左/右两栏；内容自管滚动） ---------- */
 .push-panel {

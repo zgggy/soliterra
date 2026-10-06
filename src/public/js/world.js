@@ -889,7 +889,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       const timed = items.filter((i) => !i.genesis);              // 创世条目不计入总范围
       const base = timed.length ? timed : items;
       const lo = Math.min(...base.map((i) => i.s));
-      const hi = Math.max(...base.map((i) => i.e ?? i.s));
+      const hi = Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s)));   // 末覆盖最晚结束（卡片按开始时间定位，轴尾须容下所有绘制）
       const pad = (hi - lo) * 0.05 || YEAR;
       view.lo = lo - pad; view.hi = hi + pad;
     }
@@ -897,7 +897,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     const timed = items.filter((i) => !i.genesis);
     const base2 = timed.length ? timed : items;
     earliestOrd = base2.length ? Math.min(...base2.map((i) => i.s)) : null;
-    latestOrd = base2.length ? Math.max(...base2.map((i) => i.e ?? i.s)) : null;
+    latestOrd = base2.length ? Math.max(...base2.map((i) => Math.max(i.s, i.e ?? i.s))) : null;
     return top;
   }
   let earliestOrd = null, latestOrd = null;
@@ -1018,35 +1018,28 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     markers.innerHTML = '';
     const cur = items.find((i) => i.path === ctx.currentPath);
     const markerPx = [];
-    // 范围起点刻度（2026-10-06）：最早时间处一个墨色年份刻度；常规刻度让位
-    if (earliestOrd != null) {
-      const px0 = x(earliestOrd);
-      if (px0 > -40 && px0 < width + 40) {
-        markerPx.push(px0);
-        const t0 = document.createElement('span');
-        t0.className = 'tick chrono-marker-tick';
-        t0.style.left = px0 + 'px';
-        const yr0 = Math.round(earliestOrd / YEAR);
-        t0.textContent = yr0 < 0 ? `前${Math.abs(yr0)}` : String(yr0);
-        t0.title = state.lang === 'zh-CN' ? '范围起点（最早时间）' : 'Range start';
-        markers.appendChild(t0);
-      }
-    }
+    const zh = state.lang === 'zh-CN';
+    const addMarker = (ord, { edge = false, title = '' } = {}) => {
+      if (ord == null) return;
+      const px = x(ord);
+      if (px < -40 || px > width + 40) return;
+      if (markerPx.some((mp) => Math.abs(mp - px) < 24)) return;   // 就近让位（同年份同位不重复绘）
+      markerPx.push(px);
+      const tEl = document.createElement('span');
+      tEl.className = `tick chrono-marker-tick${edge ? ' edge' : ''}`;
+      tEl.style.left = px + 'px';
+      const y = Math.floor(ord / YEAR);   // 所在年份（0847.08 不得四舍五入成 848）
+
+      tEl.textContent = y < 0 ? `前${Math.abs(y)}` : String(y);
+      if (title) tEl.title = title;
+      markers.appendChild(tEl);
+    };
+    // 范围起终点（2026-10-06）：首尾各一个更高刻度；常规刻度让位
+    addMarker(earliestOrd, { edge: true, title: zh ? '范围起点（最早时间）' : 'Range start' });
+    addMarker(latestOrd, { edge: true, title: zh ? '范围终点（最晚结束）' : 'Range end' });
     if (cur && !cur.genesis) {   // 创世条目无时间语义，不起止标记
-      const put = (ord) => {
-        if (ord == null) return;
-        const px = x(ord);
-        if (px < -40 || px > width + 40) return;
-        markerPx.push(px);
-        const tEl = document.createElement('span');
-        tEl.className = 'tick chrono-marker-tick';
-        tEl.style.left = px + 'px';
-        const y = Math.round(ord / YEAR);
-        tEl.textContent = y < 0 ? `前${Math.abs(y)}` : String(y);
-        markers.appendChild(tEl);
-      };
-      put(cur.s);
-      if (cur.e != null && cur.e > cur.s) put(cur.e);
+      addMarker(cur.s);
+      if (cur.e != null && cur.e > cur.s) addMarker(cur.e);
     }
     const step = tickStep();
     const y0 = Math.floor((view.lo / YEAR) / step) * step;
@@ -1091,6 +1084,15 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     for (let i = chain.length - 2; i >= 0; i--) {
       const cur = chain[i], nxt = chain[i + 1];
       if (nxt._left < cur._trueX + cur._w) cur._left = nxt._left - 10;   // 与后一张重叠 → 向左让出 10px 堆叠
+    }
+    // 创世组可见性（2026-10-06）：整组超出面板时贴边——锚点被取景/缩放/范围过窄推出左缘 → 贴左缘；
+    // 视窗落在范围之前（右推出）→ 贴右缘。保证创世条目在任何视野下都可见（锚点靠左时宁可压住轴首）。
+    const genItems = flagItems.filter((it) => it.genesis);
+    if (genItems.length) {
+      let mn = Infinity, mx = -Infinity;
+      for (const it of genItems) { mn = Math.min(mn, it._left); mx = Math.max(mx, it._left + it._w); }
+      if (mn < 6) for (const it of genItems) it._left += 6 - mn;
+      else if (mx > width - 6) for (const it of genItems) it._left += (width - 6) - mx;
     }
     for (const it of flagItems) {
       if (it._lane == null) { it._lane = 0; it._top = 10; }
@@ -1203,11 +1205,21 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     anim = requestAnimationFrame(step);
   }
 
+  /** 平移钳制（2026-10-06）：视野中心的时刻不得越过范围两端——左右端最多被拖到屏幕正中。
+   *  以手势起点 ref 为软边界：已越界（取景开的创世同框等）时不回弹，只禁止继续越界。 */
+  function clampPan(lo2, hi2, refLo, refHi) {
+    if (earliestOrd == null || latestOrd == null) return [lo2, hi2];
+    const span = hi2 - lo2;
+    const refC = ((refLo ?? lo2) + (refHi ?? hi2)) / 2;
+    const cMin = Math.min(earliestOrd, refC), cMax = Math.max(latestOrd, refC);
+    const c = Math.min(Math.max((lo2 + hi2) / 2, cMin), cMax);
+    return [c - span / 2, c + span / 2];
+  }
   wrap.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.shiftKey) {
       const d = (e.deltaY / wrap.clientWidth) * (view.hi - view.lo);
-      view.lo += d; view.hi += d;
+      [view.lo, view.hi] = clampPan(view.lo + d, view.hi + d, view.lo, view.hi);
     } else {
       const anchor = view.lo + ((e.clientX - wrap.getBoundingClientRect().left) / wrap.clientWidth) * (view.hi - view.lo);
       const factor = e.deltaY > 0 ? 1.12 : 1 / 1.12;
@@ -1229,7 +1241,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   wrap.addEventListener('pointermove', (e) => {
     if (!dragging) return;
     const d = ((e.clientX - dragging.x) / wrap.clientWidth) * (dragging.hi - dragging.lo);
-    view.lo = dragging.lo - d; view.hi = dragging.hi - d;
+    [view.lo, view.hi] = clampPan(dragging.lo - d, dragging.hi - d, dragging.lo, dragging.hi);
     layout();
   });
   const stop = () => { dragging = null; wrap.classList.remove('dragging'); };
