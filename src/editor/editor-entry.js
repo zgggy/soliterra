@@ -475,6 +475,16 @@ window.SoliterraEditor = {
       },
       fence: (kind) => insertText(view, `\n\`\`\`${kind}\n\n\`\`\`\n`),
       meta: (key) => insertText(view, `\n&${key} `),
+      /** 「＋ 添加元数据」：把 `&k ` 插到最后一个 & 行尾（无则文档头），光标落值位；单事务可 ⌘Z 撤。 */
+      insertMetaLine: (key) => {
+        const doc = view.state.doc;
+        let last = null;
+        for (let i = 1; i <= doc.lines; i++) { const l = doc.line(i); if (/^\s*&[a-z]/.test(l.text)) last = l; }
+        const text = last ? ` &${key} ` : `&${key} \n`;
+        const from = last ? last.to : 0;
+        view.dispatch({ changes: { from, insert: text }, selection: { anchor: from + text.length } });
+        view.focus();
+      },
       image: (src, alt = '') => insertText(view, `![${alt}](${src})`),
       startCompletion: () => startCompletion(view),   // 手动触发补全（调试/快捷键可用）
       focusEnd: () => { view.dispatch({ selection: { anchor: view.state.doc.length } }); view.focus(); },

@@ -1592,19 +1592,29 @@ async function enterEdit(ctx) {
   if ((ctx.settings?.editor || 'std') === 'min') {
     reader.innerHTML = `
       <div class="editor-shell">
+        <div class="meta-drawer" id="meta-drawer"></div>
         <div class="editor-min-note eyebrow">${state.lang === 'zh-CN' ? '极简编辑器 · 纯文本（无装饰层）' : 'Minimal editor · plain markdown'}</div>
         <textarea class="editor-min" id="editor-min" spellcheck="false"></textarea>
       </div>`;
     const ta = reader.querySelector('#editor-min');
     ta.value = text;
-    ctx.editor = { getValue: () => ta.value, destroy: () => ta.remove() };
-    ta.addEventListener('input', debounce(() => autoSave(ctx), 500));
+    const saveD = debounce(() => autoSave(ctx), 500);
+    const drawerD = debounce(() => renderMetaDrawer(ctx), 300);
+    ctx.editor = {
+      getValue: () => ta.value,
+      setValue: (t) => { ta.value = t; ta.dispatchEvent(new Event('input')); },
+      insertMetaLine: (k) => { ta.value = insertMetaIntoText(ta.value, k); ta.dispatchEvent(new Event('input')); ta.focus(); },
+      destroy: () => ta.remove(),
+    };
+    ta.addEventListener('input', () => { saveD(); drawerD(); });
     ta.focus();
     setEditFab(ctx, true);
+    renderMetaDrawer(ctx);
     return;
   }
   reader.innerHTML = `
     <div class="editor-shell">
+      <div class="meta-drawer" id="meta-drawer"></div>
       <div class="editor-toolbar" id="editor-toolbar">
         <button class="icon-button" data-cmd="h1">H1</button>
         <button class="icon-button" data-cmd="h2">H2</button>
@@ -1626,9 +1636,11 @@ async function enterEdit(ctx) {
   await loadEditor();
   window.__soliterraImgClick = (url, label) => openImagePaper(url, label);   // 编辑器缩略图 → 大图纸面
   window.__soliterraToast = (msg, kind) => showToast(msg, kind);
+  const saveD = debounce(() => autoSave(ctx), 500);
+  const drawerD = debounce(() => renderMetaDrawer(ctx), 300);       // 抽屉重扫（§B.2 文档改动 300ms）
   ctx.editor = window.SoliterraEditor.create(document.getElementById('editor-host'), {
     doc: text,
-    onChange: debounce(() => autoSave(ctx), 500),
+    onChange: (t) => { saveD(t); drawerD(t); },
     getEntries: () => flattenTree(ctx.tree),   // [[ 触发双链补全
     lang: state.lang,                                              // §B.4 菜单文案语言
     uploadAsset: (file) => uploadAsset(ctx, file),                             // 粘贴/拖入上传（§B.5）
@@ -1661,6 +1673,7 @@ async function enterEdit(ctx) {
     updateEditorCount(ctx);
   });
   setEditFab(ctx, true);
+  renderMetaDrawer(ctx);       // 抽屉初始渲染（§B.2）
 }
 
 /** 右下编辑 fab：阅读态 = 铅笔细线图标；编辑态 = 保存图标（「保存并退出」）。 */
@@ -2842,6 +2855,131 @@ const META_ENUM = {
   q: [['可靠', '可靠'], ['存疑', '存疑'], ['已证伪', '已证伪'], ['立场鲜明', '立场鲜明']],
 };
 const META_LABEL = { s: '起始时间', e: '结束时间', t: '标签', f: '事件分类', n: '标题', a: '时代', p: '状态', v: '可见性', q: '可信度', m: '封面图' };
+// §B.2 元数据抽屉键表（与《全景时间轴与编辑器增强设计.md》§B.2 一致：名 / 解释 / 示例）
+const META_KEY_DOC = {
+  s: { zh: ['时间轴定位起点；`*` 为模糊段，公元前加 `-`', '0705.09.04'], en: ['Timeline start; * fuzzy, - for BCE', '0705.09.04'] },
+  e: { zh: ['结束时间；缺省 = 瞬时事件（轴上一个点）', '0705.09.30'], en: ['End; omit = instant event', '0705.09.30'] },
+  n: { zh: ['标题；不写则用文件名', '血色婚礼'], en: ['Title; defaults to filename', '血色婚礼'] },
+  t: { zh: ['标签（空格分隔）；书籍分类与图筛选', '设定 世界本源'], en: ['Tags (space separated)', '设定'] },
+  f: { zh: ['事件分类——时间轴旗标的分组维度', '灾变'], en: ['Flag group on the timeline', '灾变'] },
+  a: { zh: ['时代——时间轴时代带，同代条目时间并集', '黄金时代'], en: ['Era band grouping', '黄金时代'] },
+  p: { zh: ['状态（存英文 token）：canon / draft / disputed / deprecated', 'canon'], en: ['Status token: canon/draft/disputed/deprecated', 'canon'] },
+  v: { zh: ['可见性——读者视图分级（存中文值）', '公众 / 秘传 / 作者'], en: ['Visibility (reader-view gating)', '公众/秘传/作者'] },
+  q: { zh: ['可信度——卡片徽章前置（存中文值）', '可靠 / 存疑 / 已证伪'], en: ['Reliability badge', '可靠'] },
+  m: { zh: ['封面图——assets/ 相对路径', 'assets/concepts/cover.png'], en: ['Cover image path', 'assets/…'] },
+};
+const META_ORDER = ['s', 'e', 'n', 't', 'f', 'a', 'p', 'v', 'q', 'm'];
+
+/** 从文档文本解析 & 元数据（单行值断于下个键或行尾）→ Map<key, {value}>。 */
+function parseMetaFromDoc(text) {
+  const map = new Map();
+  for (const line of text.split('\n')) {
+    if (!/^\s*&[a-z]/.test(line)) continue;
+    const re = /&([a-z])(?:\s+([^&]*))?/g;
+    let m;
+    while ((m = re.exec(line))) map.set(m[1], { value: (m[2] || '').trim() });
+  }
+  return map;
+}
+
+/** 文本级改写单个元数据键（value 为空 = 删键；整行无键则删行）。编辑态与保存管线共用。 */
+function applyMetaToText(text, key, value) {
+  if (value === '' || value == null) {
+    const re = new RegExp(`(^|\\s)&${key}(?=\\s|$)`);
+    const out = [];
+    for (const line of text.split('\n')) {
+      if (!re.test(line)) { out.push(line); continue; }
+      const nl = line
+        .replace(new RegExp(`(^|\\s)&${key}\\s*[^&]*`), '$1')
+        .replace(/[ \t]{2,}/g, ' ').replace(/\s+$/, '');
+      if (nl.trim() === '' || nl.trim() === '&') continue;      // 行里没别的键了 → 删行
+      out.push(nl);
+    }
+    return out.join('\n');
+  }
+  const kv = new RegExp(`&${key}\\s+[^&\\n]*`);
+  if (kv.test(text)) return text.replace(kv, `&${key} ${value} `);
+  return `&${key} ${value}\n` + text;                           // 键不存在 → 插入文档头
+}
+
+/** 在文档的 & 行区插入空键 `&k `（追加到最后一个 & 行尾；无 & 行则插入文档头）；返回新文本。 */
+function insertMetaIntoText(text, key) {
+  const lines = text.split('\n');
+  let lastMetaIdx = -1;
+  for (let i = 0; i < lines.length; i++) if (/^\s*&[a-z]/.test(lines[i])) lastMetaIdx = i;
+  if (lastMetaIdx >= 0) {
+    lines[lastMetaIdx] = `${lines[lastMetaIdx].replace(/\s+$/, '')} &${key} `;
+    return lines.join('\n');
+  }
+  return `&${key} \n${text}`;
+}
+
+/** 保存元数据：编辑态写回 CM6 编辑器（不重渲染，防抖自动保存）；阅读态走服务端 + 原地重载。 */
+async function saveMetaFromEditor(ctx, key, value) {
+  if (ctx.editing && ctx.editor) {
+    const cur = ctx.editor.getValue();
+    const next = applyMetaToText(cur, key, value);
+    if (next !== cur) ctx.editor.setValue(next);                // CM6 内一个事务（⌘Z 可撤）→ onChange 触发保存与抽屉重扫
+    return;
+  }
+  await editMetaValue(ctx, key, value);
+}
+
+/** 元数据抽屉（§B.2 编辑态顶条）：chips 即点即改 + 末尾「＋」添加。文档改动后防抖重扫。 */
+function renderMetaDrawer(ctx) {
+  const host = document.getElementById('meta-drawer');
+  if (!host || !ctx.editing || !ctx.editor) return;
+  let meta;
+  try { meta = parseMetaFromDoc(ctx.editor.getValue()); } catch { return; }
+  const keys = [...META_ORDER.filter((k) => meta.has(k)), ...[...meta.keys()].filter((k) => !META_ORDER.includes(k))];
+  host.innerHTML = keys.map((k) => {
+    const v = meta.get(k)?.value || '';
+    const known = META_ORDER.includes(k);
+    return `<button class="md-chip${v ? '' : ' empty'}${known ? '' : ' custom'}" data-k="${esc(k)}" title="${esc(META_LABEL[k] || '自定义键')}">
+      <span class="k">&${esc(k)}</span><span class="v">${v ? esc(v) : '—'}</span></button>`;
+  }).join('') + `<button class="md-add" id="md-add" title="${state.lang === 'zh-CN' ? '添加元数据' : 'Add metadata'}">＋</button>`;
+  host.querySelectorAll('.md-chip').forEach((b) => b.addEventListener('click', async () => {
+    const k = b.dataset.k;
+    const val = await openMetaEditor(ctx, k, meta.get(k)?.value || '');
+    if (val === null) return;
+    await saveMetaFromEditor(ctx, k, val.trim());
+  }));
+  host.querySelector('#md-add')?.addEventListener('click', () => openAddMeta(ctx));
+}
+
+/** 「＋ 添加元数据」菜单：键表（名+解释+示例）；已存在 → 开其编辑卡，否则插入 `&k ` 光标值位。 */function openAddMeta(ctx) {
+  const { close, body } = openPaperDialog2('＋ ' + (state.lang === 'zh-CN' ? '添加元数据' : 'Add metadata'));
+  const zh = state.lang !== 'en';
+  let meta = new Map();
+  try { meta = parseMetaFromDoc(ctx.editor?.getValue() || ''); } catch {}
+  const rowHTML = (k, name, doc2) => `<button class="am-row" data-k="${esc(k)}" ${meta.has(k) ? 'data-exists="1"' : ''}>
+      <span class="am-key">&${esc(k)}</span><span class="am-name">${esc(name)}</span>
+      <span class="am-desc">${esc(doc2[0])}</span><span class="am-ex">${esc(doc2[1] || '')}</span></button>`;
+  body.innerHTML = `
+    <div class="am-list">
+      ${META_ORDER.map((k) => rowHTML(k, META_LABEL[k], META_KEY_DOC[k] ? META_KEY_DOC[k][zh ? 'zh' : 'en'] : ['', ''])).join('')}
+    </div>
+    <div class="am-custom">
+      <input class="text-input" id="am-key" maxlength="1" placeholder="${state.lang === 'zh-CN' ? '自定义键（单个小写字母）' : 'Custom key (one lowercase letter)'}">
+      <button class="button-ghost" id="am-ok">${state.lang === 'zh-CN' ? '插入' : 'Insert'}</button>
+    </div>`;
+  const addKey = async (k) => {
+    if (!/^[a-z]$/.test(k)) { showToast(state.lang === 'zh-CN' ? '键须为单个小写字母' : 'Single lowercase letter', 'warning'); return; }
+    close();
+    if (meta.has(k)) {                                      // 已存在 → 开编辑卡
+      const val = await openMetaEditor(ctx, k, meta.get(k).value || '');
+      if (val !== null) await saveMetaFromEditor(ctx, k, val.trim());
+      return;
+    }
+    if (!ctx.editor?.insertMetaLine) { showToast(state.lang === 'zh-CN' ? '请在编辑态使用' : 'Editor only', 'warning'); return; }
+    ctx.editor.insertMetaLine(k);                           // 插 `&k ` 到 & 行区并聚焦值位（一个事务可撤）
+    renderMetaDrawer(ctx);
+  };
+  body.querySelectorAll('.am-row').forEach((b) => b.addEventListener('click', () => addKey(b.dataset.k)));
+  body.querySelector('#am-ok').addEventListener('click', () => addKey(body.querySelector('#am-key').value.trim().toLowerCase()));
+  body.querySelector('#am-key').addEventListener('keydown', (e) => { if (e.key === 'Enter') addKey(body.querySelector('#am-key').value.trim().toLowerCase()); });
+}
+
 const DATE_RE = /^-?\d{1,4}\.(\d{2}|\*)\.(\d{2}|\*)$/;
 
 function openMetaEditor(ctx, key, current) {
@@ -2852,12 +2990,16 @@ function openMetaEditor(ctx, key, current) {
     const flagCats = [...new Set(ctx.timeline.map((r) => r.flag).filter(Boolean))];
     const bookTags = [...new Set((ctx.tree.children || []).flatMap((b) => b.tags || []))];
     let tags = isTags ? String(current || '').split(/\s+/).filter(Boolean) : [];
+    const kdoc = META_KEY_DOC[key];
+    const explain = kdoc ? (state.lang === 'en' ? kdoc.en[0] : kdoc.zh[0]) : '';
+    const example = kdoc ? (state.lang === 'en' ? kdoc.en[1] : kdoc.zh[1]) : '';
     const modal = document.createElement('div');
     modal.className = 'reader-modal active';
     modal.innerHTML = `
       <div class="modal-dialog ask-dialog">
-        <div class="modal-header"><span class="eyebrow">&amp;${esc(key)} · ${esc(META_LABEL[key] || '元数据')}</span><button class="modal-close" data-close>×</button></div>
+        <div class="modal-header"><span class="eyebrow">&amp;${esc(key)} · ${esc(META_LABEL[key] || (state.lang === 'en' ? 'Custom key' : '自定义键'))}</span><button class="modal-close" data-close>×</button></div>
         <div class="modal-scroll">
+          ${explain ? `<p class="meta-explain">${esc(explain)}${example ? ` <span class="meta-ex-example">例：${esc(example)}</span>` : ''}</p>` : ''}
           ${isDate ? `
             <input class="text-input meta-date" value="${esc(current)}" placeholder="yyyy.mm.dd（* 为模糊段，如 0705.*.*）">
             <div class="meta-hint" hidden></div>
@@ -2876,6 +3018,7 @@ function openMetaEditor(ctx, key, current) {
             <input class="text-input meta-text" value="${esc(current)}" ${key === 'f' ? 'list="meta-flag-list"' : ''} placeholder="${key === 'm' ? 'assets/… 图片路径' : ''}">
             ${key === 'f' ? `<datalist id="meta-flag-list">${flagCats.map((f2) => `<option value="${esc(f2)}">`).join('')}</datalist>` : ''}` : ''}
           <div class="modal-actions">
+            <button class="button-ghost meta-del" data-del-key>${state.lang === 'en' ? 'Delete key' : '删除该键'}</button>
             <button class="button-ghost" data-close>取消</button>
             <button class="button-primary" data-ok>确定</button>
           </div>
@@ -2947,6 +3090,7 @@ function openMetaEditor(ctx, key, current) {
       return custom ? custom.value.trim() : '';
     };
     modal.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => done(null)));
+    modal.querySelector('[data-del-key]')?.addEventListener('click', () => done(''));   // 空串 = 删键（§5.3）
     okBtn.addEventListener('click', () => { if (!validateDate()) return; done(collect()); });
     const inp = modal.querySelector('.text-input');
     inp?.focus(); inp?.select?.();
@@ -2960,12 +3104,7 @@ function openMetaEditor(ctx, key, current) {
 /** 编辑单个元数据键：更新其 & 行中的值并保存（同行其他键保留）。 */
 async function editMetaValue(ctx, key, value) {
   let raw = ctx.currentRaw || '';
-  const re = new RegExp(`(&${key}\\s+)[^&\\n]*`);
-  if (re.test(raw)) {
-    raw = raw.replace(re, (m0, p1) => `${p1}${value} `);
-  } else {
-    raw = `&${key} ${value}\n` + raw;
-  }
+  raw = applyMetaToText(raw, key, value);   // value 空 = 删键（整行无键则删行）；否则同行改值/头部插入
   try {
     await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: raw } });
     refreshGitStatus(ctx);

@@ -1132,6 +1132,53 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 }
 .cm-img-cap { font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted); }
 
+/* ---------- 元数据抽屉（§B.2 编辑态顶条） ---------- */
+.meta-drawer {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  padding: 8px 32px; border-bottom: 1px solid var(--line); background: var(--surface);
+}
+.md-chip {
+  display: inline-flex; align-items: baseline; gap: 5px; padding: 3px 8px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg-soft); border-radius: 0;
+  transition: border-color var(--motion-quick);
+}
+.md-chip:hover { border-color: var(--line-strong); }
+.md-chip .k { font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); }
+.md-chip .v { font-family: var(--font-serif); font-size: 0.78rem; }
+.md-chip.empty .v { color: var(--text-muted); }
+.md-chip.custom { border-style: dashed; }
+.md-add {
+  margin-left: auto; width: 24px; height: 24px; padding: 0; cursor: pointer;
+  border: 1px solid var(--line); background: transparent; color: var(--text-muted);
+  font-family: var(--font-ui); font-size: 0.9rem; line-height: 1;
+  transition: color var(--motion-quick), border-color var(--motion-quick);
+}
+.md-add:hover { color: var(--text); border-color: var(--line-strong); }
+/* 键编辑卡：解释行与删除键 */
+.meta-explain {
+  margin: 0 0 12px; padding-left: 8px; border-left: 2px solid var(--line-strong);
+  font-size: 0.78rem; line-height: 1.55; color: var(--text-muted);
+}
+.meta-ex-example { font-family: var(--font-mono); font-size: 0.68rem; opacity: 0.8; }
+.meta-del { margin-right: auto; color: var(--err); }
+.meta-del:hover { border-color: var(--err); }
+/* 「＋ 添加元数据」菜单 */
+.am-list { display: flex; flex-direction: column; gap: 2px; max-height: 52vh; overflow-y: auto; }
+.am-row {
+  display: grid; grid-template-columns: 34px 64px 1fr auto; gap: 10px; align-items: baseline;
+  padding: 7px 8px; cursor: pointer; text-align: left;
+  border: 1px solid transparent; background: transparent; border-radius: 0;
+  transition: background var(--motion-quick), border-color var(--motion-quick);
+}
+.am-row:hover { background: var(--bg-soft); border-color: var(--line); }
+.am-row[data-exists] { opacity: 0.55; }
+.am-key { font-family: var(--font-mono); font-size: 0.74rem; color: var(--link); }
+.am-name { font-family: var(--font-serif); font-size: 0.82rem; font-weight: 700; }
+.am-desc { font-size: 0.74rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.am-ex { font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted); }
+.am-custom { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.am-custom .text-input { flex: 1; }
+
 /* ---------- 交互动画系统：reduced-motion 全局兜底（v3，design.md「Motion」） ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

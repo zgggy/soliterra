@@ -33,4 +33,5 @@ var cs=[],za=[];(()=>{let n="lc,34,7n,7,7b,19,,,,2,,2,,,20,b,1c,l,g,,2t,7,2,6,2,
 
 \`\`\`
 `),meta:i=>Dn(t,`
-&${i} `),image:(i,r="")=>Dn(t,`![${r}](${i})`),startCompletion:()=>ci(t),focusEnd:()=>{t.dispatch({selection:{anchor:t.state.doc.length}}),t.focus()},destroy:()=>t.destroy()}}};
+&${i} `),insertMetaLine:i=>{let r=t.state.doc,s=null;for(let a=1;a<=r.lines;a++){let h=r.line(a);/^\s*&[a-z]/.test(h.text)&&(s=h)}let o=s?` &${i} `:`&${i} 
+`,l=s?s.to:0;t.dispatch({changes:{from:l,insert:o},selection:{anchor:l+o.length}}),t.focus()},image:(i,r="")=>Dn(t,`![${r}](${i})`),startCompletion:()=>ci(t),focusEnd:()=>{t.dispatch({selection:{anchor:t.state.doc.length}}),t.focus()},destroy:()=>t.destroy()}}};
