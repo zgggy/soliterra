@@ -10,7 +10,7 @@ import {
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxHighlighting, HighlightStyle, syntaxTree } from '@codemirror/language';
-import { autocompletion, startCompletion } from '@codemirror/autocomplete';
+import { autocompletion, startCompletion, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
 import { tags } from '@lezer/highlight';
 
 // ---------- 主题（design.md token） ----------
@@ -172,10 +172,23 @@ function pasteDropUpload(opts) {
   return EditorView.domEventHandlers({
     paste: (event, view) => {
       const files = filesFrom(event.clipboardData);
-      if (!files.length) return false;
-      event.preventDefault();
-      upload(view, files);
-      return true;
+      if (files.length) {
+        event.preventDefault();
+        upload(view, files);
+        return true;
+      }
+      // 粘贴净化（§B.4）：【【X】】 / 〔〔〕〕 / 〖〖〗〗 → [[X]]（仅当纯文本含这些符号时接管）
+      const text = event.clipboardData?.getData('text/plain') || '';
+      if (/【【|〔〔|〖〖/.test(text)) {
+        event.preventDefault();
+        const clean = text
+          .replace(/【【(.+?)】】/g, '[[$1]]')
+          .replace(/〔〔(.+?)〕〕/g, '[[$1]]')
+          .replace(/〖〖(.+?)〗〗/g, '[[$1]]');
+        view.dispatch(view.state.replaceSelection(clean));
+        return true;
+      }
+      return false;
     },
     drop: (event, view) => {
       const files = filesFrom(event.dataTransfer);
@@ -187,6 +200,167 @@ function pasteDropUpload(opts) {
       return true;
     },
   });
+}
+
+// ---------- 输入快捷格式（§B.4） ----------
+// CM6 核心无 inputRules → 用 transactionFilter 改写「刚键入的字符」（只作用于 input.type，
+// 不批量改写既有文档；每次转换 = 一个事务，⌘Z 整体可撤）。
+function cjkBracketRules() {
+  return EditorState.transactionFilter.of((tr) => {
+    if (tr.changes.empty) return tr;
+    let ins = '', p0 = -1, count = 0, fromA = -1, toA = -1, selText = '';
+    tr.changes.iterChanges((a, b, c, d, inserted) => {
+      ins = String(inserted);                 // inserted 是 CM6 Text 对象，须 String()（=== 比较才成立）
+      p0 = a; fromA = a; toA = b;
+      selText = tr.startState.sliceDoc(a, b);   // 被替换的原选区文本
+      count++;
+    });
+    if (p0 < 0 || !ins || count !== 1) return tr;             // 多光标输入不改写
+    // 触发面：input.type = 真实键入/IME；input.paste = 粘贴；**无 input.* userEvent 的短插入**（IME
+    // 一次上屏多字/程序化单点插入——长插入如 setValue 全文不受影响，仍不批量改写既有文档）。
+    const ue = tr.annotations.some((a) => typeof a.value === 'string' && a.value.startsWith('input.'));
+    if (!ue && ins.length > 4) return tr;
+    const line = tr.startState.doc.lineAt(p0);
+    const before = tr.startState.sliceDoc(line.from, p0);
+    const full = before + ins;
+    const after2 = tr.startState.sliceDoc(p0, p0 + 2);         // 原 doc 中光标后的两字（filter 坐标恒基于 startState）
+    // ① 选中文字键入【 → [[选区]]（光标落 ]] 之前——spec「有选区 → [[选区]]」）
+    if (ins === '【' && toA > fromA) {
+      const text = selText;
+      return { changes: [{ from: fromA, to: toA, insert: `[[${text}]]` }],
+        selection: { anchor: fromA + 2 + text.length }, userEvent: 'input.type' };
+    }
+    // ② 【【 → [[|]]（光标居中）
+    if (/【【$/.test(full)) {
+      if (ins === '【【') {
+        return { changes: [{ from: p0, insert: '[[]]' }],
+          selection: { anchor: p0 + 2 }, userEvent: 'input.type' };
+      }
+      if (ins === '【' && before.endsWith('【')) {
+        return { changes: [{ from: p0 - 1, to: p0, insert: '[[]]' }],
+          selection: { anchor: p0 + 1 }, userEvent: 'input.type' };
+      }
+    }
+    // ③ [[|]] 内再打【（已自动配对）→ 吞掉本次输入
+    if (ins === '【' && after2 === ']]' && /\[\[[^\[\]]*$/.test(before)) {
+      return { changes: [], selection: { anchor: p0 }, userEvent: 'input.type' };
+    }
+    // ④ 】】 → ]]（与未闭合 [[ 配对；已存在 ]] 时去重）
+    if (/】】$/.test(full)) {
+      if (after2 === ']]') return { changes: [], selection: { anchor: p0 }, userEvent: 'input.type' };
+      if (ins === '】】') return { changes: [{ from: p0, insert: ']]' }], selection: { anchor: p0 + 2 }, userEvent: 'input.type' };
+      if (ins === '】' && before.endsWith('】')) {
+        return { changes: [{ from: p0 - 1, to: p0, insert: ']]' }], selection: { anchor: p0 + 1 }, userEvent: 'input.type' };
+      }
+    }
+    return tr;
+  });
+}
+
+/** 键表（§B.2 解释文案；zh/en 按 opts.lang）——「词表是建议不是锁」。 */
+const META_DEFS = [
+  ['s', '起始时间', '时间轴定位起点；* 模糊段，公元前加 -', 'Start time (timeline anchor; * fuzzy, - for BCE)', '0705.09.04'],
+  ['e', '结束时间', '缺省 = 瞬时事件（轴上一个点）', 'End time; omit = instant event', '0705.09.30'],
+  ['n', '标题', '不写则用文件名', 'Title; defaults to filename', '血色婚礼'],
+  ['t', '标签', '空格分隔；书籍分类与图筛选', 'Tags (space separated)', '设定 世界本源'],
+  ['f', '事件分类', '时间轴旗标的分组维度', 'Flag group on the timeline', '灾变'],
+  ['a', '时代', '时间轴时代带：同代条目时间并集', 'Era band grouping', '黄金时代'],
+  ['p', '状态', '存储英文 token（UI 显示中文）', 'Status (stored as English token)', 'canon / draft / disputed / deprecated'],
+  ['v', '可见性', '读者视图分级（存中文值）', 'Visibility (reader-view gating)', '公众 / 秘传 / 作者'],
+  ['q', '可信度', '卡片徽章前置（存中文值）', 'Reliability badge', '可靠 / 存疑 / 已证伪 / 立场鲜明'],
+  ['m', '封面图', 'assets/ 相对路径', 'Cover image path', 'assets/concepts/cover.png'],
+];
+const CALLOUT_TYPES = [
+  ['档案', '档案（平铺叙述，常规展示）', 'Archive (plain, always shown)'],
+  ['作者', '作者（读者视图整体隐藏）', 'Author (hidden in reader view)'],
+  ['剧透', '剧透（读者视图折叠）', 'Spoiler (folded in reader view)'],
+  ['存疑', '存疑（虚线提示）', 'Doubt (dashed note)'],
+];
+
+/** 不在围栏代码块内（``` 奇数个在前 = 在块内）。 */
+function inFence(doc, pos) {
+  let n = 0;
+  for (let i = 1; i < doc.lines; i++) {
+    const l = doc.line(i);
+    if (l.to > pos) break;
+    if (/^\s*```/.test(l.text)) n++;
+  }
+  return n % 2 === 1;
+}
+
+/** `&` 行首键菜单：键名 + 中文名 + 一行解释 → 插 `&k ` 光标值位。 */
+function metaMenu(source, lang) {
+  return (context) => {
+    const before = context.matchBefore(/&[a-z]{0,2}$/);
+    if (!before || before.from !== context.state.doc.lineAt(context.pos).from) return null;
+    if (inFence(context.state.doc, context.pos)) return null;
+    const zh = lang !== 'en';
+    return {
+      from: before.from,
+      options: META_DEFS.map(([k, nzh, dzh, den, ex]) => ({
+        label: `&${k} ${zh ? nzh : dzh.split(' (')[0]}`,
+        detail: zh ? dzh : den,
+        type: 'property',
+        apply: (view, comp, f, t) => view.dispatch({
+          changes: { from: f, to: t, insert: `&${k} ` },
+          selection: { anchor: f + k.length + 2 },
+        }),
+      })),
+      validFor: /^&[a-z]{0,2}$/,
+    };
+  };
+}
+
+/** 行首 `> ` → callout 类型选择 → 插 `> [!类型] `。 */
+function calloutMenu(source, lang) {
+  return (context) => {
+    const before = context.matchBefore(/> $/);
+    if (!before || before.from !== context.state.doc.lineAt(context.pos).from) return null;
+    if (inFence(context.state.doc, context.pos)) return null;
+    const zh = lang !== 'en';
+    return {
+      from: before.from,
+      options: CALLOUT_TYPES.map(([name, dzh, den]) => ({
+        label: `> [!${name}]`,
+        detail: zh ? dzh : den,
+        type: 'keyword',
+        apply: (view, comp, f, t) => view.dispatch({
+          changes: { from: f, to: t, insert: `> [!${name}] ` },
+          selection: { anchor: f + `> [!${name}] `.length },
+        }),
+      })),
+    };
+  };
+}
+
+/** 行首 `/` 斜杠命令 → 插对应标记。 */
+function slashMenu(context, lang) {
+  if (!context.state.selection.main.empty) return null;        // 有选区不弹（/ 常规文本）
+  const before = context.matchBefore(/\/[a-z]{0,8}$/);
+  if (!before || before.from !== context.state.doc.lineAt(context.pos).from) return null;
+  if (inFence(context.state.doc, context.pos)) return null;
+  const zh = lang !== 'en';
+  const cmds = [
+    ['h1', '# ', 'H1', '一级标题'], ['h2', '## ', 'H2', '二级标题'], ['h3', '### ', 'H3', '三级标题'],
+    ['b', '**', 'Bold', '粗体（包裹选区）'], ['i', '*', 'Italic', '斜体（包裹选区）'],
+    ['code', '`', 'Code', '行内码'], ['quote', '> ', 'Quote', '引用'], ['list', '- ', 'List', '列表'],
+    ['hr', '\n---\n', 'Divider', '分割线'], ['fence', '```event\n\n```', 'Fence', '围栏（event/rel/term/scene/passage）'],
+    ['callout', '> ', 'Callout', 'callout（行首后弹类型）'], ['img', '![]()', 'Image', '图片（配合 ▣ 选择器）'],
+  ];
+  return {
+    from: before.from,
+    options: cmds.map(([id, ins, label, dzh]) => ({
+      label: `/${id}`,
+      detail: zh ? dzh : label,
+      type: 'text',
+      apply: (view, comp, f, t) => {
+        view.dispatch({ changes: { from: f, to: t, insert: ins }, selection: { anchor: f + ins.length } });
+        if (id === 'b' || id === 'i' || id === 'code') { /* 包裹标记：光标在标记间继续输入 */ }
+        if (id === 'fence') view.dispatch({ selection: { anchor: f + 10 } });   // ```event\n 光标入块
+        if (id === 'callout') startCompletion(view);
+      },
+    })),
+  };
 }
 
 // ---------- 双链自动补全：输入 `[[` 触发条目下拉 ----------
@@ -248,7 +422,16 @@ window.SoliterraEditor = {
       state: EditorState.create({
         doc: opts.doc || '',
         extensions: [
-          autocompletion({ override: [wikiCompletion(opts.getEntries)], icons: false, closeOnBlur: true }),
+          autocompletion({
+            override: [
+              wikiCompletion(opts.getEntries),
+              metaMenu(null, opts.lang),                      // 行首 & → 键菜单（解释文案）
+              calloutMenu(null, opts.lang),                   // 行首 > → callout 类型（工厂返回 source，勿再包一层）
+              (ctx) => slashMenu(ctx, opts.lang),             // 行首 / → 斜杠命令
+            ],
+            icons: false, closeOnBlur: true,
+          }),
+          closeBrackets(),                                    // （）[] "" '' 自动配对、光标居中
           history(),
           drawSelection(),
           highlightActiveLine(),
@@ -257,11 +440,12 @@ window.SoliterraEditor = {
           syntaxHighlighting(highlight),
           decoPlugin(opts.resolveAsset),
           ...(opts.uploadAsset ? [pasteDropUpload(opts)] : []),
+          cjkBracketRules(),                                  // 【【 → [[|]]、】】 → ]]
           theme,
           keymap.of([
             { key: 'Mod-b', run: (v) => (wrapSelection(v, '**'), true) },
             { key: 'Mod-i', run: (v) => (wrapSelection(v, '*'), true) },
-            ...defaultKeymap, ...historyKeymap, indentWithTab,
+            ...closeBracketsKeymap, ...defaultKeymap, ...historyKeymap, indentWithTab,
           ]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged && opts.onChange) opts.onChange(u.state.doc.toString());

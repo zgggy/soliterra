@@ -1630,6 +1630,7 @@ async function enterEdit(ctx) {
     doc: text,
     onChange: debounce(() => autoSave(ctx), 500),
     getEntries: () => flattenTree(ctx.tree),   // [[ 触发双链补全
+    lang: state.lang,                                              // §B.4 菜单文案语言
     uploadAsset: (file) => uploadAsset(ctx, file),                             // 粘贴/拖入上传（§B.5）
     resolveAsset: (src) => (/^(https?:)?\/\//.test(src) || src.startsWith('/') ? src : `/w/${enc(ctx.worldId)}/${enc(src)}`),
   });
