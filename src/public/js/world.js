@@ -102,6 +102,8 @@ const ICON = {
   rel: '<svg viewBox="0 0 16 16"><rect x="1.8" y="6.2" width="4.2" height="4.2"/><rect x="10" y="1.8" width="4.2" height="4.2"/><rect x="10" y="10" width="4.2" height="4.2"/><path d="M6 7.6l4-3.3M6 8.6l4 3.2"/></svg>',
   tools: '<svg viewBox="0 0 16 16"><rect x="2" y="6.6" width="12" height="6.9"/><path d="M6 6.6V3.9h4v2.7"/></svg>',
   close: '<svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
+  chevronL: '<svg viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg>',
+  chevronR: '<svg viewBox="0 0 16 16"><path d="M6 3.5L10.5 8 6 12.5"/></svg>',
 };
 
 export async function renderWorld(root, worldId, entryPath) {
@@ -902,6 +904,34 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   const axisLine = document.createElement('div');   // 轴线段：只显示范围（最早→最晚时间）内，范围外（含创世排区）不画
   axisLine.className = 'chrono-axis';
   wrap.appendChild(axisLine);
+  // 出界指示（§E.4）：bar 左右缘「◀ N / N ▶」——完全在视口外的卡片数；点击平滑取景把最近一批带回
+  const hintL = document.createElement('button');
+  hintL.className = 'edge-hint left'; hintL.hidden = true;
+  hintL.innerHTML = `${ICON.chevronL}<span class="hint-n"></span>`;
+  hintL.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+  hintL.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (hintL.__ord == null) return;
+    const span = view.hi - view.lo;
+    animateTo(hintL.__ord - span * 0.25, hintL.__ord + span * 0.75, 300);   // 最近出界卡落到 1/4 屏
+  });
+  wrap.appendChild(hintL);
+  const hintR = document.createElement('button');
+  hintR.className = 'edge-hint right'; hintR.hidden = true;
+  hintR.innerHTML = `<span class="hint-n"></span>${ICON.chevronR}`;
+  hintR.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+  hintR.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    if (hintR.__ord == null) return;
+    const span = view.hi - view.lo;
+    animateTo(hintR.__ord - span * 0.75, hintR.__ord + span * 0.25, 300);   // 最近出界卡落到 3/4 屏
+  });
+  wrap.appendChild(hintR);
+  // 创世向左渐隐箭头（§E.4）：跟创世组左缘，z 压在卡下（贴边时自然从卡后探出）
+  const genesisTail = document.createElement('div');
+  genesisTail.className = 'genesis-tail'; genesisTail.hidden = true;
+  genesisTail.innerHTML = `${ICON.chevronL}<span class="gt-line"></span>`;
+  wrap.appendChild(genesisTail);
   const scopeBook = rescope();
   // 从**当前视图**出发（不跳回默认初值）：同世界同书重渲染沿用上次视野。
   // 打开条目**不加取景**（2026-10-06：删除条目点击的自动缩放）；取景补间仅剩「强调」拖拽与 ⌘K/时代带。
@@ -948,13 +978,21 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     flagEls.set(path, flag);
     flag.addEventListener('click', () => {
       if (flag.__unpin) { flag.__unpin = false; return; }
+      if (flag.__clusterSpan) { focusOrd(flag.__clusterOrd, flag.__clusterSpan); return; }   // 聚合簇（§E.3）：点击 = 取景该时刻
       navigate(`#/w/${enc(ctx.worldId)}/${enc(path)}`);
     });
-    const hot = () => { spanEls.get(path)?.classList.add('show'); flag.classList.add('expand'); flag.style.zIndex = '90'; };
+    const hot = () => {
+      spanEls.get(path)?.classList.add('show');
+      flag.classList.add('expand'); flag.style.zIndex = '90';
+      const t = flag.__altTitle ? flag.querySelector('.flag-title') : null;
+      if (t) t.textContent = flag.__altTitle;          // 簇：展开显示成员名单
+    };
     const restore = () => {
       spanEls.get(path)?.classList.remove('show');
       flag.style.zIndex = flag.dataset.z || '10';
       if (path !== ctx.currentPath) flag.classList.remove('expand');
+      const t = flag.__baseTitle ? flag.querySelector('.flag-title') : null;
+      if (t) t.textContent = flag.__baseTitle;
     };
     flag.addEventListener('mouseenter', hot);
     flag.addEventListener('mouseleave', restore);
@@ -1068,36 +1106,131 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       it._left = it._trueX;
       it._z = 10 + i;               // 越晚（列表越靠后）图层越高
     }
-    const chronoH = wrap.clientHeight || 112;
+    // 高度：道数/形态/让位统一读 --chrono-h 目标值（与 tall 同源；旧码用过渡中的 clientHeight 会分段跳变）
+    const chronoH = hTarget;
     const FLAG_H = 52;
     const COMPACT = chronoH < 84;                                            // 矮：只显示名字
     const maxLanes = Math.max(1, Math.floor((chronoH - 26 - FLAG_H) / (FLAG_H + 6)) + 1);   // 高：允许重叠卡片分道
+    const GAP = 10;                                                            // 半箱让位最小间距
+    const MAX_SHIFT = (it) => 1.5 * it._w;                                     // 让位上限（极端密度护栏）
     const chain = flagItems.filter((it) => it.path !== ctx.currentPath);   // 打开中的卡片恒在最上，不参与堆叠位移
-    let lane = 0;
-    for (let i = 0; i < chain.length; i++) {
-      const it = chain[i];
-      const prev = chain[i - 1];
-      const overlaps = prev && it._trueX < prev._trueX + 10 + prev._w;       // 与前一张在真实位置附近重叠
-      lane = overlaps ? (lane + 1) % maxLanes : 0;
-      it._lane = lane;
-      it._top = 10 + lane * (FLAG_H + 6);
+
+    // ── 分道 first-fit（§E.2）：找最低的道「其末卡左半 + GAP 不越过本卡真实位置」；全满 → 重叠最小之道兜底
+    const laneLast = new Array(maxLanes).fill(null);
+    for (const it of chain) {
+      let L = -1;
+      for (let j = 0; j < maxLanes; j++) {
+        const last = laneLast[j];
+        if (!last || last._trueX + last._w / 2 + GAP <= it._trueX) { L = j; break; }
+      }
+      if (L < 0) {
+        let best = 0, bestOv = Infinity;
+        for (let j = 0; j < maxLanes; j++) {
+          const last = laneLast[j];
+          const ov = last ? Math.max(0, last._trueX + last._w / 2 + GAP - it._trueX) : 0;
+          if (ov < bestOv) { bestOv = ov; best = j; }
+        }
+        L = best;
+      }
+      it._lane = L;
+      laneLast[L] = it;
     }
-    for (let i = chain.length - 2; i >= 0; i--) {
-      const cur = chain[i], nxt = chain[i + 1];
-      if (nxt._left < cur._trueX + cur._w) cur._left = nxt._left - 10;   // 与后一张重叠 → 向左让出 10px 堆叠
+
+    // ── 聚合簇（§E.3）：同道内相邻锚点间距 < CLUSTER_GAP 的连续组、≥3 张 → 「＋N」；
+    //    当前/强调/创世不参与（含受保护卡的同刻串整段不动，交级联处理）
+    const CLUSTER_GAP = 10;
+    const clusterable = (it) => !it.genesis && !ctx.pins.has(it.path) && it.path !== ctx.currentPath;
+    const laneMembers = new Map();
+    for (const it of chain) {
+      if (!laneMembers.has(it._lane)) laneMembers.set(it._lane, []);
+      laneMembers.get(it._lane).push(it);
     }
+    const mergedPaths = new Set();
+    const clusters = [];
+    for (const grp of laneMembers.values()) {
+      let i = 0;
+      while (i < grp.length) {
+        if (!clusterable(grp[i])) { i++; continue; }
+        let j = i + 1;
+        while (j < grp.length && clusterable(grp[j]) && grp[j]._trueX - grp[j - 1]._trueX < CLUSTER_GAP) j++;
+        const run = grp.slice(i, j);
+        if (run.length >= 3) {
+          const first = run[0], last = run[run.length - 1];
+          const cl = {
+            ...first,
+            path: first.path,                    // 元素复用键 = 首成员
+            cluster: run,
+            flag: zh ? '同时' : 'SAME',           // displayFlagOf 眉题
+            title: zh ? `＋${run.length} 条` : `+${run.length}`,
+            s: (first.s + last.s) / 2, e: null, instant: true,
+            fuzzy: run.some((m) => m.fuzzy),
+            genesis: false,
+          };
+          cl._lane = first._lane;
+          cl._w = flagBaseW(cl.title);
+          cl._trueX = x(cl.s);
+          cl._left = cl._trueX;
+          cl._z = first._z;
+          clusters.push(cl);
+          for (const m of run) mergedPaths.add(m.path);
+        }
+        i = j;
+      }
+    }
+    const arrange = [...flagItems.filter((it) => !mergedPaths.has(it.path)), ...clusters];
+
+    // ── 让位（§E.1）：同道内级联——「左 1/2 检测箱」，后卡只可压前卡右半；
+    //    不撞左半零位移；单卡累计左移 ≤ 1.5×卡宽（护栏）。_trueX 不变 → 引线垂真实时刻。
+    const laneArrange = new Map();
+    for (const it of arrange) {
+      if (it.path === ctx.currentPath) continue;      // 打开中的卡片贴轴，不参与堆叠位移
+      if (it._lane == null) continue;
+      if (!laneArrange.has(it._lane)) laneArrange.set(it._lane, []);
+      laneArrange.get(it._lane).push(it);
+    }
+    for (const grp of laneArrange.values()) {
+      for (let i = grp.length - 2; i >= 0; i--) {
+        const cur = grp[i], nxt = grp[i + 1];
+        const need = nxt._left - cur._w / 2 - GAP;                     // 左半可见所需最右允许 left
+        if (cur._left > need) cur._left = Math.max(need, cur._trueX - MAX_SHIFT(cur));
+      }
+    }
+
     // 创世组可见性（2026-10-06）：整组超出面板时贴边——锚点被取景/缩放/范围过窄推出左缘 → 贴左缘；
     // 视窗落在范围之前（右推出）→ 贴右缘。保证创世条目在任何视野下都可见（锚点靠左时宁可压住轴首）。
-    const genItems = flagItems.filter((it) => it.genesis);
+    const genItems = arrange.filter((it) => it.genesis);
     if (genItems.length) {
       let mn = Infinity, mx = -Infinity;
       for (const it of genItems) { mn = Math.min(mn, it._left); mx = Math.max(mx, it._left + it._w); }
       if (mn < 6) for (const it of genItems) it._left += 6 - mn;
       else if (mx > width - 6) for (const it of genItems) it._left += (width - 6) - mx;
     }
-    for (const it of flagItems) {
-      if (it._lane == null) { it._lane = 0; it._top = 10; }
+    // 创世向左渐隐箭头：跟组左缘（贴边时压在卡下探出一点）；取首道卡行中心
+    if (genItems.length) {
+      let mnT = Infinity, minTop = Infinity;
+      for (const it of genItems) { mnT = Math.min(mnT, it._left); minTop = Math.min(minTop, typeof it._top === 'number' ? it._top : 10); }
+      genesisTail.hidden = false;
+      genesisTail.style.left = Math.max(2, mnT - 26) + 'px';
+      genesisTail.style.top = (minTop + FLAG_H / 2 - 6) + 'px';
+    } else genesisTail.hidden = true;
+    // 出界指示：完全在视口外的卡片数（按放置位置；簇计入、创世贴边恒在内）
+    let offL = 0, offR = 0, nearL = null, nearR = null;
+    for (const it of arrange) {
+      if (it._left + it._w < 2) { offL++; if (!nearL || it._trueX > nearL._trueX) nearL = it; }
+      else if (it._left > width - 2) { offR++; if (!nearR || it._trueX < nearR._trueX) nearR = it; }
+    }
+    hintL.hidden = offL === 0;
+    hintL.__ord = nearL ? nearL.s : null;   // 时间序数（animateTo 的输入；勿传像素）
+    hintL.querySelector('.hint-n').textContent = String(offL);
+    hintL.title = zh ? `还有 ${offL} 条在视野外 · 点击带回` : `${offL} off-screen · click to bring back`;
+    hintR.hidden = offR === 0;
+    hintR.__ord = nearR ? nearR.s : null;
+    hintR.querySelector('.hint-n').textContent = String(offR);
+    hintR.title = zh ? `还有 ${offR} 条在视野外 · 点击带回` : `${offR} off-screen · click to bring back`;
+    for (const it of arrange) {
+      if (it._lane == null) it._lane = 0;
       if (it.path === ctx.currentPath) { it._z = 80; it._top = 'axis'; }   // 打开中的卡片图层最上、紧贴轴线
+      else it._top = 10 + it._lane * (FLAG_H + 6);
     }
 
     // 覆盖条 + 旗标：**复用既有元素**（跨 layout 只改样式）→ 缩放/改高时位置与大小平滑过渡
@@ -1114,7 +1247,10 @@ function initTimeline(ctx, wrap, canvas, ticks) {
         spanEls.set(it.path, span);
         canvas.appendChild(span);
       }
-      span.className = `span-bar${it.fuzzy ? ' fuzzy' : ''}${it.path === ctx.currentPath ? ' open' : ''}`;
+      // 模糊 = 按端渐隐（§E.4）：从 &s/&e 原文串解析每端 `*`（前端自足）
+      const sFz = String(it.start || '').includes('*');
+      const eFz = !it.instant && String(it.end || '').includes('*');
+      span.className = `span-bar${sFz ? ' fuzzy-s' : ''}${eFz ? ' fuzzy-e' : ''}${it.path === ctx.currentPath ? ' open' : ''}`;
       span.style.left = sx + 'px';
       span.style.width = w + 'px';
       span.title = `${it.title} · ${it.start}${it.end && !it.instant ? ' → ' + it.end : ''}`;
@@ -1123,7 +1259,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     for (const [path0, el0] of [...spanEls]) if (!shownSpans.has(path0)) { el0.remove(); spanEls.delete(path0); }
 
     const shownFlags = new Set();
-    for (const it of flagItems) {   // 渲染池（含全世界创世条目），与定位池一致
+    for (const it of arrange) {   // 渲染 = 最终排布列表（含簇；全世界创世在池内）
       const eyebrow = displayFlagOf(it);
       if (!eyebrow) continue;
       const flag = ensureFlagEl(it.path);
@@ -1142,6 +1278,20 @@ function initTimeline(ctx, wrap, canvas, ticks) {
         flag.addEventListener('animationend', () => flag.classList.remove('card-in'), { once: true });
       }
       paintFlag(flag, { eyebrow, title: it.title, date: it.start, fuzzy: it.fuzzy, pinned: ctx.pins.has(it.path) });
+      // 聚合簇（§E.3）：点击=取景、hover 换成员名单、原生 title=全名单；解散（同元素复用键）时还原
+      if (it.cluster) {
+        const last = it.cluster[it.cluster.length - 1];
+        flag.__clusterOrd = it.s;
+        flag.__clusterSpan = Math.max(((last.s - it.cluster[0].s) / YEAR) * 3, 1);   // 簇跨度×3，≥1 年
+        flag.__baseTitle = it.title;
+        flag.__altTitle = it.cluster.map((m) => m.title).slice(0, 3).join('、') + (it.cluster.length > 3 ? '…' : '');
+        flag.title = it.cluster.map((m) => m.title).join('、');
+      } else if (flag.__clusterSpan) {
+        flag.__clusterSpan = null; flag.__altTitle = null; flag.__baseTitle = null;
+        flag.title = '';
+        const t = flag.querySelector('.flag-title');
+        if (t) t.textContent = it.title;
+      }
       shownFlags.add(it.path);
     }
     for (const [path0, el0] of [...flagEls]) if (!shownFlags.has(path0)) { el0.remove(); flagEls.delete(path0); }

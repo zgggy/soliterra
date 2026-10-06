@@ -416,15 +416,20 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 **`chrono-bar`** — 顶部时间轴条（sticky 组成员，h112，surface 底 + 底部 1px line）。
 - 三层：旗标层（event-flag）/ 轴线 + span 条 / 刻度层 28px（轴线 1px `line-strong` + 等宽年份）。**时代带 `era-band` 已实现**（轴下 h10 交替条带 + 时代名，点击取景；「更多设置」可关）。
 
-**`chrono-marker`（起止标记，已实现）** — 打开文档的 `&s`/`&e` 在轴上的时刻标记。
-- 结构：**垂直 1px `{colors.line-strong}` 墨线**（画布区全高，`pointer-events: none`）+ 底部**等宽日期标签**（0.6rem mono，surface 底 + 1px line 边框，`translateX(-50%)` 居中；近屏缘时反向贴边防裁切；模糊段前缀 `≈`）。
-- 打开条目即随之绘制（不再自动取景；§3.6）；无 `&e` 只画 `&s`。
+**`chrono-marker`（起止标记 + 范围首尾刻度，2026-10-06 现状修订）** — 打开文档的 `&s`/`&e` 时刻 + 数据范围两端。
+- 结构：**轴下方一个等宽年份**（`chrono-marker-tick`，0.64rem mono、`{colors.text}`、加粗、无墨线无胶囊）+ 刻度短线（`::before` 8px）；**范围首尾 `.edge` 刻度线加高（12px）**、title「范围起点（最早时间）/范围终点（最晚结束）」；年份取**所在年**（floor，08 月不进位）。常规刻度与彼此就近让位（<24px 不重绘）。
+- 打开条目即随之绘制（不再自动取景；§3.6）；无 `&e` 只画 `&s`；创世条目不起止标记。
 
 **`event-flag`** — 悬挂事件旗标。
-- 140×52，card-surface 同配方（1px `{colors.line}` / 0 圆角 / Level 1.5 投影）；内容 = 眉题 + 衬线标题（单行省略）+ 等宽日期（模糊段前缀 `≈`）。1px `{colors.line-strong}` 引线垂至轴线。
+- 140×52，card-surface 同配方（1px `{colors.line}` / 0 圆角 / Level 1.5 投影）；内容 = 眉题 + 衬线标题（单行省略）+ 等宽日期（模糊段前缀 `≈`）。1px `{colors.line-strong}` 引线垂至轴线（`--lead-x` 补偿让位位移，恒指真实时刻）。
 - **打开态极性翻转**（ink 底 / on-accent 字）——与 read-later chip、章节高亮共用同一「正在读」语言。
+- **聚合簇变体（第 66 轮）**：眉题「同时」+ 标题「＋N 条」+ 首条日期；hover 展开换成员名单（前 3 + …）、原生 title = 全名单；**点击 = 取景该时刻**（非打开）；元素复用键 = 首成员 path。
 
-**`span-bar`** — 覆盖范围条，h6，贴时间轴线（`bottom: 0`），`{colors.bg-soft}` 填充 1px `{colors.text}` 边框；**时间含 `*` 模糊段 → dashed，全精确 → solid**；**打开态：1px ink 边框，不加粗**。
+**`span-bar`** — 覆盖范围条，h6，贴时间轴线（`bottom: 0`），`{colors.bg-soft}` 填充 1px `{colors.text}` 边框；**模糊 = 按端渐隐（第 66 轮）：`.fuzzy-s` 左端 24px mask 渐隐 / `.fuzzy-e` 右端渐隐 / 两端皆有则两端渐隐（替代旧 dashed）**；**打开态：1px ink 边框，不加粗**。
+
+**`edge-hint`（出界指示，第 66 轮）** — bar 左右缘 10px 处的「◀ N / N ▶」chip：1px `{colors.line}` 框 + surface 底 + 0 圆角 + 0.6rem mono 数字 + 8px 线条 chevron（stroke 1.6）；hover 仅边框/字色加深；z=95（高于卡片 90）；N = 完全在视口外一侧的卡片数；点击平滑取景（最近出界卡落到 1/4 屏或 3/4 屏）；N=0 隐藏。
+
+**`genesis-tail`（创世向左渐隐箭头，第 66 轮）** — 创世组左缘 −26px 处的 8px 线条 chevron（`{colors.text-muted}`、opacity .55）+ 20px hairline（`{colors.line-strong}`，向左 mask 渐隐）；z=5（压在卡片之下，贴边时自然从卡后探出）；`pointer-events: none`。
 
 **`era-band`** — 时代色带，`{colors.bg}` / `{colors.bg-soft}` 交替段 + `{typography.eyebrow}` 时代名，点击跳转时代。
 

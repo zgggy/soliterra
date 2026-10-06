@@ -263,7 +263,7 @@ img { display: block; max-width: 100%; }
 /* 时间轴紧凑（矮）：旗标只显示名字 */
 .event-flag.compact { padding: 3px 8px; }
 .event-flag.compact .flag-eyebrow, .event-flag.compact .flag-date { display: none; }
-/* 分道卡片：引线延长到轴线 */
+/* 分道卡片：抬层投影（引线长度由通用 ::after 的 calc 自动加长） */
 .event-flag.lane { box-shadow: var(--shadow-15); }
 .event-flag.axis-anchored::after { height: 6px; }   /* 贴轴旗标：引线 6px */
 
@@ -294,7 +294,10 @@ img { display: block; max-width: 100%; }
   opacity: 0; transition: opacity var(--motion-quick);   /* left/width 不过渡：拖动/缩放须跟手 */
 }
 .span-bar.show, .span-bar.open { opacity: 1; }
-.span-bar.fuzzy { border-style: dashed; }
+/* 模糊日期 = 按端渐隐（§E.4）：起端含 `*` → 左端渐隐、止端含 `*` → 右端渐隐（替代整段虚线） */
+.span-bar.fuzzy-s:not(.fuzzy-e) { mask-image: linear-gradient(90deg, transparent, #000 24px); -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px); }
+.span-bar.fuzzy-e:not(.fuzzy-s) { mask-image: linear-gradient(270deg, transparent, #000 24px); -webkit-mask-image: linear-gradient(270deg, transparent, #000 24px); }
+.span-bar.fuzzy-s.fuzzy-e { mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 .span-bar.open { border-color: var(--accent); background: var(--bg-soft); }   /* 打开态不加粗边框 */
 
 .event-flag {
@@ -332,6 +335,30 @@ img { display: block; max-width: 100%; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .flag-date { font-family: var(--font-mono); font-size: 0.6rem; color: var(--text-muted); }
+
+/* 出界指示（§E.4）：左右缘「◀ N / N ▶」——完全在视口外的卡片数；点击平滑取景带回 */
+.edge-hint {
+  position: absolute; top: calc((100% - 28px) / 2); transform: translateY(-50%);
+  z-index: 95; display: flex; align-items: center; gap: 4px; padding: 3px 7px;
+  border: 1px solid var(--line); background: var(--surface); border-radius: 0;
+  color: var(--text-muted); font-family: var(--font-mono); font-size: 0.6rem;
+  cursor: pointer;
+}
+.edge-hint:hover { border-color: var(--line-strong); color: var(--text); }
+.edge-hint svg { width: 8px; height: 8px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.edge-hint.left { left: 10px; }
+.edge-hint.right { right: 10px; }
+.edge-hint[hidden] { display: none; }
+
+/* 创世向左渐隐箭头（§E.4）：线图标 chevron + 向左渐隐 hairline；z 压在卡下（贴边时从卡后探出） */
+.genesis-tail { position: absolute; z-index: 5; display: flex; align-items: center; gap: 3px; height: 12px; pointer-events: none; color: var(--text-muted); }
+.genesis-tail[hidden] { display: none; }
+.genesis-tail svg { width: 8px; height: 8px; fill: none; stroke: currentColor; stroke-width: 1.6; opacity: .55; }
+.genesis-tail .gt-line {
+  width: 20px; height: 1px; background: var(--line-strong);
+  mask-image: linear-gradient(90deg, transparent, #000);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000);
+}
 
 /* 打开文档的起止时刻：与标尺刻度同款（轴下方一个年份），墨色加粗区分；不遮挡指针 */
 .chrono-markers { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none; }
