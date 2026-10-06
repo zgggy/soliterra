@@ -13,6 +13,7 @@ import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
 import { parseEntry } from './lib/parser.js';
 import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard } from './lib/tools.js';
 import { buildSite } from './lib/publish.js';
+import { pickFolder, pickImage } from './lib/picker.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');   // 项目根（src/ 的上级）
@@ -138,6 +139,53 @@ app.post('/api/worlds/import', (req, reply) => {
   try {
     const { path: src, name } = req.body || {};
     return vault.importObsidian({ src, name: (name || '').trim() });
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+// 原生选择器（第 88 轮）：服务端弹系统对话框返回绝对路径（浏览器拿不到本地路径）。
+// 自动化测试桩：SOLITERRA_PICK_STUB_FOLDER / SOLITERRA_PICK_STUB_FILE 设置后跳过对话框直接返回。
+app.post('/api/pick/folder', async (req, reply) => {
+  try {
+    const stub = process.env.SOLITERRA_PICK_STUB_FOLDER;
+    if (stub) return { ok: true, path: stub };
+    const r = await pickFolder({ prompt: '选择世界文件夹', defaultPath: req.body?.default || worldsDir });
+    return r.canceled ? { ok: false, canceled: true } : { ok: true, path: r.path };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+const PICK_MIME = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' };
+app.post('/api/pick/file', async (req, reply) => {
+  try {
+    const stub = process.env.SOLITERRA_PICK_STUB_FILE;
+    let p = stub || '';
+    if (!stub) {
+      const r = await pickImage({ prompt: '选择封面图片', defaultPath: req.body?.default || '' });
+      if (r.canceled) return { ok: false, canceled: true };
+      p = r.path;
+    }
+    const out = { ok: true, path: p, name: path.basename(p) };
+    try {
+      const st = fs.statSync(p);
+      out.size = st.size;
+      // 预览：≤8MB 直接内联 dataUrl（向导缩略图；大图只回路径）
+      if (st.size <= 8 * 1024 * 1024) {
+        const mime = PICK_MIME[path.extname(p).toLowerCase()] || 'application/octet-stream';
+        out.dataUrl = `data:${mime};base64,${fs.readFileSync(p).toString('base64')}`;
+      }
+    } catch { /* 预览失败不影响返回路径 */ }
+    return out;
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+// 采纳本地文件夹（第 88 轮）：检查（向导第一步）+ 落地
+app.post('/api/worlds/inspect', (req, reply) => {
+  try { return vault.inspectFolder(req.body?.dir); }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.post('/api/worlds/adopt', (req, reply) => {
+  try {
+    const { dir, intro, coverPath, calendar, timeline } = req.body || {};
+    return vault.adoptFolder({ dir, intro, coverPath, calendar, timeline });
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 

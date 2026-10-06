@@ -234,8 +234,8 @@ export async function renderWorld(root, worldId, entryPath) {
   if (entryPath) {
     await openEntry(ctx, entryPath, chrono);
   } else {
-    // 默认：打开根书（世界同名书）的首页（书名.md），并展开目录
-    const rootBook = ctx.tree.children.find((c) => c.name === worldId) || ctx.tree.children[0];
+    // 默认：打开根条目（README.md 优先；历史世界 = 同名书首页），并展开目录
+    const rootBook = rootNodeOf(ctx);
     const first = rootBook ? firstEntryOf(rootBook) : null;
     if (first) {
       sessionStorage.setItem('soliterra.panel', 'toc');
@@ -310,8 +310,7 @@ async function addEntry(ctx) {
   try {
     const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
     const book = ctx.tree.children.find((c) => c.name === top)
-      || ctx.tree.children.find((c) => c.name === ctx.worldId)
-      || null;
+      || rootNodeOf(ctx);
     const dir = book?.dir || '';   // 书目录（根级散文件书 → ''，落在世界根）
     const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir, name: name.trim(), pair: false } });
     await refreshTree(ctx);
@@ -520,7 +519,7 @@ async function renderWorldPanel(ctx) {
   const meta = await api('/api/meta').catch(() => ({ home: '' }));   // 家目录（位置行 ~/… 缩写，第 87 轮）
   const dirFull = info.dir || '';
   const dirShow = dirFull ? abbrevPath(dirFull, meta.home) + '/' : '';
-  const rootNode = ctx.tree.children.find((c) => c.name === ctx.worldId) || ctx.tree.children[0];
+  const rootNode = rootNodeOf(ctx);
   const cover = rootNode?.cover;
   const bookCount = ctx.tree.children.filter((c) => c.md || c.children.length).length;
 
@@ -572,7 +571,7 @@ async function renderWorldPanel(ctx) {
     try { await api('/api/worlds/reveal', { method: 'POST', body: { id: ctx.worldId } }); }
     catch (e) { showToast(String(e.message), 'error'); }
   });
-  const top = ctx.tree.children.find((c) => (ctx.currentPath || '').startsWith(c.name + '/')) || ctx.tree.children.find((c) => c.name === ctx.worldId) || ctx.tree.children[0];
+  const top = ctx.tree.children.find((c) => (ctx.currentPath || '').startsWith(c.name + '/')) || rootNodeOf(ctx);
   host.querySelector('#ex-doc-md').addEventListener('click', () => exportDoc(ctx, 'md'));
   host.querySelector('#ex-doc-txt').addEventListener('click', () => exportDoc(ctx, 'txt'));
   host.querySelector('#ex-book-md').addEventListener('click', () => exportBook(ctx, 'md', top));
@@ -864,6 +863,14 @@ function firstEntryOf(node) {
   if (node.md) return node.md;
   for (const c of node.children) { const r = firstEntryOf(c); if (r) return r; }
   return null;
+}
+
+/** 根条目节点（第 88 轮约定）：README.md 优先 → 历史 `<世界名>` 节点 → 第一子节点。 */
+function rootNodeOf(ctx) {
+  const kids = ctx.tree?.children || [];
+  return kids.find((c) => c.md === 'README.md' || c.name === 'README')
+    || kids.find((c) => c.name === ctx.worldId)
+    || kids[0] || null;
 }
 
 // ============ 稍后阅读（底部中央卡片集：rest = 扇形聚拢；hover = 横排展开；单卡 hover 上升） ============
@@ -1631,7 +1638,7 @@ function renderToc(ctx) {
 
   const topOf = (p) => (p || '').split('/')[0].replace(/\.md$/i, '');
   const currentTop = topOf(ctx.currentPath);
-  const defaultBook = ctx.tree.children.find((c) => c.name === ctx.worldId) || ctx.tree.children[0] || null;
+  const defaultBook = rootNodeOf(ctx);
   const book = ctx.tree.children.find((c) => c.name === currentTop) || defaultBook;
   if (!book) return;
 

@@ -36,14 +36,25 @@ export class Vault {
     try { return fs.realpathSync(dir); } catch { return dir; }
   }
 
+  /** 世界是否为库外文件夹的符号链接登记（第 88 轮：删除只摘链、改名连目标一起改）。 */
+  isLinked(id) {
+    try { return fs.lstatSync(this.worldDir(id)).isSymbolicLink(); } catch { return false; }
+  }
+
+  /** 根条目相对路径（第 88 轮约定）：README.md（介绍/元数据）优先，历史世界回落 `<世界名>.md`。 */
+  rootEntryRel(id) {
+    const idx = this.index(id);
+    if (idx.entry('README.md')) return 'README.md';
+    if (idx.entry(`${id}.md`)) return `${id}.md`;
+    return null;
+  }
+
   /** 世界信息（从根条目与统计读取）。 */
   worldInfo(id) {
     const dir = this.worldDir(id);
     const idx = this.index(id);
     const stats = idx.stats();
-    // 根条目：与目录同名的 md
-    const rootMd = `${id}.md`;
-    const root = idx.entry(rootMd);
+    const root = idx.entry(this.rootEntryRel(id) || '');
     let cover = root?.meta?.m?.[0] || null;
     // 封面可见性：assets 下直接可服务
     return {
@@ -52,7 +63,9 @@ export class Vault {
       subtitle: firstLine(root?.body) || '',
       cover,
       description: firstParagraph(root?.body) || '',
-      dir: this.realDir(id),   // 本地存储位置（绝对路径；前端缩为 ~/… 显示）
+      dir: this.realDir(id),         // 本地存储位置（绝对路径；前端缩为 ~/… 显示）
+      linked: this.isLinked(id),     // 库外文件夹登记（删除/改名为摘链/连改语义）
+      rootRel: this.rootEntryRel(id),// 根条目（README.md / 世界名.md）
       stats,
     };
   }
@@ -165,21 +178,28 @@ export class Vault {
     return out.sort((a, b) => b.mtime - a.mtime);
   }
 
-  /** 创建世界：目录 + 根条目 + assets + .gitignore + git init。 */
-  create({ name, subtitle = '', timeline = '', cover = '', calendar = '' }) {
-    if (!name || /[\\/:*?"<>|]/.test(name)) throw new Error('invalid world name');
-    const dir = path.join(this.worldsDir, name);
-    if (fs.existsSync(dir)) throw new Error('world already exists');
-    fs.mkdirSync(path.join(dir, 'assets', 'concepts'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.gitignore'), '.soliterra/\n', 'utf8');
-    const meta = [`&n ${name}`, cover ? `&m ${cover}` : ''].filter(Boolean).join(' ');
+  /** 世界文件夹初始化（create / adopt 共用，第 88 轮）：
+   *  assets/ 确保存在；根条目 = README.md（介绍与 & 元数据；**已存在则只前置缺失的 & 行，绝不改正文**）；
+   *  时间线事件 → `时间线/NN-标题.md`；`.gitignore` 补 `.soliterra/`；非 git 仓库 → init + 唯一自动提交。 */
+  _initWorldFolder(dir, { name, intro = '', timeline = '', coverRel = '', calendar = '' }) {
+    fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
     const calLine = calendar ? `<!-- calendar: ${calendar} -->` : '';
-    // 时间线：多行事件（每行含 &s）→ 独立条目 `时间线/NN-标题.md`；单行普通文字 → 根正文
     const tlLines = String(timeline || '').split('\n').map((x) => x.trim()).filter(Boolean);
     const eventLines = tlLines.filter((x) => /&s\s/.test(x));
     const plainLines = tlLines.filter((x) => !/&s\s/.test(x));
-    const body = [`# ${name}`, '', subtitle || '', calLine && ['', calLine], '', plainLines.join('\n')].flat().filter((x) => x !== undefined).join('\n');
-    fs.writeFileSync(path.join(dir, `${name}.md`), `${meta}\n\n${body}\n`, 'utf8');
+    const readmeAbs = path.join(dir, 'README.md');
+    if (fs.existsSync(readmeAbs)) {
+      // 既有 README：补缺失的 & 行（& 行是世界元数据通道；正文一字不动）
+      let t = fs.readFileSync(readmeAbs, 'utf8');
+      const add = [];
+      if (!/^&n\s/m.test(t)) add.push(`&n ${name}`);
+      if (coverRel && !/^&m\s/m.test(t)) add.push(`&m ${coverRel}`);
+      if (add.length) fs.writeFileSync(readmeAbs, `${add.join('\n')}\n${t}`, 'utf8');
+    } else {
+      const meta = [`&n ${name}`, coverRel ? `&m ${coverRel}` : ''].filter(Boolean).join('\n');
+      const body = [`# ${name}`, '', intro || '', calLine && ['', calLine], '', plainLines.join('\n')].flat().filter((x) => x !== undefined).join('\n');
+      fs.writeFileSync(readmeAbs, `${meta}\n\n${body}\n`, 'utf8');
+    }
     eventLines.forEach((line, i) => {
       // 标题 = 行内元数据段之外的裸文本；无裸文本则取 &f 首词
       const fval = (line.match(/&f\s+([^&]*)/) || [])[1]?.trim() || '';
@@ -192,16 +212,128 @@ export class Vault {
       fs.mkdirSync(path.dirname(abs), { recursive: true });
       fs.writeFileSync(abs, `${line}\n\n# ${safeTitle}\n`, 'utf8');
     });
-    try {
-      execFileSync('git', ['init', '-q'], { cwd: dir });
-      execFileSync('git', ['add', '-A'], { cwd: dir });
-      execFileSync('git', ['-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
-        'commit', '-q', '-m', `init: 创建世界 ${name}`], { cwd: dir });
-    } catch { /* git 不可用时静默（世界仍可读写） */ }
+    // .gitignore：无则写；已有则缺 .soliterra 时补一行（附加操作，不动原内容）
+    const gi = path.join(dir, '.gitignore');
+    if (!fs.existsSync(gi)) fs.writeFileSync(gi, '.soliterra/\n', 'utf8');
+    else {
+      const t = fs.readFileSync(gi, 'utf8');
+      if (!/^\.soliterra\/?\s*$/m.test(t)) fs.writeFileSync(gi, `${t.replace(/\n?$/, '\n')}.soliterra/\n`, 'utf8');
+    }
+    // git：仅当目录还不是仓库时 init + 唯一自动提交（已是仓库 → 一切不动，由用户手动提交）
+    if (!fs.existsSync(path.join(dir, '.git'))) {
+      try {
+        execFileSync('git', ['init', '-q'], { cwd: dir });
+        execFileSync('git', ['add', '-A'], { cwd: dir });
+        execFileSync('git', ['-c', 'user.name=Soliterra', '-c', 'user.email=soliterra@local',
+          'commit', '-q', '-m', `init: 创建世界 ${name}`], { cwd: dir });
+      } catch { /* git 不可用时静默（世界仍可读写） */ }
+    }
+  }
+
+  /** 创建世界（库里新建文件夹）：目录 + README.md 根条目 + assets + .gitignore + git init。 */
+  create({ name, subtitle = '', timeline = '', cover = '', calendar = '' }) {
+    if (!name || /[\\/:*?"<>|]/.test(name)) throw new Error('invalid world name');
+    const dir = path.join(this.worldsDir, name);
+    if (fs.existsSync(dir)) throw new Error('world already exists');
+    this._initWorldFolder(dir, { name, intro: subtitle, timeline, coverRel: cover, calendar });
     return this.worldInfo(name);
   }
 
-  /** 世界级操作（§1.1）：重命名 / 复制 / 删除（移入 worlds/.trash-<ts>/，list() 跳过点目录）。 */
+  /** 世界库的真实路径（自身可能经符号链接挂载；比较用）。 */
+  _libReal() {
+    try { return fs.realpathSync(this.worldsDir); } catch { return this.worldsDir; }
+  }
+
+  /** 校验候选世界文件夹（adopt / inspect 共用）：存在、是目录、非库根/非库的父级；返回 basename。 */
+  _adoptTarget(dir) {
+    const abs = path.resolve(String(dir || ''));
+    if (!dir || !fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) throw new Error('文件夹不存在: ' + dir);
+    const real = fs.realpathSync(abs);
+    const libReal = this._libReal();
+    if (real === libReal) throw new Error('不能把世界库本身作为世界');
+    if ((libReal + path.sep).startsWith(real + path.sep)) throw new Error('不能选择世界库的上级文件夹');
+    const name = path.basename(real) || path.basename(abs);
+    if (!name) throw new Error('无法从路径取世界名');
+    return { abs, real, name };
+  }
+
+  /** 登记检查：库内直接子文件夹 → 原地（无需链接）；其余（库外/库内嵌套）→ 世界库内建符号链接。
+   *  同名冲突 → 报错；同目标链接已存在 → 复用。返回 { id, link(可空) }。 */
+  _registerWorld(abs, real, name) {
+    const direct = path.dirname(real) === this._libReal();
+    if (direct) return { id: path.basename(real), link: null };
+    const linkPath = path.join(this.worldsDir, name);
+    if (fs.existsSync(linkPath) || fs.existsSync(linkPath.replace(/\/$/, ''))) {
+      const cur = (() => { try { return fs.realpathSync(linkPath); } catch { return null; } })();
+      if (cur === real) return { id: name, link: linkPath };   // 同目标已登记 → 复用
+      throw new Error(`世界库中已有同名条目「${name}」，请改名或选择其他文件夹`);
+    }
+    fs.symlinkSync(real, linkPath, 'dir');
+    return { id: name, link: linkPath };
+  }
+
+  /** 采纳本地文件夹为世界（第 88 轮）：就地接入（不复制）；文件夹名 = 世界名；
+   *  介绍/元数据 → README.md；封面图片 → 复制进 `assets/`（已在文件夹内则只记相对路径）。 */
+  adoptFolder({ dir, intro = '', coverPath = '', calendar = '', timeline = '' }) {
+    const { abs, real, name } = this._adoptTarget(dir);
+    const { id } = this._registerWorld(abs, real, name);
+    const coverRel = coverPath ? this._bringCoverIn(real, coverPath) : '';
+    this._initWorldFolder(real, { name, intro, timeline, coverRel, calendar });
+    this.indexes.delete(id);   // 重新索引（可能是已登记世界的再采纳）
+    return this.worldInfo(id);
+  }
+
+  /** 把封面图片放进世界（返回相对路径）：已在世界内 → 原样相对；否则复制到 assets/（重名自动加序号）。 */
+  _bringCoverIn(real, coverPath) {
+    const src = path.resolve(String(coverPath));
+    if (!fs.existsSync(src) || !fs.statSync(src).isFile()) throw new Error('封面图片不存在: ' + coverPath);
+    const srcReal = fs.realpathSync(src);
+    if (srcReal.startsWith(real + path.sep)) return path.relative(real, srcReal).replace(/\\/g, '/');
+    const ext = path.extname(src).toLowerCase();
+    const stem = path.basename(src, path.extname(src));
+    fs.mkdirSync(path.join(real, 'assets'), { recursive: true });
+    let rel = `assets/${path.basename(src)}`;
+    let n = 1;
+    while (fs.existsSync(path.join(real, rel))) {
+      // 同名文件已在：同大小视为同一张 → 复用；否则加序号
+      try { if (fs.statSync(path.join(real, rel)).size === fs.statSync(src).size) return rel; } catch {}
+      rel = `assets/${stem}-${n++}${ext}`;
+    }
+    fs.copyFileSync(src, path.join(real, rel));
+    return rel;
+  }
+
+  /** 采纳前检查（向导第一步用）：文件夹信息 + 冲突预判，不落盘。 */
+  inspectFolder(dir) {
+    const { real, name } = this._adoptTarget(dir);
+    const direct = path.dirname(real) === this._libReal();
+    const linkPath = path.join(this.worldsDir, name);
+    if (!direct && (fs.existsSync(linkPath))) {
+      const cur = (() => { try { return fs.realpathSync(linkPath); } catch { return null; } })();
+      if (cur !== real) throw new Error(`世界库中已有同名条目「${name}」，请改名或选择其他文件夹`);
+    }
+    const walk = (d, cb) => {
+      for (const ent of fs.readdirSync(d, { withFileTypes: true })) {
+        if (ent.name.startsWith('.')) continue;
+        const p = path.join(d, ent.name);
+        if (ent.isDirectory()) walk(p, cb); else cb(p);
+      }
+    };
+    let mdCount = 0;
+    try { walk(real, (p) => { if (p.endsWith('.md')) mdCount++; }); } catch { /* 不可读 */ }
+    return {
+      path: real,
+      name,
+      insideLibrary: direct,
+      mdCount,
+      hasReadme: fs.existsSync(path.join(real, 'README.md')),
+      hasGit: fs.existsSync(path.join(real, '.git')),
+      alreadyRegistered: direct || (() => { try { return fs.realpathSync(linkPath) === real; } catch { return false; } })(),
+    };
+  }
+
+  /** 世界级操作（§1.1）：重命名 / 复制 / 删除（移入 worlds/.trash-<ts>/，list() 跳过点目录）。
+   *  第 88 轮：链接世界（库外文件夹登记）——改名 = 连真实文件夹一起改 + 重建链接；删除 = 仅摘链（文件夹保留原位）。 */
   _worldNameCheck(name) {
     if (!name || /[\\/:*?"<>|]/.test(name)) throw new Error('invalid world name');
     const dst = path.join(this.worldsDir, name);
@@ -209,20 +341,53 @@ export class Vault {
     return dst;
   }
 
+  /** 根条目 `&n` 同步（README.md 优先；历史世界回落 `<旧名>.md`）。 */
+  _syncRootName(dir, oldBase, newName) {
+    const readme = path.join(dir, 'README.md');
+    const legacy = path.join(dir, `${oldBase}.md`);
+    const target = fs.existsSync(readme) ? readme : (fs.existsSync(legacy) ? legacy : null);
+    if (!target) return;
+    try {
+      let t = fs.readFileSync(target, 'utf8');
+      if (/^&n\s/m.test(t)) t = t.replace(/^&n\s.*$/m, `&n ${newName}`);
+      else t = `&n ${newName}\n` + t;
+      fs.writeFileSync(target, t, 'utf8');
+    } catch { /* 根条目同步失败不影响改名 */ }
+  }
+
+  /** 历史根条目（`<旧名>.md`）跟随改名；README.md 为根时不动。 */
+  _renameLegacyRoot(dir, oldId, newName) {
+    if (fs.existsSync(path.join(dir, 'README.md'))) return;
+    const legacy = path.join(dir, `${oldId}.md`);
+    if (!fs.existsSync(legacy)) return;
+    try { fs.renameSync(legacy, path.join(dir, `${newName}.md`)); } catch { /* 保留原名 */ }
+  }
+
   renameWorld(id, newName) {
     const from = path.join(this.worldsDir, id);
     if (!fs.existsSync(from)) throw new Error('world not found: ' + id);
+    if (this.isLinked(id)) {
+      // 链接世界：改真实文件夹（同父目录）→ 摘旧链 → 建新链；&n 同步
+      const realOld = fs.realpathSync(from);
+      const parent = path.dirname(realOld);
+      const realNew = path.join(parent, newName);
+      if (fs.existsSync(realNew)) throw new Error(`目标文件夹已存在：${realNew}`);
+      if (fs.existsSync(path.join(this.worldsDir, newName))) throw new Error('已存在同名世界: ' + newName);
+      fs.renameSync(realOld, realNew);
+      fs.unlinkSync(from);
+      fs.symlinkSync(realNew, path.join(this.worldsDir, newName), 'dir');
+      this._syncRootName(realNew, id, newName);
+      this._renameLegacyRoot(realNew, id, newName);
+      this.indexes.delete(id);
+      const w = this.watchers.get(id);
+      if (w) { try { w.close(); } catch {} this.watchers.delete(id); }
+      return this.worldInfo(newName);
+    }
     const to = this._worldNameCheck(newName);
     fs.renameSync(from, to);
-    // 改名后根条目 &n 若等于旧名 → 同步（同 entry rename 语义）
-    try {
-      const rootMd = path.join(to, `${id}.md`);
-      if (fs.existsSync(rootMd)) {
-        let t = fs.readFileSync(rootMd, 'utf8');
-        if (/^&n\s/m.test(t)) t = t.replace(/^&n\s.*$/m, `&n ${newName}`);
-        fs.writeFileSync(rootMd, t, 'utf8');
-      }
-    } catch { /* 根条目同步失败不影响改名 */ }
+    // 改名后根条目 &n 同步（README.md 优先）；历史世界 `<旧名>.md` 文件本身也改名
+    this._syncRootName(to, id, newName);
+    this._renameLegacyRoot(to, id, newName);
     this.indexes.delete(id);
     const w = this.watchers.get(id);
     if (w) { try { w.close(); } catch {} this.watchers.delete(id); }
@@ -233,22 +398,24 @@ export class Vault {
     const from = path.join(this.worldsDir, id);
     if (!fs.existsSync(from)) throw new Error('world not found: ' + id);
     const to = this._worldNameCheck(newName);
-    fs.cpSync(from, to, { recursive: true });
-    try {
-      const rootMd = path.join(to, `${id}.md`);
-      if (fs.existsSync(rootMd)) {
-        let t = fs.readFileSync(rootMd, 'utf8');
-        if (/^&n\s/m.test(t)) t = t.replace(/^&n\s.*$/m, `&n ${newName}`);
-        fs.renameSync(rootMd, path.join(to, `${newName}.md`));
-        fs.writeFileSync(path.join(to, `${newName}.md`), t, 'utf8');
-      }
-    } catch { /* 根条目改名失败则保留原名（内容仍可读） */ }
+    fs.cpSync(this.realDir(id), to, { recursive: true });   // 链接世界 → 复制真实内容（副本是库内真实目录）
+    this._syncRootName(to, id, newName);
+    this._renameLegacyRoot(to, id, newName);
     return this.worldInfo(newName);
   }
 
   deleteWorld(id) {
     const from = path.join(this.worldsDir, id);
     if (!fs.existsSync(from)) throw new Error('world not found: ' + id);
+    if (this.isLinked(id)) {
+      // 链接世界：仅摘链（库外真实文件夹保留原位，不进回收站）
+      const target = (() => { try { return fs.realpathSync(from); } catch { return null; } })();
+      fs.unlinkSync(from);
+      this.indexes.delete(id);
+      const w = this.watchers.get(id);
+      if (w) { try { w.close(); } catch {} this.watchers.delete(id); }
+      return { unlinked: target };
+    }
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const trash = path.join(this.worldsDir, `.trash-${ts}`);
     fs.mkdirSync(trash, { recursive: true });

@@ -198,7 +198,7 @@ ${metaTop}
 
   // ③ 首页：世界名 + 简介 + 封面 + 目录树
   const root = worldBaseName(worldDir);
-  const rootEntry = resolveVisible(`${root}.md`) || resolveVisible(root);
+  const rootEntry = resolveVisible('README.md') || resolveVisible(`${root}.md`) || resolveVisible(root);   // 根条目 README.md 优先（第 88 轮）
   const intro = rootEntry ? String(rootEntry.body || '').replace(/^#.*$/m, '').trim().slice(0, 400) : '';
   const cover = rootEntry?.meta?.m?.[0] || null;
   const indexHtml = `<!doctype html>

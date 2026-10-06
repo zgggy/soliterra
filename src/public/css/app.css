@@ -207,6 +207,16 @@ img { display: block; max-width: 100%; }
 /* 三步向导（§1.2） */
 .wz-timeline { font-family: var(--font-mono); font-size: 0.78rem; resize: vertical; line-height: 1.6; }
 .wz-path { font-family: var(--font-mono); color: var(--text); }   /* 新建世界目标路径预览（第 87 轮） */
+/* 新建向导 · 选文件夹（第 88 轮）：原生对话框按钮 + 已选信息卡 + 封面缩略图 + 可选折叠 */
+.wz-pick-row { display: flex; align-items: center; gap: 12px; margin: 4px 0 4px; }
+.wz-pick-row .field-note { flex: 1; line-height: 1.5; }
+.wz-picked .field-note { line-height: 1.5; }
+.wz-cover-row { display: flex; align-items: center; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+.wz-cover-preview { display: inline-flex; align-items: center; gap: 8px; }
+.wz-cover-preview img { width: 64px; height: 40px; object-fit: cover; border: 1px solid var(--line); }
+.wz-cover-name { font-family: var(--font-mono); font-size: 0.66rem; color: var(--text-muted); }
+.wz-adv { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 10px; }
+.wz-adv summary { cursor: pointer; color: var(--text-muted); margin-bottom: 8px; }
 .wz-summary .set-row { border-bottom: 1px solid var(--line); padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .wz-summary .set-row b { font-family: var(--font-mono); font-size: 0.86rem; }
 .wz-summary .set-row span:not(.eyebrow) { color: var(--text-muted); font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; text-align: right; }
