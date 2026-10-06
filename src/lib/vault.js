@@ -15,6 +15,14 @@ export class Vault {
     this.watchers = new Map();  // worldId -> chokidar watcher
   }
 
+  /** 关停某世界的文件监听与索引（测试 / 退出清理用；幂等）。 */
+  close(id) {
+    const w = this.watchers.get(id);
+    if (w) { try { w.close(); } catch { /* 已停 */ } this.watchers.delete(id); }
+    const idx = this.indexes.get(id);
+    if (idx) { try { idx.db?.close?.(); } catch { /* 已关 */ } this.indexes.delete(id); }
+  }
+
   worldDir(id) {
     const dir = path.join(this.worldsDir, id);
     const resolved = path.resolve(dir);
@@ -87,6 +95,12 @@ export class Vault {
     w.on('add', (f) => { if (f.endsWith('.md')) idx.indexFile(path.relative(dir, f)); });
     w.on('change', (f) => { if (f.endsWith('.md')) idx.indexFile(path.relative(dir, f)); });
     w.on('unlink', (f) => { if (f.endsWith('.md')) idx.removeFile(path.relative(dir, f)); });
+    // 外部新建/删除**目录**（Finder/编辑器建书）——chokidar 对"watcher 启动后才出现的目录"的
+    // 初始内容可能漏发 add（第 80 轮实测：顶层新目录里的 md 不被索引）→ 目录事件补扫/补删
+    w.on('addDir', (d) => {
+      try { for (const f of collectMarkdown(d)) idx.indexFile(path.relative(dir, f)); } catch { /* 已消失 */ }
+    });
+    w.on('unlinkDir', (d) => { idx.removePrefix(path.relative(dir, d)); });
     this.watchers.set(id, w);
   }
 
@@ -378,13 +392,48 @@ export class Vault {
     return { path: rel.replace(/\\/g, '/') };
   }
 
-  /** 重命名：md 与同名目录成对改名（目录存在时）。 */
+  /** 重命名：md 与同名目录成对改名；**纯目录节点**（无同名 md，如「黄金时代/」）也支持——目录改名 + 配对 md（若有）一并。
+   *  rel 为 md 路径（'A/B.md'）或目录路径（'A/B'）。 */
   renameEntry(id, rel, newName) {
     if (!newName || /[\\/:*?"<>|]/.test(newName)) throw new Error('invalid name');
     const dir = this.worldDir(id);
-    const from = this._safe(dir, rel);
+    const clean = rel.replace(/\/$/, '');
+    const from = this._safe(dir, clean);
     if (!fs.existsSync(from)) throw new Error('source not found: ' + rel);
-    const base = rel.replace(/\.md$/i, '');
+    // ── 纯目录节点（第 80 轮）：子文件路径全部变化 → 子树重建；同层配对 md（若有）一并改名
+    if (!/\.md$/i.test(clean) && fs.statSync(from).isDirectory()) {
+      const parent = clean.includes('/') ? clean.slice(0, clean.lastIndexOf('/')) : '';
+      const baseName = clean.slice(clean.lastIndexOf('/') + 1);
+      const newRelDir = (parent ? parent + '/' : '') + newName;
+      const to = this._safe(dir, newRelDir);
+      if (fs.existsSync(to)) throw new Error('已存在同名节点: ' + newRelDir);
+      fs.renameSync(from, to);
+      const idx = this.index(id);
+      const mdFromRel = (parent ? parent + '/' : '') + `${baseName}.md`;
+      const mdFrom = this._safe(dir, mdFromRel);
+      if (fs.existsSync(mdFrom)) {
+        const mdToRel = (parent ? parent + '/' : '') + `${newName}.md`;
+        fs.renameSync(mdFrom, this._safe(dir, mdToRel));
+        try {
+          let text = fs.readFileSync(this._safe(dir, mdToRel), 'utf8');
+          if (/^&n\s/m.test(text)) text = text.replace(/^&n\s.*$/m, `&n ${newName}`);
+          else text = `&n ${newName}\n` + text;
+          fs.writeFileSync(this._safe(dir, mdToRel), text, 'utf8');
+        } catch { /* 内容改写失败不影响改名本身 */ }
+        idx.removeFile(mdFromRel);
+        idx.indexFile(mdToRel);
+      }
+      const walk = (abs) => {
+        for (const ent of fs.readdirSync(abs, { withFileTypes: true })) {
+          if (ent.isDirectory()) walk(path.join(abs, ent.name));
+          else if (ent.name.endsWith('.md')) idx.indexFile(path.relative(dir, path.join(abs, ent.name)));
+        }
+      };
+      walk(to);
+      idx.removePrefix(clean);   // 旧路径行同步清掉（否则等 watcher 300ms+ 的 unlink，期间树里新旧并存）
+      return { path: newRelDir };
+    }
+    const base = clean.replace(/\.md$/i, '');
     const newRel = `${base.replace(/[^/]+$/, newName)}.md`;
     const to = this._safe(dir, newRel);
     if (fs.existsSync(to)) throw new Error('已存在同名条目: ' + newRel);
@@ -401,10 +450,9 @@ export class Vault {
     } catch { /* 内容改写失败不影响改名本身 */ }
     this.index(id).removeFile(rel);
     this.index(id).indexFile(newRel);
-    // 目录内子文件路径都变了 → 子树重建
+    // 目录内子文件路径都变了 → 子树重建（旧路径行同步清掉，不等 watcher 的 unlink）
     if (fs.existsSync(dirTo)) {
       const idx = this.index(id);
-      const reRel = (newRel.replace(/\.md$/i, ''));
       const walk = (abs) => {
         for (const ent of fs.readdirSync(abs, { withFileTypes: true })) {
           if (ent.isDirectory()) walk(path.join(abs, ent.name));
@@ -412,20 +460,45 @@ export class Vault {
         }
       };
       walk(dirTo);
+      idx.removePrefix(base);
     }
     return { path: newRel.replace(/\\/g, '/') };
   }
 
-  /** 删除：md + 同名目录整体移入 .soliterra/trash-<ts>/（不进 git）。 */
+  /** 删除：md + 同名目录（若有）整体移入 .soliterra/trash-<ts>/（不进 git）；**纯目录节点**也支持（第 80 轮）。 */
   deleteEntry(id, rel) {
     const dir = this.worldDir(id);
-    const from = this._safe(dir, rel);
+    const clean = rel.replace(/\/$/, '');
+    const from = this._safe(dir, clean);
     if (!fs.existsSync(from)) throw new Error('source not found: ' + rel);
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
-    const trash = path.join(dir, '.soliterra', `trash-${ts}`, path.dirname(rel));
+    // ── 纯目录节点：目录（+ 同层配对 md 若有）整体入回收站，子树从索引移除
+    if (!/\.md$/i.test(clean) && fs.statSync(from).isDirectory()) {
+      const parent = clean.includes('/') ? clean.slice(0, clean.lastIndexOf('/')) : '';
+      const baseName = clean.slice(clean.lastIndexOf('/') + 1);
+      const trashDir = path.join(dir, '.soliterra', `trash-${ts}`, parent);
+      fs.mkdirSync(trashDir, { recursive: true });
+      const movedDir = path.join(trashDir, baseName);
+      fs.renameSync(from, movedDir);
+      const mdRel = (parent ? parent + '/' : '') + `${baseName}.md`;
+      const mdAbs = this._safe(dir, mdRel);
+      if (fs.existsSync(mdAbs)) { fs.renameSync(mdAbs, path.join(trashDir, `${baseName}.md`)); }
+      const idx = this.index(id);
+      const walk = (abs, prefix) => {
+        for (const ent of fs.readdirSync(abs, { withFileTypes: true })) {
+          const r2 = prefix ? `${prefix}/${ent.name}` : ent.name;
+          if (ent.isDirectory()) walk(path.join(abs, ent.name), r2);
+          else if (ent.name.endsWith('.md')) idx.removeFile(r2);
+        }
+      };
+      walk(movedDir, parent ? `${parent}/${baseName}` : baseName);
+      if (fs.existsSync(path.join(trashDir, `${baseName}.md`))) idx.removeFile(mdRel);
+      return { trashed: path.relative(dir, movedDir).replace(/\\/g, '/') };
+    }
+    const trash = path.join(dir, '.soliterra', `trash-${ts}`, path.dirname(clean));
     fs.mkdirSync(trash, { recursive: true });
     fs.renameSync(from, path.join(trash, path.basename(from)));
-    const base = rel.replace(/\.md$/i, '');
+    const base = clean.replace(/\.md$/i, '');
     const dirFrom = this._safe(dir, base);
     if (fs.existsSync(dirFrom)) fs.renameSync(dirFrom, path.join(trash, path.basename(base)));
     this.index(id).removeFile(rel);

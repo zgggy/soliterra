@@ -169,6 +169,18 @@ export class WorldIndex {
     this.qDelFts.run(rel);
   }
 
+  /** 按目录前缀移除（外部整目录删除时 watcher 用）：entries/links/rels/fts 四表同清（第 80 轮）。 */
+  removePrefix(relDir) {
+    const like = `${String(relDir).replace(/\\/g, '/').replace(/\/$/, '')}/%`;
+    const tx = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM entries WHERE path LIKE ?').run(like);
+      this.db.prepare('DELETE FROM links WHERE src LIKE ?').run(like);
+      this.db.prepare('DELETE FROM rels WHERE src LIKE ?').run(like);
+      this.db.prepare('DELETE FROM fts WHERE path LIKE ?').run(like);
+    });
+    tx();
+  }
+
   tree() {
     const paths = this.db.prepare('SELECT path,title,start,flag,tags,meta FROM entries').all();
     const byPath = new Map(paths.map((r) => [r.path, r]));

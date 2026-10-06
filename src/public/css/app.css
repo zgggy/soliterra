@@ -1044,22 +1044,11 @@ details.callout-spoiler-fold .callout-body { margin-top: 6px; }
 .book-card {
   display: flex; flex-direction: column; gap: 0; text-align: left;
   border: 1px solid var(--line); background: var(--surface); border-radius: 0; padding: 0;
-  overflow: hidden; position: relative;
+  overflow: hidden;
 }
 .book-card-title { padding: 8px 10px 2px; }
 .book-card-tags { padding: 2px 10px 10px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
 .book-card:hover { background: var(--bg-soft); border-color: var(--line-strong); }
-/* 书籍管理入口（第 79 轮）：卡右上角 ⋯，hover/focus 才显；发丝方框 + 线图标（与 fab 同族） */
-.book-card-more {
-  position: absolute; top: 6px; right: 6px; z-index: 2;
-  width: 22px; height: 22px; display: grid; place-items: center;
-  border: 1px solid var(--line); background: var(--surface); color: var(--text-muted);
-  opacity: 0; transition: opacity var(--motion-quick) var(--ease-out-quick), border-color var(--motion-quick);
-  cursor: pointer;
-}
-.book-card:hover .book-card-more, .book-card-more:focus-visible { opacity: 1; }
-.book-card-more:hover { border-color: var(--line-strong); color: var(--text); }
-.book-card-more svg { width: 14px; height: 14px; }
 .book-card-cover {
   aspect-ratio: 2 / 3; background: var(--bg-soft);
   border: 0; border-bottom: 1px solid var(--line);   /* 卡内分块用分割线，不套小 box */
