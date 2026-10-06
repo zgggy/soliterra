@@ -3,7 +3,7 @@
 // 注意：v.index() 会起 chokidar watcher（占住事件循环）→ 每个用例 finally 里 v.close()。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync, rmSync, realpathSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Vault } from '../lib/vault.js';
@@ -75,3 +75,30 @@ test('renameEntry 仍支持 md 路径（原行为不回退）', () => withWorld(
   assert.equal(r.path, '银湾湾.md');
   assert.ok(existsSync(join(w, '银湾湾.md')) && existsSync(join(w, '银湾湾', '附记.md')));
 }));
+
+test('worldInfo/list 带 dir：世界真实存储位置（第 87 轮）', () => withWorld((v, w) => {
+  const info = v.worldInfo('测试世界');
+  assert.equal(info.dir, realpathSync(w), 'worldInfo.dir = 世界目录绝对路径');
+  const li = v.list();
+  assert.equal(li.find((x) => x.id === '测试世界').dir, realpathSync(w), 'list 条目带 dir');
+}));
+
+test('符号链接世界：dir 显示真实目标（库外文件夹接入）', () => {
+  const root = mkdtempSync(join(tmpdir(), 'soliterra-vault-'));
+  const ext = mkdtempSync(join(tmpdir(), 'soliterra-ext-'));
+  const worldsDir = join(root, 'worlds');
+  const v = new Vault(worldsDir);
+  try {
+    writeFileSync(join(ext, '外置.md'), '&n 外置\n\n# 外置\n', 'utf8');
+    symlinkSync(ext, join(worldsDir, '链接世界'), 'dir');
+    const li = v.list();
+    const link = li.find((x) => x.id === '链接世界');
+    assert.ok(link, '符号链接世界被 list 识别');
+    assert.equal(link.dir, realpathSync(ext), 'dir 穿透符号链接 = 真实目标');
+    assert.equal(v.realDir('链接世界'), realpathSync(ext));
+  } finally {
+    v.close('链接世界');
+    rmSync(root, { recursive: true, force: true });
+    rmSync(ext, { recursive: true, force: true });
+  }
+});

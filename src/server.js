@@ -3,7 +3,9 @@
 // 设计：平台设计方案.md §七。单进程：REST + 静态 + 文件监听。
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import { Vault } from './lib/vault.js';
@@ -80,6 +82,9 @@ app.get('/w/:id/*', (req, reply) => {
 // ---------- API ----------
 app.get('/api/worlds', () => vault.list());
 
+// 平台元信息（第 87 轮）：世界库根 + 家目录——前端用于「位置」显示（~/… 缩写）与新建世界目标预览
+app.get('/api/meta', () => ({ worldsDir, home: os.homedir() }));
+
 // locales 自动注册（§15.5：启动时扫描——新语言 = 丢一个 json 进 locales/）
 app.get('/api/locales', () => {
   try {
@@ -114,6 +119,20 @@ app.post('/api/worlds/delete', (req, reply) => {
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
+// 在系统文件管理器中定位世界目录（第 87 轮；仅本机 UI 用——服务只监听 127.0.0.1）
+app.post('/api/worlds/reveal', (req, reply) => {
+  try {
+    const id = String(req.body?.id || '');
+    if (!id) throw new Error('world id required');
+    const dir = vault.realDir(id);
+    if (!fs.existsSync(dir)) throw new Error('world not found: ' + id);
+    if (process.platform === 'darwin') execFileSync('open', ['-R', dir]);
+    else if (process.platform === 'win32') execFileSync('explorer', [dir]);
+    else execFileSync('xdg-open', [dir]);
+    return { ok: true, dir };
+  } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
 // Obsidian 导入（§15.6）
 app.post('/api/worlds/import', (req, reply) => {
   try {
@@ -130,7 +149,7 @@ app.post('/api/worlds', (req, reply) => {
 });
 
 app.get('/api/w/:id/tree', (req) => vault.index(req.params.id).tree());
-app.get('/api/w/:id/stats', (req) => vault.index(req.params.id).stats());
+app.get('/api/w/:id/stats', (req) => ({ ...vault.index(req.params.id).stats(), dir: vault.realDir(req.params.id) }));
 app.get('/api/w/:id/timeline', (req) => vault.index(req.params.id).timeline());
 app.get('/api/w/:id/search', (req) => vault.index(req.params.id).search(req.query.q || ''));
 

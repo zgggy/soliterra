@@ -177,6 +177,12 @@ img { display: block; max-width: 100%; }
   margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line);
   font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted);
 }
+/* 本地存储位置（第 87 轮）：卡片一行 muted 路径，悬停 title 见完整路径 */
+.world-card-path {
+  margin: 2px 0 0; color: var(--text-muted);
+  font-family: var(--font-mono); font-size: 0.62rem; line-height: 1.4;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .world-card-new {
   border-style: dashed;
   align-items: center; justify-content: center; gap: 12px;
@@ -200,6 +206,7 @@ img { display: block; max-width: 100%; }
 .world-card-menu:hover { border-color: var(--line-strong); }
 /* 三步向导（§1.2） */
 .wz-timeline { font-family: var(--font-mono); font-size: 0.78rem; resize: vertical; line-height: 1.6; }
+.wz-path { font-family: var(--font-mono); color: var(--text); }   /* 新建世界目标路径预览（第 87 轮） */
 .wz-summary .set-row { border-bottom: 1px solid var(--line); padding: 10px 0; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
 .wz-summary .set-row b { font-family: var(--font-mono); font-size: 0.86rem; }
 .wz-summary .set-row span:not(.eyebrow) { color: var(--text-muted); font-size: 0.86rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; text-align: right; }
@@ -568,6 +575,12 @@ img { display: block; max-width: 100%; }
 }
 .wp-dirty { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }  /* 无=灰 */
 .wp-dirty.warn { color: var(--warn); }                                                     /* 有=黄 */
+/* 位置行（第 87 轮）：右组 = 缩写路径（ellipsis，title 完整）+ Finder 定位按钮 */
+.wp-loc-right { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.wp-loc-path {
+  font-family: var(--font-mono); font-size: 0.62rem; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .wp-commit { padding: 6px 12px; font-size: 0.8rem; }
 .dirty-dot {
   display: inline-block; width: 6px; height: 6px; margin-right: 5px;
@@ -867,6 +880,13 @@ img { display: block; max-width: 100%; }
   padding: 8px 12px; font-family: var(--font-ui); font-size: 0.84rem; color: var(--text);
 }
 .tree-menu-item:hover { background: var(--bg-soft); }
+/* 世界菜单「位置」组（第 87 轮）：完整路径注记 + 动作分组分隔线 */
+.tree-menu-note {
+  padding: 7px 12px 6px; max-width: 300px; word-break: break-all;
+  font-family: var(--font-mono); font-size: 0.62rem; line-height: 1.45; color: var(--text-muted);
+  border-bottom: 1px solid var(--line); margin-bottom: 4px;
+}
+.tree-menu-sep { height: 1px; background: var(--line); margin: 4px 0; }
 
 /* ---------- 方向 B：embed 真嵌入块 ---------- */
 .embed-block {

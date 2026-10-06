@@ -2,7 +2,7 @@
 // 布局：时间轴（顶部通栏）+ 主区 push（目录/关系图）+ 四角：
 //   左上世界卡（peek 左）· 左下设置面板（peek 左）· 左下角书架（cover-first）· 右侧稍后阅读区（peek 右）· 右下操作栏。
 
-import { api, t, state, navigate, bindCoverFallbacks } from './app.js';
+import { api, t, state, navigate, bindCoverFallbacks, abbrevPath } from './app.js';
 import { showLinkCard, hideCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporter.js';
@@ -62,6 +62,7 @@ const L = {
   lintTitle: { 'zh-CN': '一致性校验', en: 'Consistency lint' },
   export: { 'zh-CN': '导出', en: 'Export' },
   dashboard: { 'zh-CN': '仪表盘', en: 'Dashboard' },
+  loc: { 'zh-CN': '位置', en: 'Location' },
   dashJump: { 'zh-CN': '时间轴取景到', en: 'Jump timeline to' },
   dashLater: { 'zh-CN': '加入稍后阅读', en: 'Read later' },
   dashTools: { 'zh-CN': '打开工具箱', en: 'Open toolbox' },
@@ -516,6 +517,9 @@ async function renderWorldPanel(ctx) {
   if (!host) return;
   const info = await api(`/api/w/${enc(ctx.worldId)}/stats`).catch(() => ({ entries: 0, events: 0 }));
   const gitInfo = await api(`/api/w/${enc(ctx.worldId)}/git`).catch(() => ({ ok: false }));
+  const meta = await api('/api/meta').catch(() => ({ home: '' }));   // 家目录（位置行 ~/… 缩写，第 87 轮）
+  const dirFull = info.dir || '';
+  const dirShow = dirFull ? abbrevPath(dirFull, meta.home) + '/' : '';
   const rootNode = ctx.tree.children.find((c) => c.name === ctx.worldId) || ctx.tree.children[0];
   const cover = rootNode?.cover;
   const bookCount = ctx.tree.children.filter((c) => c.md || c.children.length).length;
@@ -539,6 +543,9 @@ async function renderWorldPanel(ctx) {
         <button class="button-primary wp-commit" id="wp-commit" hidden>${lt('commitNow')}</button>
       </span>
     </div>
+    ${dirShow ? `<div class="set-row wp-loc"><span class="eyebrow">${lt('loc')}</span>
+      <span class="wp-loc-right"><span class="wp-loc-path" title="${esc(dirFull)}">${esc(dirShow)}</span>
+      <button class="button-ghost" id="wp-reveal">Finder ↗</button></span></div>` : ''}
     <div class="set-row"><span class="eyebrow">${lt('dashboard')}</span>
       <button class="button-ghost wp-dash" id="wp-dash">→</button></div>
     <div class="set-row wp-export-row"><span class="eyebrow">${lt('export')}</span>
@@ -561,6 +568,10 @@ async function renderWorldPanel(ctx) {
   host.querySelector('#wp-back').addEventListener('click', () => navigate('#/'));
   host.querySelector('#wp-history').addEventListener('click', () => openGitHistory(ctx));
   host.querySelector('#wp-dash').addEventListener('click', () => openDashboard(ctx));
+  host.querySelector('#wp-reveal')?.addEventListener('click', async () => {   // 第 87 轮：在 Finder 中显示
+    try { await api('/api/worlds/reveal', { method: 'POST', body: { id: ctx.worldId } }); }
+    catch (e) { showToast(String(e.message), 'error'); }
+  });
   const top = ctx.tree.children.find((c) => (ctx.currentPath || '').startsWith(c.name + '/')) || ctx.tree.children.find((c) => c.name === ctx.worldId) || ctx.tree.children[0];
   host.querySelector('#ex-doc-md').addEventListener('click', () => exportDoc(ctx, 'md'));
   host.querySelector('#ex-doc-txt').addEventListener('click', () => exportDoc(ctx, 'txt'));

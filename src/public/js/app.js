@@ -39,6 +39,31 @@ export async function setLang(lang) {
 
 export function navigate(hash) { location.hash = hash; }
 
+/** 路径缩写（第 87 轮「位置」显示）：家目录前缀 → `~`；不在家目录下则原样绝对路径。 */
+export function abbrevPath(dir, home) {
+  const p = String(dir || '');
+  const h = String(home || '');
+  return h && p.startsWith(h + '/') ? '~' + p.slice(h.length) : p;
+}
+
+/** 复制文本到剪贴板（第 87 轮「复制完整路径」）：clipboard API 失败 → textarea 兜底。 */
+export async function copyText(text) {
+  try { await navigator.clipboard.writeText(text); return true; }
+  catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch { return false; }
+  }
+}
+
 /** 封面图加载失败 → 替换为大大的首字母（不留破图占位符）。 */
 export function bindCoverFallbacks(scope) {
   (scope || document).querySelectorAll('img[data-glyph]').forEach((img) => {

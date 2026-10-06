@@ -1,7 +1,11 @@
 // 首页 · 世界列表（功能设计 §1）
 // 横排竖卡 + hover 倾斜 + 滚轮左右滚动 + 「+」新建卡 + 新建向导。
 
-import { api, t, state, bindCoverFallbacks } from './app.js';
+import { api, t, state, bindCoverFallbacks, abbrevPath, copyText } from './app.js';
+
+// 平台元信息（世界库根 + 家目录）：卡片「位置」行与新建向导目标预览共用（renderHome 时拉取）
+let homeMeta = { worldsDir: '', home: '' };
+function libraryShort() { return abbrevPath(homeMeta.worldsDir, homeMeta.home); }
 
 export async function renderHome(root) {
   root.innerHTML = `
@@ -25,6 +29,7 @@ export async function renderHome(root) {
   const row = root.querySelector('#world-row');
   let worlds = [];
   try { worlds = await api('/api/worlds'); } catch (e) { console.error(e); }
+  try { homeMeta = await api('/api/meta'); } catch { /* 老服务无此端点：位置显示降级隐藏 */ }
 
   if (worlds.length === 0) {
     row.innerHTML = `<div class="empty-state">${t('home.empty')}</div>`;
@@ -33,6 +38,8 @@ export async function renderHome(root) {
     const card = document.createElement('a');
     card.className = 'world-card';
     card.href = `#/w/${encodeURIComponent(w.id)}`;
+    const dirFull = w.dir || '';
+    const dirShow = dirFull ? abbrevPath(dirFull, homeMeta.home) + '/' : '';
     card.innerHTML = `
       <div class="world-card-cover">${w.cover
         ? `<img src="/w/${encodeURIComponent(w.id)}/${encodeURIComponent(w.cover)}" alt="" data-glyph="${escapeHtml(w.name.slice(0, 1))}" data-glyph-class="world-card-glyph">`
@@ -41,6 +48,7 @@ export async function renderHome(root) {
       <div class="world-card-body">
         <h3 class="world-card-title">${escapeHtml(w.name)}</h3>
         <p class="world-card-sub">${escapeHtml(w.subtitle || '')}</p>
+        ${dirShow ? `<div class="world-card-path" title="${escapeHtml(dirFull)}">${escapeHtml(dirShow)}</div>` : ''}
         <div class="world-card-meta">${w.stats.entries} ${t('world.entries')} · ${w.stats.events} ${t('world.events')}</div>
       </div>`;
     row.appendChild(card);
@@ -125,16 +133,23 @@ export function attachTilt(card) {
   card.addEventListener('mouseleave', () => { card.style.transform = ''; });
 }
 
-// 世界操作菜单（§1.1：重命名 / 复制 / 删除——删除须输入世界名确认）
+// 世界操作菜单（§1.1：位置（完整路径）· 在 Finder 中显示 · 复制完整路径 · 重命名 / 复制 / 删除——删除须输入世界名确认）
 async function showWorldMenu(e, w) {
   document.querySelectorAll('.tree-menu').forEach((m) => m.remove());
   const { askText } = await import('./world.js');
+  const zh = state.lang === 'zh-CN';
+  const dirFull = w.dir || '';
+  const dirShow = dirFull ? abbrevPath(dirFull, homeMeta.home) + '/' : '';
   const menu = document.createElement('div');
   menu.className = 'tree-menu';
   menu.innerHTML = `
-    <button class="tree-menu-item" data-k="rename">${state.lang === 'zh-CN' ? '重命名世界' : 'Rename'}</button>
-    <button class="tree-menu-item" data-k="dup">${state.lang === 'zh-CN' ? '复制世界' : 'Duplicate'}</button>
-    <button class="tree-menu-item" data-k="del">${state.lang === 'zh-CN' ? '删除世界（回收站）' : 'Delete (trash)'}</button>`;
+    ${dirShow ? `<div class="tree-menu-note" title="${escapeHtml(dirFull)}">${escapeHtml(dirShow)}</div>
+    <button class="tree-menu-item" data-k="reveal">${zh ? '在 Finder 中显示' : 'Reveal in Finder'}</button>
+    <button class="tree-menu-item" data-k="copy">${zh ? '复制完整路径' : 'Copy full path'}</button>
+    <div class="tree-menu-sep"></div>` : ''}
+    <button class="tree-menu-item" data-k="rename">${zh ? '重命名世界' : 'Rename'}</button>
+    <button class="tree-menu-item" data-k="dup">${zh ? '复制世界' : 'Duplicate'}</button>
+    <button class="tree-menu-item" data-k="del">${zh ? '删除世界（回收站）' : 'Delete (trash)'}</button>`;
   document.body.appendChild(menu);
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(e.clientX, innerWidth - r.width - 8) + 'px';
@@ -146,7 +161,12 @@ async function showWorldMenu(e, w) {
     if (!k) return;
     menu.remove();
     try {
-      if (k === 'rename') {
+      if (k === 'reveal') {
+        await api('/api/worlds/reveal', { method: 'POST', body: { id: w.id } });
+      } else if (k === 'copy') {
+        const ok = await copyText(dirFull);
+        showToastLike(ok ? (zh ? '已复制路径' : 'Path copied') : (zh ? '复制失败' : 'Copy failed'));
+      } else if (k === 'rename') {
         const nn = await askText(state.lang === 'zh-CN' ? '新世界名' : 'New world name', w.name);
         if (!nn || !nn.trim() || nn.trim() === w.name) return;
         await api('/api/worlds/rename', { method: 'POST', body: { id: w.id, newName: nn.trim() } });
@@ -190,6 +210,7 @@ function openNewWorld(root, done) {
         <div class="wz-pane" data-step="1">
           <label class="field"><span class="eyebrow">${t('home.new.name')}</span>
             <input class="text-input" name="name" placeholder="${t('home.new.name.ph')}" autofocus></label>
+          <div class="field-note eyebrow" id="wz-target"></div>
           <label class="field"><span class="eyebrow">${t('home.new.subtitle')}</span>
             <input class="text-input" name="subtitle"></label>
           <label class="field"><span class="eyebrow">${state.lang === 'zh-CN' ? '封面（assets/ 相对路径，可空）' : 'Cover (assets/ path, optional)'}</span>
@@ -216,6 +237,19 @@ function openNewWorld(root, done) {
   modal.querySelector('[data-close]').addEventListener('click', close);
   modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
   const val = (n) => modal.querySelector(`[name=${n}]`)?.value.trim() || '';
+  // 存储位置预览（第 87 轮）：世界落在世界库下 <库>/<世界名>/——随名称输入实时反映
+  const libShort = libraryShort();
+  const targetPath = () => (libShort ? `${libShort}/${val('name') || '…'}/` : '');
+  const updateTarget = () => {
+    const el = modal.querySelector('#wz-target');
+    if (!el) return;
+    el.hidden = !libShort;
+    el.innerHTML = libShort
+      ? `${state.lang === 'zh-CN' ? '将创建于' : 'Will be created at'} <span class="wz-path">${escapeHtml(targetPath())}</span>`
+      : '';
+  };
+  modal.querySelector('[name=name]').addEventListener('input', updateTarget);
+  updateTarget();
   let step = 1;
   const show = () => {
     modal.querySelectorAll('.wz-pane').forEach((p) => { p.hidden = +p.dataset.step !== step; });
@@ -228,6 +262,7 @@ function openNewWorld(root, done) {
       const events = val('timeline').split('\n').filter((x) => x.trim()).length;
       modal.querySelector('#wz-summary').innerHTML = `
         <div class="set-row"><span class="eyebrow">${t('home.new.name')}</span><b>${escapeHtml(val('name'))}</b></div>
+        ${libShort ? `<div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '位置' : 'Location'}</span><span>${escapeHtml(targetPath())}</span></div>` : ''}
         <div class="set-row"><span class="eyebrow">${t('home.new.subtitle')}</span><span>${escapeHtml(val('subtitle')) || '—'}</span></div>
         <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '封面' : 'Cover'}</span><span>${escapeHtml(val('cover')) || '—'}</span></div>
         <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '历法' : 'Calendar'}</span><span>${escapeHtml(val('calendar')) || '—'}</span></div>

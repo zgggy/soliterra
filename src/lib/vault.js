@@ -30,6 +30,12 @@ export class Vault {
     return resolved;
   }
 
+  /** 世界的真实磁盘位置（符号链接世界返回真实目标；目录消失时退回拼接路径）。第 87 轮「位置」显示用。 */
+  realDir(id) {
+    const dir = this.worldDir(id);
+    try { return fs.realpathSync(dir); } catch { return dir; }
+  }
+
   /** 世界信息（从根条目与统计读取）。 */
   worldInfo(id) {
     const dir = this.worldDir(id);
@@ -46,6 +52,7 @@ export class Vault {
       subtitle: firstLine(root?.body) || '',
       cover,
       description: firstParagraph(root?.body) || '',
+      dir: this.realDir(id),   // 本地存储位置（绝对路径；前端缩为 ~/… 显示）
       stats,
     };
   }

@@ -369,8 +369,12 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 - flex、gap 20px、`padding: 0 8vw`、`overflow-x: auto`；滚轮 deltaY 映射 `scrollLeft`；整行屏幕垂直居中。
 
 **`world-card`** — 首页世界竖卡（240×340）。
-- card-surface 配方；上 62% 封面（无图 → bg-soft + 首字大衬线），下 38% 世界名（display-md）+ 简介（2 行省略）+ 底部等宽元数据（hairline 上隔）；右上角线条 icon-button 菜单。
+- card-surface 配方；上 62% 封面（无图 → bg-soft + 首字大衬线），下 38% 世界名（display-md）+ 简介（2 行省略）+ **`world-card-path` 位置行（第 87 轮）** + 底部等宽元数据（hairline 上隔）；右上角线条 icon-button 菜单。
+- **`world-card-path`**：`~/<世界库>/<名>/` 等宽 0.62rem `{colors.text-muted}`，单行 `text-overflow: ellipsis`，`title` = 完整绝对路径（数据 = `/api/worlds` 的 `dir` + `/api/meta.home` 缩写）。
 - **hover 倾斜**：`hover-tilt` 原语（±6deg / 200ms）+ 边框 `line-strong`。
+
+**`tree-menu`（卡菜单的位置组，第 87 轮）** — 世界卡 ⋯ 菜单头部。
+- **`tree-menu-note`**：完整缩写路径注记（等宽 0.62rem muted、`max-width 300px`、`word-break: break-all`；底部 hairline）；**`tree-menu-sep`**：1px `{colors.line}` 分组线（位置组动作与重命名/复制/删除之间）；动作项沿用 `tree-menu-item`。
 
 **`new-world-card`** — 「+ 新建世界」卡，同尺寸。
 - **虚线** 1px `{colors.line}` 边框 + 居中线条 `+` + `新建世界` eyebrow；hover 转实线 `line-strong` + 倾斜。
@@ -444,7 +448,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 - **旧 `world-pop`（贴 fab 气泡）与 ⌯ 操作面板方案已废弃**。
 
 **`world-panel`（左 push，固定宽）** — 世界入口的展开形态（`+` 钮开合）。
-- 内容自上而下：`&m` 横幅（150px，无图不渲染，失败回退首字大衬线）→ 世界名（衬线 1.5rem）→ 统计行（书籍 · 条目，等宽）→ git 行（分支 · hash · 时间）→ **提交行**（左计数右按钮，无未提交时按钮隐藏）→ **全部设置条目**（日/夜 · 字体 · 字号 · 行高 · 列宽 · 语言 → **「更多设置 ▸」折叠块**：编辑器档位 / 时代带 / 智能收拢 / 目录展开深度）→ 关于行 → `← 返回世界列表` 行。
+- 内容自上而下：`&m` 横幅（150px，无图不渲染，失败回退首字大衬线）→ 世界名（衬线 1.5rem）→ 统计行（书籍 · 条目，等宽）→ git 行（分支 · hash · 时间）→ **提交行**（左计数右按钮，无未提交时按钮隐藏）→ **位置行（第 87 轮，`wp-loc`）**：`wp-loc-right`（inline-flex，`min-width: 0`）= `wp-loc-path`（缩写路径，等宽 0.62rem muted，单行省略，`title` 完整路径）+ `Finder ↗` ghost 按钮 → **全部设置条目**（日/夜 · 字体 · 字号 · 行高 · 列宽 · 语言 · 编辑器 · 时代带 · 保存间隔）→ 关于行 → `← 返回世界列表` 行。
 - **固定宽 `min(420px, 40vw)`，无宽度把手**；设置不再有独立面板。
 
 **`books-panel`（全部书籍，左 push；书架 Dock 已废弃）** — 左下 `格` 钮开合。
