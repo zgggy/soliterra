@@ -1112,10 +1112,9 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     const FLAG_H = 52;
     const COMPACT = chronoH < 84;                                            // 矮：只显示名字
     const maxLanes = Math.max(1, Math.floor((chronoH - 26 - FLAG_H) / (FLAG_H + 6)) + 1);   // 高：允许重叠卡片分道
-    const GAP = 10;                                                            // 半箱让位最小间距
-    const GENESIS_PEEK = 10;                                                   // 创世组：紧凑叠排的露边宽（第 62 轮既定形态，不做半箱大级联）
-    const yieldStep = (it) => (it.genesis ? GENESIS_PEEK : it._w / 2 + GAP);   // 让位量：普通卡露左半；创世卡露 10px 边
-    const MAX_SHIFT = (it) => 1.5 * it._w;                                     // 让位上限（极端密度护栏）
+    const GAP = 10;                          // 半箱让位最小间距
+    // 让位量恒为「露出左半」（w/2 + GAP），**所有卡片统一、无上限**——半箱规则是硬保证
+    // （第 69 轮：删除 1.5×卡宽上限——它会截断让位、把卡片留在被盖状态；创世卡同样遵循，无例外）
     const chain = flagItems.filter((it) => it.path !== ctx.currentPath);   // 打开中的卡片恒在最上，不参与堆叠位移
 
     // ── 分道 first-fit（§E.2）：找最低的道「其末卡左半 + GAP 不越过本卡真实位置」；全满 → 重叠最小之道兜底
@@ -1194,13 +1193,13 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     for (const grp of laneArrange.values()) {
       for (let i = grp.length - 2; i >= 0; i--) {
         const cur = grp[i], nxt = grp[i + 1];
-        const need = nxt._left - yieldStep(cur);                       // 普通卡露左半 / 创世卡露 10px 边
-        if (cur._left > need) cur._left = Math.max(need, cur._trueX - MAX_SHIFT(cur));
+        const need = nxt._left - cur._w / 2 - GAP;                     // 露左半（创世卡同规则）
+        if (cur._left > need) cur._left = need;
       }
     }
 
-    // 创世组：**不钉在屏幕内**（2026-10-06 用户要求）——锚在「最早时间坐标左 8px」处、紧凑叠排向左铺开；
-    // 拖动/缩放时与其他卡片一样自然随之移动（可移出屏幕；出界指示「◀N」可一键带回）。
+    // 创世组：**不钉在屏幕内**（2026-10-06 用户要求）——锚在「最早时间坐标左 8px」处、按同一半箱规则向左铺开；
+    // 拖动/缩放时与其他卡片一样自然随之移动（可整排移出屏幕；出界指示「◀N」可一键带回）。
     const genItems = arrange.filter((it) => it.genesis);
     // ── 打开中的卡片参与碰撞（2026-10-06 用户要求）：它恒在最上（z=80），但与其他卡片互不遮挡。
     //    A) O 是创世 → 创世组（含 O，O 视作组内最上）重排 + 整组归一
@@ -1214,10 +1213,10 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       const oTop = (chronoH - 28) - 6 - oH;
       if (openIt.genesis && genItems.length > 1) {
         const g2 = [...genItems.filter((x) => x !== openIt), openIt];
-        for (let i = g2.length - 2; i >= 0; i--) {         // 组内链式叠排（O 最后的"后卡"；紧凑露边，不钉屏）
+        for (let i = g2.length - 2; i >= 0; i--) {         // 组内链式让位（O 最后的"后卡"；同一半箱规则）
           const cur2 = g2[i], nxt2 = g2[i + 1];
-          const need = nxt2._left - yieldStep(cur2);
-          if (cur2._left > need) cur2._left = Math.max(need, cur2._trueX - MAX_SHIFT(cur2));
+          const need = nxt2._left - cur2._w / 2 - GAP;
+          if (cur2._left > need) cur2._left = need;
         }
       } else if (genItems.length && !openIt.genesis) {
         for (let it2 = 0; it2 < 4; it2++) {                 // O 右移越过被压的创世卡（循环至稳定）
@@ -1230,15 +1229,26 @@ function initTimeline(ctx, wrap, canvas, ticks) {
         }
       }
       for (const [lane, grp] of laneArrange) {
-        if (10 + lane * (FLAG_H + 6) + oH - oTop <= 6) continue;   // 带状不相交（相邻道 6px 叠边）→ 不干涉
-        const grpC = grp.filter((x) => !x.genesis);                // 创世卡不在此让位（A/B 已保证不与 O 互遮；对普通卡保持"宁可压住轴首"）
+        if (10 + lane * (FLAG_H + 6) + oH - oTop <= 10) continue;  // 带状不相交（相邻道叠片 ≤10px 属设计）→ 不干涉
+        const grpC = grp.filter((x) => !x.genesis);                // 创世卡不在此让位（A/B 已保证不与 O 互遮）
+        const covered = (cur) => cur._left < openIt._left + openIt._w && cur._left + cur._w / 2 + GAP > openIt._left;
+        // 不晚于 O 的卡片：向左链式让位（自右向左）
         for (let i = grpC.length - 1; i >= 0; i--) {
           const cur = grpC[i];
+          if (cur._trueX > openIt._trueX) continue;
           let target = cur._left;
-          if (cur._left < openIt._left + openIt._w && cur._left + cur._w / 2 + GAP > openIt._left) target = Math.min(target, openIt._left - cur._w / 2 - GAP);
+          if (covered(cur)) target = Math.min(target, openIt._left - cur._w / 2 - GAP);
           const nxt = i === grpC.length - 1 ? null : grpC[i + 1];
-          if (nxt && nxt._left < cur._left + cur._w / 2 + GAP) target = Math.min(target, nxt._left - cur._w / 2 - GAP);
-          if (target < cur._left) cur._left = Math.max(target, cur._trueX - MAX_SHIFT(cur));
+          if (nxt && nxt._trueX <= openIt._trueX && nxt._left < cur._left + cur._w / 2 + GAP) target = Math.min(target, nxt._left - cur._w / 2 - GAP);
+          if (target < cur._left) cur._left = target;
+        }
+        // 晚于 O 的卡片：向右链式让位（自左向右，保持时间次序的视觉顺序——不跨过打开卡）
+        let blockUntil = openIt._left + openIt._w + GAP;
+        for (let i = 0; i < grpC.length; i++) {
+          const cur = grpC[i];
+          if (cur._trueX <= openIt._trueX) continue;
+          if (cur._left < blockUntil) cur._left = blockUntil;
+          blockUntil = cur._left + cur._w / 2 + GAP;
         }
       }
     }
