@@ -1183,7 +1183,6 @@ function initTimeline(ctx, wrap, canvas, ticks) {
           cl._w = flagBaseW(cl.title);
           cl._trueX = isGen ? genesisX - cl._w : x(cl.s);   // 创世簇同创世锚定规则
           cl._left = cl._trueX;
-          cl._z = first._z;
           clusters.push(cl);
           for (const m of run) mergedPaths.add(m.path);
         }
@@ -1191,6 +1190,10 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       }
     }
     const arrange = [...flagItems.filter((it) => !mergedPaths.has(it.path)), ...clusters];
+    // z 序 = 时间序，**簇按中心时刻参与排名**（第 72 轮：「合并为簇的也要比左边的图层高，因为它的时间晚」）——
+    // 原 cl._z = first._z 取首成员（最早）的 z：时间介于首成员与中心之间的左侧卡片会反过来压住簇。
+    arrange.slice().sort((a, b) => (a.s ?? -Infinity) - (b.s ?? -Infinity))
+      .forEach((it, i) => { it._z = 10 + i; });
 
     // ── 让位（§E.1）：同道内级联——「左 1/2 检测箱」，后卡只可压前卡右半；
     //    不撞左半零位移；单卡累计左移 ≤ 1.5×卡宽（护栏）。_trueX 不变 → 引线垂真实时刻。
