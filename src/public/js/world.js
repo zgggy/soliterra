@@ -12,7 +12,6 @@ const YEAR = 365.25;
 const worldDataCache = new Map();   // worldId -> { tree, timeline, ts }
 const tocOpenDirs = new Set();    // 目录手动展开的目录（跨重渲染记忆，防闪回）
 let activeWorld = null;           // { id, update(path) }：同世界导航走原地更新（不整页重载）
-let lastEntry = null;            // { world, path }：同一文档重渲染（退出编辑等）→ 跳过取景动画并恢复视野
 let lastTimelineView = null;     // { world, lo, hi } 当前时间轴视野（重渲染的起点：从现在的值出发）
 let axisKeyHandler = null;      // 时间轴键盘 handler 单例（重绑即解绑，防多实例叠加）
 let worldKeyHandler = null;     // 世界快捷键 handler 单例（同上）
@@ -177,8 +176,6 @@ export async function renderWorld(root, worldId, entryPath) {
   // 时间轴高度（可拖动；最矮 56 限定）：56–320px，sessionStorage 记忆
   const chronoH = parseInt(sessionStorage.getItem('soliterra.chronoH') || '112', 10);
   root.querySelector('.world-view').style.setProperty('--chrono-h', Math.min(Math.round(window.innerHeight * 0.75), Math.max(70, chronoH)) + 'px');   // §A：上限 3/4 屏高（>2/3 即高模式）
-  ctx.skipFrame = !!(lastEntry && lastEntry.world === worldId && lastEntry.path === entryPath);
-  lastEntry = { world: worldId, path: entryPath };
   const chrono = initTimeline(ctx, el('chrono'), el('chrono-canvas'), el('chrono-ticks'));
   chrono.layout();
   bindChronoResize(root, ctx, chrono);
@@ -873,7 +870,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     // 创世条目（&f 创世 或 &t 含「创世」）：不按 &s 上轴、不计入时间轴总范围；显示在「最早时间之前」
     const genesis = r.flag === '创世' || (Array.isArray(tg) ? tg : String(tg || '').split(/\s+/)).includes('创世');
     return { ...r, s: parseOrd(r.start), e: parseOrd(r.end), era: r.era || null, genesis };
-  }).filter((r) => r.s != null);
+  }).filter((r) => r.s != null || r.genesis);   // 创世无 &s 也保留（创世排不依赖时刻）
   // 时间轴范围 = 本书（§A 二次定型）：顶层散文件文档 → 全库；换书由 setScope 重建
   let items = [];
   const view = { lo: 0, hi: 1 };
@@ -886,16 +883,18 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       ? (() => { const set = new Set(flattenTree(node).map((e) => e.path)); return allItems.filter((i) => set.has(i.path)); })()
       : allItems;
     if (items.length) {
-      const timed = items.filter((i) => !i.genesis);              // 创世条目不计入总范围
-      const base = timed.length ? timed : items;
-      const lo = Math.min(...base.map((i) => i.s));
-      const hi = Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s)));   // 末覆盖最晚结束（卡片按开始时间定位，轴尾须容下所有绘制）
-      const pad = (hi - lo) * 0.05 || YEAR;
-      view.lo = lo - pad; view.hi = hi + pad;
+      const timed = items.filter((i) => !i.genesis && i.s != null);   // 创世条目不计入总范围
+      const base = timed.length ? timed : items.filter((i) => i.s != null);
+      if (base.length) {
+        const lo = Math.min(...base.map((i) => i.s));
+        const hi = Math.max(...base.map((i) => Math.max(i.s, i.e ?? i.s)));   // 末覆盖最晚结束（卡片按开始时间定位，轴尾须容下所有绘制）
+        const pad = (hi - lo) * 0.05 || YEAR;
+        view.lo = lo - pad; view.hi = hi + pad;
+      }
     }
     full.lo = view.lo; full.hi = view.hi;
-    const timed = items.filter((i) => !i.genesis);
-    const base2 = timed.length ? timed : items;
+    const timed = items.filter((i) => !i.genesis && i.s != null);
+    const base2 = timed.length ? timed : items.filter((i) => i.s != null);
     earliestOrd = base2.length ? Math.min(...base2.map((i) => i.s)) : null;
     latestOrd = base2.length ? Math.max(...base2.map((i) => Math.max(i.s, i.e ?? i.s))) : null;
     return top;
@@ -905,12 +904,12 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   axisLine.className = 'chrono-axis';
   wrap.appendChild(axisLine);
   const scopeBook = rescope();
-  // 从**当前视图**出发（不跳回默认初值）：同世界同书重渲染沿用上次视野，
-  // 之后由 openEntry 的取景补间「从现在的值移动/缩放到目标」；同文档重渲染则不再取景（skipFrame）
+  // 从**当前视图**出发（不跳回默认初值）：同世界同书重渲染沿用上次视野。
+  // 打开条目**不加取景**（2026-10-06：删除条目点击的自动缩放）；取景补间仅剩「强调」拖拽与 ⌘K/时代带。
   if (lastTimelineView && lastTimelineView.world === ctx.worldId && lastTimelineView.book === scopeBook) {
     view.lo = lastTimelineView.lo; view.hi = lastTimelineView.hi;
   }
-  let anim = null;                // rAF 补间句柄（仅用于打开取景）
+  let anim = null;                // rAF 补间句柄
   const markers = document.createElement('div');
   markers.className = 'chrono-markers';
   wrap.appendChild(markers);
@@ -1058,8 +1057,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       ticks.appendChild(tEl);
     }
     // 旗标布局：正常位置显示；重叠时「越晚图层越高」，较早的卡片依次向左让出 10px（时间位置不变）
-    const flagItems = items.filter((i) => displayFlagOf(i)).sort((a, b) => a.s - b.s);
-    const genesisX = earliestOrd != null ? x(earliestOrd) - 8 : -Infinity;   // 创世锚：最早时间坐标左 8px（其前）
+    // 旗标池 = 当前范围条目 ∪ **全世界创世条目**（跨书恒显示：创世是世界本源，点进任何书/文档都不消失）
+    const pool = new Map(items.map((i) => [i.path, i]));
+    for (const i of allItems) if (i.genesis) pool.set(i.path, i);
+    const flagItems = [...pool.values()].filter((i) => displayFlagOf(i)).sort((a, b) => (a.s ?? -Infinity) - (b.s ?? -Infinity));
+    const genesisX = earliestOrd != null ? x(earliestOrd) - 8 : 6;   // 创世锚：最早时间坐标左 8px（其前）；全库无时刻时直接贴左缘
     for (let i = 0; i < flagItems.length; i++) {
       const it = flagItems[i];
       it._w = flagBaseW(it.title);
@@ -1122,7 +1124,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     for (const [path0, el0] of [...spanEls]) if (!shownSpans.has(path0)) { el0.remove(); spanEls.delete(path0); }
 
     const shownFlags = new Set();
-    for (const it of items) {
+    for (const it of flagItems) {   // 渲染池（含全世界创世条目），与定位池一致
       const eyebrow = displayFlagOf(it);
       if (!eyebrow) continue;
       const flag = ensureFlagEl(it.path);
@@ -1151,7 +1153,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     eras.innerHTML = '';
     const eraMap = new Map();
     for (const it of items) {
-      if (!it.era) continue;
+      if (!it.era || it.s == null) continue;
       const e2 = eraMap.get(it.era);
       if (e2) { e2.lo = Math.min(e2.lo, it.s); e2.hi = Math.max(e2.hi, it.e ?? it.s); }
       else eraMap.set(it.era, { era: it.era, lo: it.s, hi: it.e ?? it.s });
@@ -1248,8 +1250,9 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   wrap.addEventListener('pointerup', stop);
   wrap.addEventListener('pointercancel', stop);
 
-  /** 取景（打开文档）：&s 落在屏幕 1/3、&e 落在屏幕 2/3（瞬时事件置于 1/3）。300ms。
-   *  **创世条目不取景**（无时间语义；不许自动缩放时间线）——视野保持原样，创世排贴边恒可见。 */
+  /** 取景补间：&s 落在屏幕 1/3、&e 落在屏幕 2/3（瞬时事件置于 1/3）。300ms。
+   *  **打开条目不加取景**（2026-10-06 用户要求：删除所有条目点击的自动缩放；想看上哪条自己拖）+ 创世无时间语义不取景。
+   *  仅剩「强调」拖拽（显式手势，把条目拖进屏幕）调用本函数。 */
   function focusPath(path) {
     const it = items.find((i) => i.path === path);
     if (!it || it.genesis) return;
@@ -1573,9 +1576,8 @@ async function openEntry(ctx, path, chrono) {
 
   // 目录：换书 → 重建树；同书 → 只移动高亮行（不重建，避免面板闪动）
   const topOf2 = (p2) => (p2 || '').split('/')[0];
-  if (ctx.lastTocTop !== topOf2(path)) chrono?.setScope?.();   // 换书 → 时间轴范围切到本书
-  if (chrono && !ctx.skipFrame) chrono.focusPath(path);
-  if (chrono) chrono.layout();
+  if (ctx.lastTocTop !== topOf2(path)) chrono?.setScope?.();   // 换书 → 时间轴范围切到本书（视野回该书的默认全幅）
+  if (chrono) chrono.layout();                                 // 打开条目不取景（用户要求：无自动缩放）
   if (ctx.tree && !ctx.panelPainted) {
     if (ctx.lastTocTop && ctx.lastTocTop !== topOf2(path)) renderToc(ctx);
     else updateTocCurrent(ctx, path);
@@ -1749,7 +1751,6 @@ async function exitEdit(ctx) {
   ctx.editing = false;
   if (ctx.editor) { try { ctx.editor.destroy(); } catch {} ctx.editor = null; }
   setEditFab(ctx, false);
-  ctx.skipFrame = true;                    // 原地恢复阅读：不取景
   await openEntry(ctx, ctx.currentPath, ctx.chrono);
 }
 
@@ -2680,7 +2681,6 @@ function renderTools(ctx) {
       runScan(currentTool);
       // 刷新当前阅读内容（若被修改）——原地重载，不动面板
       if (chosen.some((x) => x.path === ctx.currentPath)) {
-        ctx.skipFrame = true;
         await openEntry(ctx, ctx.currentPath, ctx.chrono);
       }
     } catch (e) {
@@ -3169,7 +3169,6 @@ async function editMetaValue(ctx, key, value) {
   try {
     await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: raw } });
     refreshGitStatus(ctx);
-    ctx.skipFrame = true;                  // 原地重载正文：不取景、不重建面板
-    await openEntry(ctx, ctx.currentPath, ctx.chrono);
+    await openEntry(ctx, ctx.currentPath, ctx.chrono);   // 原地重载正文（不重建面板；打开本就不取景）
   } catch (err) { showToast(String(err.message), 'error'); }
 }
