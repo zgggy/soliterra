@@ -340,6 +340,7 @@ export function lint(worldDir, limit = 800) {
   }
   const nameOf = (rel, title) => [title, rel, rel.replace(/\.md$/i, ''), rel.split('/').pop().replace(/\.md$/i, '')].filter(Boolean);
   const targets = new Set();
+  const titles = [...new Set(entries.map(({ e }) => e.title).filter(Boolean))];   // 漂移近似候选（第 86 轮 §13）
   const allLinkTexts = new Set();
   for (const { rel, e } of entries) {
     for (const n of nameOf(rel, e.title)) targets.add(n);
@@ -358,7 +359,12 @@ export function lint(worldDir, limit = 800) {
       while ((m = LINK_RE.exec(lines[i]))) {
         const t = m[1].trim();
         if (!t || targets.has(t) || targets.has(t + '.md')) continue;
-        push({ kind: 'dangling', severity: 'error', path: rel, line: i + 1, message: `悬空双链：[[${t}]] 无目标（待建队列）` });
+        // 漂移提示（第 86 轮 §13）：悬空目标与现存标题编辑距离 ≤2 → 消息内附正名建议（工具箱「拼写漂移」一键归并）
+        const near = titles.find((ti) => ti !== t && dist(ti, t) <= 2);
+        push({ kind: 'dangling', severity: 'error', path: rel, line: i + 1,
+          message: near
+            ? `悬空双链：[[${t}]] 无目标 —— 疑似漂移 →《${near}》（工具箱「拼写漂移」可归并）`
+            : `悬空双链：[[${t}]] 无目标（待建队列）` });
       }
     }
     // ② 元数据残缺：未知键 / 日期不合规

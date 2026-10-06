@@ -72,6 +72,7 @@ const L = {
   exBookPdf: { 'zh-CN': '本书 PDF', en: 'Book PDF' },
   exBookDocx: { 'zh-CN': '本书 DOCX', en: 'Book DOCX' },
   exSite: { 'zh-CN': '只读站点', en: 'Site' },
+  exSiteOpen: { 'zh-CN': '上次站点 ↗', en: 'Last site ↗' },
   siteBuilt: { 'zh-CN': '站点已生成：', en: 'Site built: ' },
   gitHistory: { 'zh-CN': '历史', en: 'History' },
   rollback: { 'zh-CN': '回滚为此版本', en: 'Rollback' },
@@ -518,6 +519,8 @@ async function renderWorldPanel(ctx) {
   const rootNode = ctx.tree.children.find((c) => c.name === ctx.worldId) || ctx.tree.children[0];
   const cover = rootNode?.cover;
   const bookCount = ctx.tree.children.filter((c) => c.md || c.children.length).length;
+
+  const siteRel = localStorage.getItem('soliterra.site.' + ctx.worldId) || '';   // 最近一次只读站点（第 86 轮「上次站点 ↗」原生链接）
   host.innerHTML = `
     <button class="wp-back button-ghost" id="wp-back">← ${lt('back')}</button>
     ${cover ? `<div class="wp-banner"><img src="/w/${enc(ctx.worldId)}/${enc(cover)}" alt="" data-glyph="${esc((rootNode?.title || ctx.worldId).slice(0, 1))}" data-glyph-class="wp-glyph"></div>` : ''}
@@ -546,7 +549,7 @@ async function renderWorldPanel(ctx) {
         <button class="button-ghost" id="ex-book-epub">${lt('exBookEpub')}</button>
         <button class="button-ghost" id="ex-book-pdf">${lt('exBookPdf')}</button>
         <button class="button-ghost" id="ex-book-docx">${lt('exBookDocx')}</button>
-        <button class="button-ghost" id="ex-site">${lt('exSite')}</button>
+        <button class="button-ghost" id="ex-site">${lt('exSite')}</button>${siteRel ? `<a class="button-ghost" id="ex-site-open" href="/w/${enc(ctx.worldId)}/${esc(siteRel)}/index.html" target="_blank" rel="noopener" title="${esc(siteRel)}">${lt('exSiteOpen')}</a>` : ''}
       </span>
     </div>
     <div class="wp-settings-rows">${settingsRowsHTML(ctx)}</div>
@@ -570,6 +573,8 @@ async function renderWorldPanel(ctx) {
     btn.disabled = true;
     try {
       const r = await api(`/api/w/${enc(ctx.worldId)}/publish`, { method: 'POST', body: {} });
+      localStorage.setItem('soliterra.site.' + ctx.worldId, r.rel);   // 供「上次站点 ↗」原生链接（永不被拦）
+      renderWorldPanel(ctx);
       showToast(`${lt('siteBuilt')}${r.rel}（${r.pages} ${state.lang === 'zh-CN' ? '页' : 'pages'}${r.hidden ? ` · ${state.lang === 'zh-CN' ? '隐藏' : 'hidden'} ${r.hidden}` : ''}${r.assets ? ` · ${state.lang === 'zh-CN' ? '图片' : 'assets'} ${r.assets}` : ''}）`, 'success', 6000);
       window.open(`/w/${enc(ctx.worldId)}/${enc(r.rel)}/index.html`, '_blank');   // 生成即所见（手势内打开不被拦）
     } catch (e) { showToast(String(e.message), 'error'); }
@@ -1850,8 +1855,13 @@ function loadEditor() {
 async function enterEdit(ctx) {
   ctx.editing = true;
   const snapPath = ctx.currentPath;            // 归属快照：编辑器内容属于这个条目（防后续 currentPath 漂移）
+  const entryTitle = document.querySelector('.entry-title')?.textContent || snapPath.split('/').pop().replace(/\.md$/i, '');
   const { text } = await api(`/api/w/${enc(ctx.worldId)}/raw?path=${enc(snapPath)}`);
   ctx.editorPath = snapPath;
+  const saveMs = Number(ctx.settings?.saveDelay ?? 500) || 0;   // 状态条初始保存态（§5 状态条）
+  const initialSave = saveMs > 0
+    ? (state.lang === 'zh-CN' ? `自动保存 · ${(saveMs / 1000).toFixed(1).replace(/\.0$/, '')}s` : `Autosave · ${(saveMs / 1000).toFixed(1)}s`)
+    : (state.lang === 'zh-CN' ? '自动保存已关 · 退出时保存' : 'Autosave off · saved on exit');
   const reader = document.getElementById('reader');
   // 极简编辑器（A 档降级，「更多设置 → 编辑器：极简」）：纯 textarea，无装饰层/工具栏
   if ((ctx.settings?.editor || 'std') === 'min') {
@@ -1950,6 +1960,7 @@ async function enterEdit(ctx) {
     updateEditorCount(ctx);
   });
   setEditFab(ctx, true);
+  mountEditStatus(entryTitle, initialSave);   // 顶缘状态条（第 86 轮）
   renderMetaDrawer(ctx);       // 抽屉初始渲染（§B.2）
 }
 
@@ -1991,6 +2002,22 @@ function setEditFab(ctx, editing) {
   fab.classList.toggle('active', editing);
 }
 
+/** 编辑态顶缘状态条（第 86 轮 §5 规格：24px 内嵌主区顶缘 + 发丝线 + 「编辑中」眉题）。 */
+function mountEditStatus(title, initialSaveText) {
+  const shell = document.querySelector('.editor-shell');
+  if (!shell || document.getElementById('edit-status')) return;
+  shell.insertAdjacentHTML('afterbegin',
+    `<div class="edit-status" id="edit-status"><span class="es-phase">${state.lang === 'zh-CN' ? '编辑中' : 'Editing'}</span><span class="es-title"></span><span class="es-save"></span></div>`);
+  const t = shell.querySelector('.es-title');
+  if (t) t.textContent = title ? `· ${title}` : '';
+  setEditStatus(initialSaveText || '');
+}
+/** 保存态文案（autoSave/scheduleAutoSave 调用；状态条不在则 no-op）。 */
+function setEditStatus(text) {
+  const el = document.getElementById('edit-status')?.querySelector('.es-save');
+  if (el) el.textContent = text;
+}
+
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
@@ -2011,6 +2038,7 @@ function scheduleAutoSave(ctx) {
   clearTimeout(saveTimer);
   const ms = Number(ctx.settings?.saveDelay ?? 500) || 0;
   if (ms <= 0) return;
+  setEditStatus(state.lang === 'zh-CN' ? '待保存…' : 'Unsaved…');
   saveTimer = setTimeout(() => autoSave(ctx), ms);
 }
 
@@ -2018,7 +2046,12 @@ function scheduleAutoSave(ctx) {
 async function autoSave(ctx) {
   if (!ctx.editing || !ctx.editor) return;
   const ok = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.editorPath || ctx.currentPath, text: ctx.editor.getValue() } }).then(() => true).catch(() => false);
-  if (ok) await refreshTimeline(ctx);
+  if (ok) {
+    await refreshTimeline(ctx);
+    const d = new Date();
+    const ts = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+    setEditStatus(state.lang === 'zh-CN' ? `已保存 · ${ts}` : `Saved · ${ts}`);
+  } else setEditStatus(state.lang === 'zh-CN' ? '保存失败' : 'Save failed');
 }
 
 async function saveEdit(ctx) {

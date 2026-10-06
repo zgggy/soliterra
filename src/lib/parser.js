@@ -118,10 +118,52 @@ export function stripMetaLines(text, metaLines) {
 }
 
 /** 一站式解析一个 md 文件。 */
+/**
+ * 深层 YAML frontmatter 兼容读取（第 86 轮 §15.6）：文件头 `---` 块 → 剥离 + 三键映射。
+ * 规则：`^---` 起、首个对称 `---` 止，且块内至少一行 `key:` 才认定（文中 `---` 分割线不误剥）；
+ * 嵌套子键/引号/行内数组/块数组/块标量 → 整块安全剥离（文件不动、渲染不显示）；
+ * `title/tags/status` → `&n/&t/&p`（**& 行优先**，已有键不被覆盖）；其余键仅隐藏不进 meta。
+ */
+export function splitFrontmatter(text) {
+  const m = String(text).match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!m) return { fm: null, body: String(text) };
+  const block = m[1];
+  if (!/^[A-Za-z_][\w-]*\s*:/m.test(block)) return { fm: null, body: String(text) };   // 非键值块（如纯分割线）不剥
+  const fm = {};
+  let key = null;
+  for (const line of block.split(/\r?\n/)) {
+    const kv = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+    if (kv) {
+      key = kv[1];
+      const v = kv[2].trim();
+      if (v.startsWith('[') && v.endsWith(']')) fm[key] = v.slice(1, -1).split(',').map((x) => x.trim().replace(/^['"]|['"]$/g, '')).filter(Boolean);
+      else if (v === '') fm[key] = [];
+      else if (v === '|' || v === '>' || /^[|>][+-]?$/.test(v)) fm[key] = [];            // 块标量（值在后续缩进行——内容保留在文件，此处不取）
+      else fm[key] = v.replace(/^['"]|['"]$/g, '');
+    } else {
+      const item = line.match(/^\s+-\s+(.*)$/);                                          // 块数组项
+      if (item && key) {
+        const val = item[1].trim().replace(/^['"]|['"]$/g, '');
+        if (Array.isArray(fm[key])) fm[key].push(val);
+        else fm[key] = (Array.isArray(fm[key]) ? fm[key] : (fm[key] ? [fm[key]] : [])).concat(val);
+      }
+      // 其余行（嵌套子键 `sub: v`、注释、纯文本）——忽略：整块已被剥离，文件未动
+    }
+  }
+  return { fm, body: text.slice(m[0].length) };
+}
+
 export function parseEntry(path, text) {
   const filename = path.split('/').pop();
-  const { meta, metaLines } = parseMetadata(text);
-  const body = stripMetaLines(text, metaLines);
+  const { fm, body: noFm } = splitFrontmatter(text);
+  const { meta, metaLines } = parseMetadata(noFm);
+  if (fm) {
+    // 三键映射（& 行优先；与 Obsidian 导入同语义）
+    if (typeof fm.title === 'string' && fm.title && !meta.n) meta.n = [fm.title];
+    if (!meta.t && fm.tags) meta.t = Array.isArray(fm.tags) ? fm.tags : [fm.tags];
+    if (typeof fm.status === 'string' && fm.status && !meta.p) meta.p = [fm.status];
+  }
+  const body = stripMetaLines(noFm, metaLines);
   const title = entryTitle(meta, body, filename);
   const links = extractLinks(text);
   const tl = timelineInfo(meta);

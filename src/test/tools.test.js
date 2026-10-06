@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { apply, pruneBackups } from '../lib/tools.js';
+import { apply, pruneBackups, lint } from '../lib/tools.js';
 
 const mkWorld = () => mkdtempSync(join(tmpdir(), 'soliterra-test-'));
 const fakeBackup = (dir, i) => {
@@ -145,5 +145,21 @@ test('scanOnboard→apply：候选应用后条目带上 &s（备份含改前原�
   assert.match(readFileSync(join(dir, '崩坏.md'), 'utf8'), /^&s 0662\.\*\.\*\n# 崩坏/);
   const newest = readdirSync(join(dir, '.soliterra')).filter((n) => n.startsWith('backup-')).sort().pop();
   assert.equal(readFileSync(join(dir, '.soliterra', newest, '崩坏.md'), 'utf8'), '# 崩坏\n\n正文\n');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+// ── 第 86 轮：lint 悬空双链附漂移近似（§13） ────────────────────
+test('lint：悬空双链与现存标题编辑距离 ≤2 → 消息附「疑似漂移 →《正名》」', () => {
+  const dir = mkWorld();
+  writeFileSync(join(dir, '血色婚礼.md'), '# 血色婚礼\n', 'utf8');
+  writeFileSync(join(dir, 'a.md'), '# 甲\n\n见 [[血色婚札]] 与 [[毫无关联的名字XYZ]]。\n', 'utf8');
+  const items = lint(dir);
+  const dang = items.filter((x) => x.kind === 'dangling');
+  assert.equal(dang.length, 2, '两个悬空');
+  const drift = dang.find((x) => x.message.includes('血色婚札'));
+  const plain = dang.find((x) => x.message.includes('毫无关联'));
+  assert.match(drift.message, /疑似漂移 →《血色婚礼》/, '近似（距离≤2）附正名建议');
+  assert.match(drift.message, /工具箱/, '提示可归并路径');
+  assert.ok(!plain.message.includes('疑似漂移'), '无近似不提示');
   rmSync(dir, { recursive: true, force: true });
 });
