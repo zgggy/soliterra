@@ -381,6 +381,10 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 - `books/` 目录（无同名 md）是**书籍容器**，**不渲染容器行**：面板/TOC/关系图「按树分组」直接以 `books/` 的直接子节点为顶层书籍；README 不算书（世界介绍）；未被迁移的旧形态顶层节点照常可见（混合世界不丢行）。
 - 数据源：`bookHost/topBookNodes/topOfPath/currentBookOf`（world.js）；`books/` 内书籍一律成对（`书.md` + `书/`，可嵌套），与旧形态同构。
 
+**`toc-row` 拖放指示线（第 91 轮：同层重排序）** — 目录树内拖动时的落点提示，全部走 1px 硬线（无圆角无阴影）。
+- **`drop-sibling`**（插到目标之前）= `inset 0 2px 0` 顶缘硬线；**`drop-after`**（插到目标之后，第 91 轮新增）= `inset 0 -2px 0` 底缘硬线；**`drop-into`**（移入目标目录，跨父级）= dashed outline（不变）。松手 → 整层 `&r 1..N` 连续化重写 → 树按 `&r` 重排。
+- `toc-drag-ghost`（拖动跟随幽灵卡）沿用：surface 底 + `line-strong` 1px 边 + Level 1.5 投影。
+
 **`tree-menu`（卡菜单的位置组，第 87 轮）** — 世界卡 ⋯ 菜单头部。
 - **`tree-menu-note`**：完整缩写路径注记（等宽 0.62rem muted、`max-width 300px`、`word-break: break-all`；底部 hairline）；**`tree-menu-sep`**：1px `{colors.line}` 分组线（位置组动作与重命名/复制/删除之间）；动作项沿用 `tree-menu-item`。
 
@@ -487,11 +491,17 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 **`link-preview-card`** — 链接悬浮预览卡，360×336，Level 1.5 投影；**证伪链接的卡片顶部加 `lpc-refuted` 块**（3px error 前缘 + 「已证伪——正确信息见本条目」说明）。
 
+**`link-preview-card.is-missing`（缺条目卡，第 91 轮）** — 双链目标尚未创建时的同尺寸变体：无封面态（`no-cover`），标题 = 目标名 + 副题「该条目尚未创建」+ 说明文；**按钮条 = `lpc-create`「＋ 创建文件」**（accent 色文字、创建中置灰；替代既有条目卡的「稍后阅读」）。点击 = 世界根生成 `<目标>.md` 并打开（功能设计 §6.4）。
+
 - 背景：封面 `blur(14px) opacity(.45)` + 向内容侧渐变到 surface 的遮罩（保证文字可读）。
 - 结构：标题（display-md）→ 简介（muted）→ hairline → 正文前 100 字（body-sm 4 行 line-clamp）→ **底部 42px 稍后阅读按钮条**（= 卡高 1/8，hairline 隔开）；打开动效 140ms 淡入 + 4px 上浮（`{motion.quick}`，待实现）。
 - 定位：默认在链接上方；越界则翻到下方，**按钮永远贴靠链接一侧**（卡在上→按钮在下，卡在下→按钮在上）。
 
 **`diff-row`** — 工具箱 diff 行，复用 `article-card` 网格；旧文等宽 + line-through muted，新文等宽 text，变更段 bg-soft 高亮。
+
+**`detail-panel`（世界/书籍详情，第 92 轮）** — 纸面（openPaperDialog2 同族）内的 `detail-grid` 两栏：左 `detail-cover`（200×4:3 纯色直角框，**点击 = 换封面**，空态 = 首字衬线大字 + 「＋ 设置封面」eyebrow；hover 边框转 line-strong）+ 右信息列（`detail-name` 衬线 700 → muted 简介 → `detail-rows` 发丝行键值表：统计/git/位置/`&m` 元数据路径等宽注记）。
+**`git-uncommitted`（提交历史未提交项，第 94 轮）** — `openGitHistory` 列表首行：`git-commit` 行同构（hash `····` + subj `未提交 · N 个文件` + 内联 `git-commit-now` 按钮），**warn 色 3px 左前缘**区分于历史提交；点击 → `update: 时间戳` 直接提交 → 列表刷新（未提交项消失、新提交置顶）。
+**`confirm-modal`（第 92 轮）** — 保存冲突等二选一确认：ask-dialog 同骨架 + `meta-explain` 正文 + 右对齐 [ghost 取消 | primary 确定]；替代原生 confirm。
 
 **`toast`** — 3px 前缘语义色 + bg-soft 底 + 等宽大写标签 + Level 2 投影，四变体 info/success/warning/error。
 
