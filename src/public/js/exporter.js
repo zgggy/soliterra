@@ -94,8 +94,10 @@ export function mdToTxt(md) {
 /* ---------- EPUB（EPUB3，STORED zip） ---------- */
 const xmlEsc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/** buildEpub({ title, chapters:[{id, title, html}] }) → Blob */
-export function buildEpub({ title, chapters }) {
+const EPUB_MIME = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif', svg: 'image/svg+xml' };
+
+/** buildEpub({ title, chapters:[{id, title, html}], cover:{name,bytes}|null }) → Blob（第 83 轮：封面嵌入） */
+export function buildEpub({ title, chapters, cover = null }) {
   const enc8 = new TextEncoder();
   const files = [{ name: 'mimetype', bytes: enc8.encode('application/epub+zip') }];
   files.push({ name: 'META-INF/container.xml', bytes: enc8.encode(`<?xml version="1.0" encoding="UTF-8"?>
@@ -114,15 +116,17 @@ export function buildEpub({ title, chapters }) {
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>目录</title></head>
 <body><nav epub:type="toc"><h1>目录</h1><ol>${chapters.map((c, i) => `<li><a href="ch${i + 1}.xhtml">${xmlEsc(c.title)}</a></li>`).join('')}</ol></nav></body></html>`) });
+  if (cover) files.push({ name: `OEBPS/${cover.name}`, bytes: cover.bytes });
+  const coverExt = cover ? (cover.name.split('.').pop() || 'png').toLowerCase() : '';
   files.push({ name: 'OEBPS/content.opf', bytes: enc8.encode(`<?xml version="1.0" encoding="UTF-8"?>
 <package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     <dc:identifier id="uid">urn:uuid:soliterra-${Date.now()}</dc:identifier>
     <dc:title>${xmlEsc(title)}</dc:title>
-    <dc:language>zh</dc:language>
+    <dc:language>zh</dc:language>${cover ? '\n    <meta name="cover" content="cover-img"/>' : ''}
   </metadata>
   <manifest>
-    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
+    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>${cover ? `\n    <item id="cover-img" href="${xmlEsc(cover.name)}" media-type="${EPUB_MIME[coverExt] || 'image/png'}" properties="cover-image"/>` : ''}
     ${chapters.map((c, i) => `<item id="ch${i + 1}" href="ch${i + 1}.xhtml" media-type="application/xhtml+xml"/>`).join('\n    ')}
   </manifest>
   <spine>${chapters.map((c, i) => `<itemref idref="ch${i + 1}"/>`).join('')}</spine>

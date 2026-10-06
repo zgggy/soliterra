@@ -9,6 +9,7 @@ import Fastify from 'fastify';
 import { Vault } from './lib/vault.js';
 import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
 import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard } from './lib/tools.js';
+import { buildSite } from './lib/publish.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');   // 项目根（src/ 的上级）
@@ -197,6 +198,14 @@ app.post('/api/w/:id/fs/move', (req, reply) => {
     const { path: relFrom, toDir } = req.body || {};
     return { ok: true, ...vault.moveEntry(req.params.id, relFrom, toDir) };
   } catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
+// 只读站点发布（§15.7）：产物落盘 assets/exports/site-<ts>/；不自动提交（由作者随 git 带走/推送）
+app.post('/api/w/:id/publish', (req, reply) => {
+  try {
+    const { visibility, lang } = req.body || {};
+    return buildSite(vault.worldDir(req.params.id), { visibility, lang: lang || 'zh-CN' });
+  } catch (e) { reply.code(500).send({ error: e.message }); }
 });
 
 app.get('/api/w/:id/settings', (req) => vault.getSettings(req.params.id));

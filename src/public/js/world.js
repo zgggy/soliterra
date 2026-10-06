@@ -69,6 +69,8 @@ const L = {
   exBookMd: { 'zh-CN': '本书 md', en: 'Book md' },
   exBookEpub: { 'zh-CN': '本书 EPUB', en: 'Book EPUB' },
   exBookPdf: { 'zh-CN': '本书 PDF', en: 'Book PDF' },
+  exSite: { 'zh-CN': '只读站点', en: 'Site' },
+  siteBuilt: { 'zh-CN': '站点已生成：', en: 'Site built: ' },
   gitHistory: { 'zh-CN': '历史', en: 'History' },
   rollback: { 'zh-CN': '回滚为此版本', en: 'Rollback' },
   rollbackSure: { 'zh-CN': '确认回滚？（将产生一个新提交）', en: 'Rollback? (creates a new commit)' },
@@ -541,6 +543,7 @@ async function renderWorldPanel(ctx) {
         <button class="button-ghost" id="ex-book-md">${lt('exBookMd')}</button>
         <button class="button-ghost" id="ex-book-epub">${lt('exBookEpub')}</button>
         <button class="button-ghost" id="ex-book-pdf">${lt('exBookPdf')}</button>
+        <button class="button-ghost" id="ex-site">${lt('exSite')}</button>
       </span>
     </div>
     <div class="wp-settings-rows">${settingsRowsHTML(ctx)}</div>
@@ -558,6 +561,15 @@ async function renderWorldPanel(ctx) {
   host.querySelector('#ex-book-md').addEventListener('click', () => exportBook(ctx, 'md', top));
   host.querySelector('#ex-book-epub').addEventListener('click', () => exportBook(ctx, 'epub', top));
   host.querySelector('#ex-book-pdf').addEventListener('click', () => exportBook(ctx, 'pdf', top));
+  host.querySelector('#ex-site').addEventListener('click', async (ev) => {
+    const btn = ev.currentTarget;
+    btn.disabled = true;
+    try {
+      const r = await api(`/api/w/${enc(ctx.worldId)}/publish`, { method: 'POST', body: {} });
+      showToast(`${lt('siteBuilt')}${r.rel}（${r.pages} ${state.lang === 'zh-CN' ? '页' : 'pages'}${r.hidden ? ` · ${state.lang === 'zh-CN' ? '隐藏' : 'hidden'} ${r.hidden}` : ''}${r.assets ? ` · ${state.lang === 'zh-CN' ? '图片' : 'assets'} ${r.assets}` : ''}）`, 'success', 6000);
+    } catch (e) { showToast(String(e.message), 'error'); }
+    btn.disabled = false;
+  });
   bindCoverFallbacks(host);
   refreshGitStatus(ctx);
 }
@@ -595,7 +607,18 @@ async function exportBook(ctx, fmt, book) {
       chapters.push({ title: e.title || p2, html: `<div class="meta">${e.rangeHTML || ''}</div>${e.html}` });
     }
     if (fmt === 'epub') {
-      download(`${name}.epub`, buildEpub({ title: name, chapters }));
+      // 封面嵌入（第 83 轮）：书籍 &c 封面 → EPUB cover-image；取不到 → 原行为
+      let cover = null;
+      if (book.cover) {
+        try {
+          const res = await fetch(`/w/${enc(ctx.worldId)}/${enc(book.cover)}`);
+          if (res.ok) {
+            const ext = book.cover.match(/\.[a-z0-9]+$/i)?.[0] || '.png';
+            cover = { name: `cover${ext}`, bytes: new Uint8Array(await res.arrayBuffer()) };
+          }
+        } catch { /* 无封面文件 → 不嵌 */ }
+      }
+      download(`${name}.epub`, buildEpub({ title: name, chapters, cover }));
       showToast(`${state.lang === 'zh-CN' ? '已导出' : 'Exported'} EPUB · ${chapters.length} §`, 'success');
       return;
     }
