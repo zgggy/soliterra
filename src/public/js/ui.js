@@ -1,5 +1,5 @@
 // Soliterra 共享 UI 原语（第 92 轮拆分）：转义/序数/图标/短语/Toast/纸面/勾选/滚动条——世界与首页共用。
-import { state } from './app.js';
+import { state, t } from './app.js';
 import { YEAR } from './timeline-layout.js';
 
 export function parseOrd(text) {
@@ -13,76 +13,10 @@ export function parseOrd(text) {
   return y * YEAR + (mo - 1) * 30.44 + (d - 1);
 }
 export function enc(s) { return encodeURIComponent(s); }
-export function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+export function esc(s) { return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }   /* 第 105 轮：补单引号——消除「单引号属性位」整类注入 */
 
-const L = {
-  world: { 'zh-CN': '世界', en: 'WORLD' },
-  settings: { 'zh-CN': '设置', en: 'SET' },
-  later: { 'zh-CN': '稍后阅读', en: 'READ LATER' },
-  theme: { 'zh-CN': '日/夜', en: 'Theme' },
-  font: { 'zh-CN': '字体', en: 'Font' },
-  size: { 'zh-CN': '字号', en: 'Size' },
-  leading: { 'zh-CN': '行高', en: 'Leading' },
-  measure: { 'zh-CN': '列宽', en: 'Width' },
-  back: { 'zh-CN': '返回世界列表', en: 'Back to Worlds' },
-  dashMap: { 'zh-CN': '地图', en: 'Map' },
-  commit: { 'zh-CN': '退出并提交', en: 'Exit & Commit' },
-  showRel: { 'zh-CN': '展示关系', en: 'Relations' },
-  relBack: { 'zh-CN': '含反链', en: 'Backlinks' },
-  relFull: { 'zh-CN': '展开全图', en: 'Full graph' },
-  relEmpty: { 'zh-CN': '本文档尚无双链', en: 'No links yet' },
-  moreSettings: { 'zh-CN': '更多设置', en: 'More settings' },
-  tools: { 'zh-CN': '工具', en: 'Tools' },
-  shelfAll: { 'zh-CN': '全部书籍', en: 'All books' },
-  shelfBooks: { 'zh-CN': '本', en: 'books' },
-  uncommitted: { 'zh-CN': '未提交', en: 'uncommitted' },
-  commitNow: { 'zh-CN': '提交', en: 'Commit' },
-  commitMsg: { 'zh-CN': '提交信息', en: 'Commit message' },
-  booksN: { 'zh-CN': '书籍', en: 'Books' },
-  entriesN: { 'zh-CN': '条目', en: 'Entries' },
-  toolsTitle: { 'zh-CN': '工具箱', en: 'Toolbox' },
-  lintTitle: { 'zh-CN': '一致性校验', en: 'Consistency lint' },
-  export: { 'zh-CN': '导出', en: 'Export' },
-  dashboard: { 'zh-CN': '仪表盘', en: 'Dashboard' },
-  loc: { 'zh-CN': '位置', en: 'Location' },
-  dashJump: { 'zh-CN': '时间轴取景到', en: 'Jump timeline to' },
-  dashLater: { 'zh-CN': '加入稍后阅读', en: 'Read later' },
-  dashTools: { 'zh-CN': '打开工具箱', en: 'Open toolbox' },
-  exDocMd: { 'zh-CN': '文档 md', en: 'Doc md' },
-  exDocTxt: { 'zh-CN': '文档 txt', en: 'Doc txt' },
-  exBookMd: { 'zh-CN': '本书 md', en: 'Book md' },
-  exBookEpub: { 'zh-CN': '本书 EPUB', en: 'Book EPUB' },
-  exBookPdf: { 'zh-CN': '本书 PDF', en: 'Book PDF' },
-  exBookDocx: { 'zh-CN': '本书 DOCX', en: 'Book DOCX' },
-  exSite: { 'zh-CN': '只读站点', en: 'Site' },
-  exSiteOpen: { 'zh-CN': '上次站点 ↗', en: 'Last site ↗' },
-  siteBuilt: { 'zh-CN': '站点已生成：', en: 'Site built: ' },
-  gitHistory: { 'zh-CN': '历史', en: 'History' },
-  rollback: { 'zh-CN': '回滚为此版本', en: 'Rollback' },
-  rollbackSure: { 'zh-CN': '确认回滚？（将产生一个新提交）', en: 'Rollback? (creates a new commit)' },
-  rollbackOk: { 'zh-CN': '确认', en: 'Yes' },
-  rollbackCancel: { 'zh-CN': '取消', en: 'No' },
-  toolDrift: { 'zh-CN': '拼写漂移（近似双链）', en: 'Spelling drift (near links)' },
-  toolImages: { 'zh-CN': '图片路径规范化', en: 'Normalize image paths' },
-  toolRegex: { 'zh-CN': '全库正则替换', en: 'Regex replace (all)' },
-  toolDup: { 'zh-CN': '重名判断与修复', en: 'Duplicate titles' },
-  toolRegexFind: { 'zh-CN': '正则（查找）', en: 'Pattern' },
-  toolRegexRepl: { 'zh-CN': '替换为（可含 $1…）', en: 'Replace with ($1…)' },
-  lintJump: { 'zh-CN': '打开条目', en: 'Open entry' },
-  toolDate: { 'zh-CN': '日期时间规范化', en: 'Normalize dates & times' },
-  toolOnboard: { 'zh-CN': '时间上手（按时间线提取 &s）', en: 'Onboard dates from timeline' },
-  toolStructure: { 'zh-CN': '结构规范化（世界根 → books/）', en: 'Normalize structure (→ books/)' },
-  toolBrackets: { 'zh-CN': '【【】】 → [[ ]]', en: '【【】】 → [[ ]]' },
-  toolSymbols: { 'zh-CN': '符号规范化（全角→英文）', en: 'Symbols (fullwidth → ASCII)' },
-  toolScanning: { 'zh-CN': '扫描中…', en: 'Scanning…' },
-  toolNoIssues: { 'zh-CN': '没有需要修复的内容', en: 'Nothing to fix' },
-  toolApply: { 'zh-CN': '应用选中', en: 'Apply selected' },
-  toolApplied: { 'zh-CN': '已修复', en: 'Fixed' },
-  toolPlaces: { 'zh-CN': '处', en: 'places' },
-  language: { 'zh-CN': '语言 Language', en: 'Language' },
-  about: { 'zh-CN': '关于', en: 'About' },
-};
-export function lt(key) { return L[key][state.lang] || L[key].en; }
+
+export function lt(key) { return t(key); }   /* 第 105 轮：L 表并入 locales（单轨 t() 链） */
 
 export const ICON = {
   plus: '<svg viewBox="0 0 16 16"><path d="M8 2.5v11M2.5 8h11"/></svg>',

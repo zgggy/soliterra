@@ -1,6 +1,6 @@
 // Soliterra 详情面板（第 92 轮）：世界（首页卡片右键/⋯ 菜单）与书（目录树/书卡右键）的图形化管理。
 // 封面单点真相 = &m：世界封面住 README.md，书封面住 <名>.md——面板改的是这一行，不是另立存储。
-import { api, state, bindCoverFallbacks } from './app.js';
+import { api, state, bindCoverFallbacks, t } from './app.js';
 import { enc, esc, showToast, openPaperDialog2 } from './ui.js';
 import { hooks, firstEntryOf, flattenTree } from './world-core.js';
 import { refreshTree } from './world-tree.js';
@@ -18,11 +18,11 @@ function coverBlock(worldId, coverRel, glyph, entryRel, onSet) {
   const zh = state.lang === 'zh-CN';
   const btn = document.createElement('button');
   btn.className = 'detail-cover';
-  btn.title = zh ? '点击更换封面（写入 &m）' : 'Click to change cover (writes &m)';
+  btn.title = t('detail.coverHint');
   const paint = (r) => {
     btn.innerHTML = r
       ? `<img src="/w/${enc(worldId)}/${enc(r)}?t=${Date.now()}" alt="">`
-      : `<span class="detail-cover-glyph">${esc(glyph)}</span><span class="detail-cover-hint eyebrow">${zh ? '＋ 设置封面' : '＋ Set cover'}</span>`;
+      : `<span class="detail-cover-glyph">${esc(glyph)}</span><span class="detail-cover-hint eyebrow">${t('detail.coverSet')}</span>`;
     bindCoverFallbacks(btn);
   };
   paint(coverRel);
@@ -30,7 +30,7 @@ function coverBlock(worldId, coverRel, glyph, entryRel, onSet) {
     btn.disabled = true;
     try {
       const r = await pickCover(worldId, entryRel);
-      if (r) { paint(r); onSet?.(r); showToast(zh ? '封面已更新（&m）' : 'Cover updated (&m)', 'success'); }
+      if (r) { paint(r); onSet?.(r); showToast(t('detail.coverUpdated'), 'success'); }
     } catch (e) { showToast(String(e.message), 'error'); }
     btn.disabled = false;
   });
@@ -54,18 +54,18 @@ export async function openWorldDetail(w, onChanged) {
         <h2 class="detail-name">${esc(w.name)}</h2>
         <p class="detail-sub">${esc(w.subtitle || '')}</p>
         <div class="detail-rows">
-          <div class="set-row"><span class="eyebrow">${zh ? '条目' : 'Entries'}</span><b>${w.stats.entries}</b></div>
-          <div class="set-row"><span class="eyebrow">${zh ? '时间轴事件' : 'Events'}</span><b>${w.stats.events}</b></div>
-          <div class="set-row"><span class="eyebrow">${zh ? '双链' : 'Links'}</span><b>${w.stats.links}</b></div>
-          <div class="set-row"><span class="eyebrow">${zh ? 'git' : 'git'}</span><span class="wp-git">${git.ok ? `${esc(git.branch)} · ${esc(git.hash)} · ${esc(git.when)}` : (zh ? '非 git 仓库' : 'not a repo')}</span></div>
-          ${dirShow ? `<div class="set-row"><span class="eyebrow">${zh ? '位置' : 'Location'}</span><span class="wz-path" title="${esc(w.dir)}">${esc(dirShow)}/</span></div>` : ''}
-          <div class="set-row"><span class="eyebrow">${zh ? '封面元数据' : 'Cover meta'}</span><span class="detail-meta-path">&m ${esc(w.cover || '—')} @ ${esc(rootRel)}</span></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.statEntries')}</span><b>${w.stats.entries}</b></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.statEvents')}</span><b>${w.stats.events}</b></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.statLinks')}</span><b>${w.stats.links}</b></div>
+          <div class="set-row"><span class="eyebrow">${git}</span><span class="wp-git">${git.ok ? `${esc(git.branch)} · ${esc(git.hash)} · ${esc(git.when)}` : (t('detail.notRepo'))}</span></div>
+          ${dirShow ? `<div class="set-row"><span class="eyebrow">${t('detail.location')}</span><span class="wz-path" title="${esc(w.dir)}">${esc(dirShow)}/</span></div>` : ''}
+          <div class="set-row"><span class="eyebrow">${t('detail.coverMeta')}</span><span class="detail-meta-path">&m ${esc(w.cover || '—')} @ ${esc(rootRel)}</span></div>
         </div>
       </div>
     </div>
     <div class="modal-actions">
-      <button class="button-ghost" data-act="reveal">${zh ? '在 Finder 中显示' : 'Reveal in Finder'}</button>
-      <button class="button-primary" data-act="open">${zh ? '进入世界' : 'Open world'}</button>
+      <button class="button-ghost" data-act="reveal">${t('detail.reveal')}</button>
+      <button class="button-primary" data-act="open">${t('detail.openWorld')}</button>
     </div>`;
   const coverEl = coverBlock(w.id, w.cover, w.name.slice(0, 1), rootRel, () => onChanged?.());
   body.querySelector('#wd-cover').appendChild(coverEl);
@@ -82,7 +82,7 @@ export async function openWorldDetail(w, onChanged) {
 /** 书籍详情（世界内：树行/书卡右键「书籍详情」）。封面 = &m @ <名>.md；展示结构与时间覆盖。 */
 export async function openBookDetail(ctx, node) {
   const zh = state.lang === 'zh-CN';
-  if (!node?.md) { showToast(zh ? '纯目录节点先「补建同名条目」才有元数据位' : 'Create the paired entry first', 'warning'); return; }
+  if (!node?.md) { showToast(t('detail.pairFirst'), 'warning'); return; }
   const { body, close } = openPaperDialog2(zh ? `书籍详情 · ${node.title || node.name}` : `Book · ${node.title || node.name}`);
   let e;
   try { e = await api(`/api/w/${enc(ctx.worldId)}/entry?path=${enc(node.md)}`); }
@@ -97,17 +97,17 @@ export async function openBookDetail(ctx, node) {
         <h2 class="detail-name">${esc(node.title || node.name)}</h2>
         <p class="detail-sub">${esc(lead.slice(0, 120))}</p>
         <div class="detail-rows">
-          <div class="set-row"><span class="eyebrow">${zh ? '标签 &t' : 'Tags'}</span><span>${esc((node.tags || []).join(' · ') || '—')}</span></div>
-          <div class="set-row"><span class="eyebrow">${zh ? '条目数' : 'Entries'}</span><b>${children}</b></div>
-          <div class="set-row"><span class="eyebrow">${zh ? '上轴条目' : 'Timed'}</span><b>${timed}</b></div>
-          <div class="set-row"><span class="eyebrow">${zh ? '路径' : 'Path'}</span><span class="wz-path">${esc(node.md)}</span></div>
-          <div class="set-row"><span class="eyebrow">${zh ? '封面元数据' : 'Cover meta'}</span><span class="detail-meta-path">&m ${esc(node.cover || '—')} @ ${esc(node.md)}</span></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.tags')}</span><span>${esc((node.tags || []).join(' · ') || '—')}</span></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.entryCount')}</span><b>${children}</b></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.timed')}</span><b>${timed}</b></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.path')}</span><span class="wz-path">${esc(node.md)}</span></div>
+          <div class="set-row"><span class="eyebrow">${t('detail.coverMeta')}</span><span class="detail-meta-path">&m ${esc(node.cover || '—')} @ ${esc(node.md)}</span></div>
         </div>
       </div>
     </div>
     <div class="modal-actions">
-      <button class="button-ghost" data-act="open">${zh ? '打开本书' : 'Open book'}</button>
-      <button class="button-ghost" data-act="close">${zh ? '关闭' : 'Close'}</button>
+      <button class="button-ghost" data-act="open">${t('detail.openBook')}</button>
+      <button class="button-ghost" data-act="close">${t('detail.close')}</button>
     </div>`;
   const coverEl = coverBlock(ctx.worldId, node.cover, (node.title || node.name).slice(0, 1), node.md, () => refreshTree(ctx));
   body.querySelector('#bd-cover').appendChild(coverEl);

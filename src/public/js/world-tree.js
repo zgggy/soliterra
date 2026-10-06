@@ -1,7 +1,7 @@
 // Soliterra 目录树（第 92 轮拆分）：树渲染 / 右键结构菜单 / pointer 拖拽（跨层移动 + 同层 &r 重排序）。
-import { api, state, navigate } from './app.js';
+import { api, state, navigate, t } from './app.js';
 import { enc, esc, showToast, askText } from './ui.js';
-import { worldDataCache, tocOpenDirs, hooks, refreshGitStatus, currentBookOf, rootNodeOf, topOfPath, firstEntryOf, flattenTree, topBookNodes } from './world-core.js';
+import { worldDataCache, tocOpenDirs, hooks, refreshGitStatus, currentBookOf, rootNodeOf, topOfPath, firstEntryOf, flattenTree, topBookNodes, armClickGuard, clickGuardActive } from './world-core.js';
 import { emphasize } from './world-timeline.js';
 
 // ============ 结构操作（§5.4 ②③④ + 重命名/删除）：右键菜单 ============
@@ -25,16 +25,16 @@ export function showTreeMenu(e, ctx, node) {
   const isDirNode = !!inDir && !hasMd;   // 纯目录节点（无同名 md，如「黄金时代/」）：第 80 轮起与书同等管理
   const zh = state.lang === 'zh-CN';
   const items = [];
-  if (inDir) items.push(['add', zh ? '下方加条目（同级）' : 'Add sibling below']);
-  if (inDir && !hasMd) items.push(['child', zh ? '子条目（下一级）' : 'Add child entry']);
-  else if (inDir) items.push(['child', zh ? '子条目（下一级，建目录）' : 'Add child (with folder)']);
-  if (isDirNode) items.push(['pair', zh ? '补建同名条目（成为书）' : 'Create paired entry']);
-  if (hasMd) items.unshift(['detail', zh ? '书籍详情（封面/统计）' : 'Book details']);
-  if (hasMd || isDirNode) items.push(['rename', zh ? '重命名' : 'Rename']);
+  if (inDir) items.push(['add', t('tree.addBelow')]);
+  if (inDir && !hasMd) items.push(['child', t('tree.addChild')]);
+  else if (inDir) items.push(['child', t('tree.addChildDir')]);
+  if (isDirNode) items.push(['pair', t('tree.pairEntry')]);
+  if (hasMd) items.unshift(['detail', t('tree.bookDetails')]);
+  if (hasMd || isDirNode) items.push(['rename', t('tree.rename')]);
   // 第 90 轮语义：书无删除只有归档（`书.md` → `书.md.arc`）；条目 = 归档 + 删除（移入回收站）
   const isTopBook = !inDir.includes('/') || (inDir.startsWith('books/') && !inDir.slice('books/'.length).includes('/'));
-  if (hasMd || isDirNode) items.push(['arc', zh ? '归档（从平台隐藏，文件保留）' : 'Archive (hidden, files kept)']);
-  if ((hasMd || isDirNode) && !isTopBook) items.push(['del', zh ? '删除（移入回收站）' : 'Delete (trash)']);
+  if (hasMd || isDirNode) items.push(['arc', t('tree.archive')]);
+  if ((hasMd || isDirNode) && !isTopBook) items.push(['del', t('tree.delete')]);
   menu.innerHTML = items.map(([k, label]) => `<button class="tree-menu-item" data-k="${k}">${esc(label)}</button>`).join('');
   document.body.appendChild(menu);
   const r = menu.getBoundingClientRect();
@@ -50,16 +50,14 @@ export function showTreeMenu(e, ctx, node) {
       if (k === 'detail') { hooks.openBookDetail?.(ctx, node); return; }
       if (k === 'add' || k === 'child') {
         const label = k === 'add'
-          ? (state.lang === 'zh-CN' ? '新条目名（插到下方）' : 'New entry name (below)')
-          : (state.lang === 'zh-CN' ? '子条目名' : 'Child name');
+          ? (t('tree.nameNew'))
+          : (t('tree.nameChild'));
         const name = await askText(label);
         if (!name || !name.trim()) return;
         // 第 94 轮语义：add = **同级**（父目录）插到选中项下方并整层 &r 重排；child = **下一级**（node.dir）
         const targetDir = k === 'add' ? parentDirOf(node.dir) : inDir;
         if (k === 'add' && !targetDir) {
-          showToast(state.lang === 'zh-CN'
-            ? '世界根只放 README 与 books/ —— 请先在书籍里操作，或用书籍面板 ＋ 建书'
-            : 'World root only holds README and books/ — create a book first', 'warning');
+          showToast(t('tree.rootOnly'), 'warning');
           return;
         }
         const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: targetDir, name: name.trim(), pair: k === 'child' } });
@@ -67,41 +65,39 @@ export function showTreeMenu(e, ctx, node) {
           await refreshTree(ctx);                       // 新条目进树后才能定位同层
           await insertBelow(ctx, node, r2.path);        // 插到选中项下方（整层 &r 连续化）
         }
-        await after(state.lang === 'zh-CN' ? `已新建：${name.trim()}` : `Created: ${name.trim()}`);
+        await after(t('tree.created').replace('{n}', name.trim()));
         if (r2.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path)}`);
       } else if (k === 'pair') {
         // 纯目录节点 → 补建同名条目（成为书：获得元数据位，菜单随即与其它书一致）
         const parent = inDir.includes('/') ? inDir.slice(0, inDir.lastIndexOf('/')) : '';
         const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: parent, name: node.name, pair: false } });
-        await after(state.lang === 'zh-CN' ? `已补建：${node.name}.md` : `Paired: ${node.name}.md`);
+        await after(t('tree.paired').replace('{n}', node.name + '.md'));
         if (r2.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path)}`);
       } else if (k === 'rename') {
         const cur = node.title || node.name;
-        const nn = await askText(state.lang === 'zh-CN' ? '重命名为' : 'Rename to', cur);
+        const nn = await askText(t('tree.renameTo'), cur);
         if (!nn || !nn.trim() || nn.trim() === cur) return;
         if (isDirNode) {
           // 纯目录节点：目录（+ 配对 md 若有）改名；当前条目在该书内 → 导航到新路径
           const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/rename`, { method: 'POST', body: { path: inDir, newName: nn.trim() } });
-          await after(state.lang === 'zh-CN' ? '已重命名' : 'Renamed');
+          await after(t('tree.renamed'));
           if (ctx.currentPath && ctx.currentPath.startsWith(inDir + '/') && r2.path) {
             navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path + ctx.currentPath.slice(inDir.length))}`);
           }
           return;
         }
         await api(`/api/w/${enc(ctx.worldId)}/fs/rename`, { method: 'POST', body: { path: node.md, newName: nn.trim() } });
-        await after(state.lang === 'zh-CN' ? '已重命名' : 'Renamed');
+        await after(t('tree.renamed'));
         const baseDir = node.md.replace(/[^/]+$/, '');
         navigate(`#/w/${enc(ctx.worldId)}/${enc(baseDir + nn.trim() + '.md')}`);
       } else if (k === 'arc') {
         const label = node.title || node.name;
         const rel = node.md || inDir;
-        const conf = await askText(state.lang === 'zh-CN'
-          ? `归档「${label}」？输入「归档」确认（本地文件保留：${isTopBook ? '书.md → 书.md.arc' : '移入 books/archives/'}，可随时还原）`
-          : `Type 归档 to confirm archiving ${label}`);
-        if (conf !== '归档') { if (conf !== null) showToast(state.lang === 'zh-CN' ? '未确认，未归档' : 'Not confirmed', 'warning'); return; }
+        const conf = await askText(t('tree.arcConfirm').replace('{n}', label).replace('{mode}', isTopBook ? '书.md → 书.md.arc' : '移入 books/archives/'));
+        if (conf !== '归档') { if (conf !== null) showToast(t('tree.notArchived'), 'warning'); return; }
         await api(`/api/w/${enc(ctx.worldId)}/fs/archive`, { method: 'POST', body: { rel } });
         ctx.archives = null;   // 归档视图重取
-        await after(state.lang === 'zh-CN' ? `已归档：${label}（可在书籍面板「归档」中还原）` : `Archived: ${label}`);
+        await after(t('tree.archived').replace('{n}', label));
         const base = String(rel).replace(/\.md$/i, '');
         if (ctx.currentPath === node.md || (isDirNode && ctx.currentPath && ctx.currentPath.startsWith(inDir + '/')) || (ctx.currentPath || '').startsWith(base + '/')) {
           navigate(`#/w/${enc(ctx.worldId)}`);
@@ -109,20 +105,20 @@ export function showTreeMenu(e, ctx, node) {
       } else if (k === 'del') {
         // 两步确认（不弹原生 confirm）
         const label = node.title || node.name;
-        const conf = await askText(state.lang === 'zh-CN' ? `删除「${label}」？输入「删除」确认（将移入回收站）` : `Type 删除 to confirm deleting ${label}`);
-        if (conf !== '删除') { if (conf !== null) showToast(state.lang === 'zh-CN' ? '未确认，未删除' : 'Not confirmed', 'warning'); return; }
+        const conf = await askText(t('tree.delConfirm').replace('{n}', label));
+        if (conf !== '删除') { if (conf !== null) showToast(t('tree.notDeleted'), 'warning'); return; }
         // 第 94 轮：删的是正在读的条目 → 刷新后原地跳先序后继（同世界 update，目录面板与展开态保持），
         // 绝不回世界根（那是「没打开任何书籍」的落点）。删除前先记后继位置。
         const wasCurrent = ctx.currentPath === node.md || (isDirNode && ctx.currentPath && ctx.currentPath.startsWith(inDir + '/'));
         const succPos = wasCurrent ? flattenTree(ctx.tree).findIndex((x) => x.path === ctx.currentPath) : -1;
         if (isDirNode) {
           await api(`/api/w/${enc(ctx.worldId)}/fs/delete`, { method: 'POST', body: { path: inDir } });
-          await after(state.lang === 'zh-CN' ? '已移入回收站（.soliterra/trash-*）' : 'Moved to trash');
+          await after(t('tree.trashed'));
           if (wasCurrent) gotoSuccessor(ctx, succPos);
           return;
         }
         await api(`/api/w/${enc(ctx.worldId)}/fs/delete`, { method: 'POST', body: { path: node.md } });
-        await after(state.lang === 'zh-CN' ? '已移入回收站（.soliterra/trash-*）' : 'Moved to trash');
+        await after(t('tree.trashed'));
         if (wasCurrent) gotoSuccessor(ctx, succPos);
       }
     } catch (err) { showToast(String(err.message), 'error'); }
@@ -202,12 +198,12 @@ export function renderToc(ctx) {
         if (sub.hidden) tocOpenDirs.delete(node.dir); else if (node.dir) tocOpenDirs.add(node.dir);
       });
       // 第 94 轮：**点击有子条目的行 = 切换展开/收起**（无论有无配对 md——打开走其子条目或书籍面板）
-      row.addEventListener('click', () => { if (!window.__tocDragged) arrow.click(); });
+      row.addEventListener('click', () => { if (!clickGuardActive()) arrow.click(); });
     } else {
       arrow.textContent = '·';
       arrow.classList.add('leaf');
       // 叶子条目：点击 = 打开
-      if (isOpenable) row.addEventListener('click', () => { if (!window.__tocDragged) navigate(`#/w/${enc(ctx.worldId)}/${enc(node.md)}`); });
+      if (isOpenable) row.addEventListener('click', () => { if (!clickGuardActive()) navigate(`#/w/${enc(ctx.worldId)}/${enc(node.md)}`); });
     }
     const wrapEl = document.createElement('div');
     wrapEl.className = 'toc-node';
@@ -327,8 +323,7 @@ function ensureTocDragGlobal(ctx) {
     d.ghost?.remove();
     document.body.classList.remove('toc-dragging');
     clearMarks();
-    window.__tocDragged = true;   // 从松手起算 400ms（第 103 轮）
-    setTimeout(() => { window.__tocDragged = false; }, 400);
+    armClickGuard();   // 从松手起算 400ms（第 103 轮 → 105 轮 core 守卫）
     if (d.mode === 'emphasize') { emphasize(ctx, d.movePath); return; }
     if (d.mode === 'before' || d.mode === 'after') { await doReorder(ctx, d.node, d.target, d.mode); return; }
     if (!d.target) return;
@@ -390,7 +385,7 @@ export async function reorderNode(ctx, drag, target, mode) {
     await api(`/api/w/${enc(ctx.worldId)}/fs/order`, { method: 'POST', body: { dir: parent.dir || '', order: siblings.map((n) => n.md || n.dir) } });
     await refreshTree(ctx);
     refreshGitStatus(ctx);
-    showToast(state.lang === 'zh-CN' ? '已调整顺序' : 'Reordered', 'success');
+    showToast(t('tree.reordered'), 'success');
     return true;
   } catch (e) {
     showToast(String(e.message), 'error');
@@ -454,7 +449,7 @@ async function doMoveTo(ctx, fromPath, toDir) {
     ctx.dragPath = null;
     sessionStorage.removeItem('soliterra.dragPath');
     refreshGitStatus(ctx);   // 移动 = 未提交改动
-    showToast(state.lang === 'zh-CN' ? '已移动' : 'Moved', 'success');
+    showToast(t('tree.moved'), 'success');
   } catch (e) {
     showToast(String(e.message), 'error');
   }

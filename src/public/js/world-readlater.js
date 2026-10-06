@@ -1,5 +1,5 @@
 // Soliterra 稍后阅读（底部中央卡片集：rest = 扇形聚拢；hover = 横排展开；单卡 hover 上升；第 92 轮拆分）。
-import { api, state, navigate } from './app.js';
+import { api, state, navigate, t } from './app.js';
 import { enc, esc, ICON, showToast } from './ui.js';
 
 // ============ 稍后阅读（底部中央卡片集：rest = 扇形聚拢；hover = 横排展开；单卡 hover 上升） ============
@@ -28,7 +28,7 @@ export function renderReadlater(ctx) {
     card.innerHTML = `
       <span class="rlf-eyebrow">${esc(item.kind || 'entry')}</span>
       <span class="rlf-title">${esc(item.title)}</span>
-      <span class="rlf-close" role="button" title="${state.lang === 'zh-CN' ? '移出稍后阅读' : 'Remove from read later'}">${ICON.close}</span>`;
+      <span class="rlf-close" role="button" title="${t('rl.remove')}">${ICON.close}</span>`;
     card.addEventListener('mouseenter', () => { ctx.fanHover = i; layoutFan(ctx); });
     card.addEventListener('mouseleave', () => { if (ctx.fanHover === i) { ctx.fanHover = null; layoutFan(ctx); } });
     card.addEventListener('click', () => navigate(`#/w/${enc(ctx.worldId)}/${enc(item.path)}`));
@@ -84,6 +84,6 @@ export async function addReadlater(ctx, path) {
   });
   ctx.rlfPulse = path;
   renderReadlater(ctx);
-  showToast(state.lang === 'zh-CN' ? '已加入稍后阅读' : 'Added to read later', 'success');
+  showToast(t('rl.added'), 'success');
 }
 

@@ -1,9 +1,14 @@
 // Soliterra 世界共享状态与树导航（第 92 轮拆分）：数据缓存 / 目录展开记忆 / 树辅助 / git 状态与时间轴刷新。
 // hooks = 拆分桥接点：world.js 注册 renderBooksPanel / openEntry，tree·meta 模块经此回调（避免相互 import 环）。
-import { api, state } from './app.js';
+import { api, state, t } from './app.js';
 import { enc, lt } from './ui.js';
 
 export const hooks = {};
+
+/** 点击抑制守卫（第 105 轮：原 window.__tocDragged 全局 → 模块级——树/书卡拖拽后 400ms 内吞 click）。 */
+let clickGuardOn = false;
+export function armClickGuard() { clickGuardOn = true; setTimeout(() => { clickGuardOn = false; }, 400); }
+export function clickGuardActive() { return clickGuardOn; }
 
 export const worldDataCache = new Map();   // worldId -> { tree, timeline, ts }
 export const DEV = new URLSearchParams(location.search).has('dev');   // ?dev=1 → 每帧更新 window.__tlPerf（第 77 轮探针）
@@ -17,7 +22,7 @@ export async function refreshGitStatus(ctx) {
   const wc = document.getElementById('wp-commit');
   if (wd) {
     wd.className = `wp-dirty${st.dirty > 0 ? ' warn' : ''}`;   // 有=黄 无=灰
-    wd.textContent = st.dirty > 0 ? `${st.dirty} ${lt('uncommitted')}` : (state.lang === 'zh-CN' ? '无未提交条目' : 'clean');
+    wd.textContent = st.dirty > 0 ? `${st.dirty} ${lt('uncommitted')}` : (t('git.clean'));
   }
   if (wc) wc.hidden = st.dirty === 0;
 }

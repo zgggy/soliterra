@@ -8,13 +8,15 @@ import { showLinkCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporter.js';
 import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators } from './ui.js';
-import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry } from './world-core.js';
+import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, armClickGuard, clickGuardActive } from './world-core.js';
 import { initTimeline } from './world-timeline.js';
 import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode } from './world-tree.js';
 import { renderRel } from './world-rel.js';
 import { renderReadlater, addReadlater } from './world-readlater.js';
 import { renderMetaDrawer, openMetaEditor, editMetaValue, insertMetaIntoText } from './world-meta.js';
 import './world-detail.js';   // 第 92 轮：详情面板（注册 hooks；首页与树菜单经 hooks 调用）
+import { openSearch, openDashboard } from './world-search.js';   // 第 105 轮续拆：⌘K/动作/仪表盘/地图
+import { renderTools, annotateCurrent } from './world-tools.js';   // 第 105 轮续拆：工具箱与跳转批注
 
 let activeWorld = null;           // { id, update(path) }：同世界导航走原地更新（不整页重载）
 let openSeq = 0;                 // openEntry 渲染序号（第 85 轮：过期渲染丢弃，防双开竞态错乱）
@@ -23,6 +25,7 @@ let fsSource = null;            // SSE 订阅单例（第 92 轮：外部改动 
 let fsDebounce = null;          // 事件防抖句柄
 // 拆分桥接：core/各模块经 hooks 回调 world.js 的面板与阅读入口（避免 import 环）
 hooks.renderBooksPanel = renderBooksPanel;
+hooks.setPanel = setPanel;   // ⌘K 动作行开关面板（第 105 轮）
 hooks.openEntry = openEntry;
 export async function renderWorld(root, worldId, entryPath) {
   root.innerHTML = `
@@ -932,8 +935,7 @@ function ensureBookDragGlobal() {
     clearMarks();
     hideBookDropLine();
     // 第 103 轮：抑制从**松手**起算 400ms——click 在 up 后同帧派发必拦；拖多久都不影响
-    window.__tocDragged = true;
-    setTimeout(() => { window.__tocDragged = false; }, 400);
+    armClickGuard();   // 松手起算 400ms（第 105 轮：core 模块级守卫）
     if (!d.target || !d.mode) return;
     const targetName = d.target.dataset.name;
     const targetNode = topBookNodes(d.ctx).find((b) => b.name === targetName);
@@ -1014,7 +1016,7 @@ function renderBooksPanel(ctx) {
       const b = books.find((x) => x.name === card.dataset.name);
       if (b) bindBookDrag(card, ctx, b);   // 第 101 轮：卡片可拖动调序
       card.addEventListener('click', () => {
-        if (window.__tocDragged) return;   // 拖拽后的这次 click 不打开书
+        if (clickGuardActive()) return;   // 拖拽后的这次 click 不打开书
         const first = b ? firstEntryOf(b) : null;
         if (!first) return;
         // 点书 = 进入该书：切到目录界面（用户要求：书籍 → 目录 的进入流）+ 导航到首个条目。
@@ -1246,8 +1248,9 @@ async function enterEdit(ctx) {
       <div class="editor-host" id="editor-host"></div>
     </div>`;
   await loadEditor();
-  window.__soliterraImgClick = (url, label) => openImagePaper(url, label);   // 编辑器缩略图 → 大图纸面
-  window.__soliterraToast = (msg, kind) => showToast(msg, kind);
+  // 第 105 轮：回调归拢进 SoliterraEditor 命名空间（原两个散全局消失）
+  window.SoliterraEditor.imgClick = (url, label) => openImagePaper(url, label);   // 编辑器缩略图 → 大图纸面
+  window.SoliterraEditor.onToast = (msg, kind) => showToast(msg, kind);
   const drawerD = debounce(() => renderMetaDrawer(ctx), 300);       // 抽屉重扫（§B.2 文档改动 300ms）
   ctx.editor = window.SoliterraEditor.create(document.getElementById('editor-host'), {
     doc: text,
@@ -1285,12 +1288,10 @@ async function enterEdit(ctx) {
       if (picked) ed.image(picked.path, picked.alt);
     } else if (cmd === 'preview') {
       toggleEditorPreview(ctx);                    // §B.3.4 实时预览分屏
-      updateEditorCount(ctx);
       return;
     } else if (typeof ed[cmd] === 'function') {
       ed[cmd]();
     }
-    updateEditorCount(ctx);
   });
   setEditFab(ctx, true);
   mountEditStatus(entryTitle, initialSave);   // 顶缘状态条（第 86 轮）
@@ -1419,121 +1420,6 @@ async function exitEdit(ctx) {
   await openEntry(ctx, ctx.currentPath, ctx.chrono);
 }
 
-// ============ ⌘K 搜索 ============
-function openSearch(ctx) {
-  const modal = document.createElement('div');
-  modal.className = 'reader-modal active';
-  modal.innerHTML = `
-    <div class="modal-dialog search-dialog">
-      <input class="text-input search-input" placeholder="${t('search.placeholder')}" autofocus>
-      <div class="search-results"></div>
-    </div>`;
-  document.body.appendChild(modal);
-  const input = modal.querySelector('.search-input');
-  const results = modal.querySelector('.search-results');
-  const close = () => modal.remove();
-  modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-  modal.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
-  let timer;
-  input.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(async () => {
-      const q = input.value.trim();
-      if (!q) { results.innerHTML = ''; return; }
-      const rows = await api(`/api/w/${enc(ctx.worldId)}/search?q=${enc(q)}`);
-      results.innerHTML = rows.length ? rows.map((r) => `
-        <button class="entry-card search-row" data-path="${esc(r.path)}">
-          <span class="entry-card-title">${esc(r.title)}</span>
-          <span class="entry-card-snip">${r.snip || ''}</span>
-        </button>`).join('') : `<div class="empty-state">${t('search.empty')}</div>`;
-      results.querySelectorAll('.search-row').forEach((b) => b.addEventListener('click', () => {
-        close();
-        navigate(`#/w/${enc(ctx.worldId)}/${enc(b.dataset.path)}`);
-      }));
-      renderActions(ctx, results, q, close);   // ⌘K 动作行（日期取景/稍后阅读/工具/仪表盘）
-    }, 160);
-  });
-}
-
-
-// ============ ⌘K 动作类：日期取景 / 稍后阅读 / 工具箱 / 仪表盘 ============
-/** 输入是否像日期（705 / 705.09 / 705.09.10 / 前300 / -0300.*.*）。 */
-function parseDateQuery(q) {
-  const s2 = String(q).trim();
-  let m = s2.match(/^(前|公元前)?(\d{1,4})\.(\d{1,2}|\*)\.(\d{1,2}|\*)$/);
-  if (m) return { ord: parseOrd(`${m[1] ? '-' : ''}${m[2].padStart(4, '0')}.${m[3] === '*' ? '*' : m[3].padStart(2, '0')}.${m[4] === '*' ? '*' : m[4].padStart(2, '0')}`), span: 60 };
-  m = s2.match(/^(前|公元前)?(\d{1,4})\.(\d{1,2}|\*)$/);
-  if (m) return { ord: parseOrd(`${m[1] ? '-' : ''}${m[2].padStart(4, '0')}.${m[3] === '*' ? '*' : m[3].padStart(2, '0')}.*`), span: 200 };   /* 三段：年.月.* */
-  m = s2.match(/^(前|公元前)?(\d{1,4})$/);
-  if (m) return { ord: parseOrd(`${m[1] ? '-' : ''}${m[2].padStart(4, '0')}.*.*`), span: 100 };
-  return null;
-}
-
-function renderActions(ctx, results, q, close) {
-  const acts = [];
-  const dq = q ? parseDateQuery(q) : null;
-  if (dq && dq.ord != null) {
-    acts.push(`<button class="entry-card action-row" data-act="date" data-ord="${dq.ord}" data-span="${dq.span}">
-      <span class="entry-card-title">${lt('dashJump')} ${esc(q.trim())}</span></button>`);
-  }
-  if (q && q.trim()) {
-    acts.push(`<button class="entry-card action-row" data-act="later" data-q="${esc(q.trim())}">
-      <span class="entry-card-title">✦ ${lt('dashLater')} · ${esc(q.trim())}</span></button>`);
-  }
-  if (q && q.trim() && !parseDateQuery(q)) {
-    acts.push(`<button class="entry-card action-row" data-act="newentry" data-q="${esc(q.trim())}">
-      <span class="entry-card-title">＋ ${state.lang === 'zh-CN' ? '新建条目' : 'New entry'} · ${esc(q.trim())}</span></button>`);
-  }
-  acts.push(`<button class="entry-card action-row" data-act="tools"><span class="entry-card-title">🧰 ${lt('dashTools')}</span></button>`);
-  acts.push(`<button class="entry-card action-row" data-act="dash"><span class="entry-card-title">📊 ${lt('dashboard')}</span></button>`);
-  acts.push(`<button class="entry-card action-row" data-act="map"><span class="entry-card-title">🗺 ${lt('dashMap')}</span></button>`);
-  const html = acts.join('');
-  results.insertAdjacentHTML('afterbegin', html);
-  results.querySelectorAll('.action-row').forEach((b) => b.addEventListener('click', async () => {
-    const act = b.dataset.act;
-    close();
-    if (act === 'date') {
-      ctx.chrono?.focusOrd(+b.dataset.ord, +b.dataset.span);
-      showToast(`${lt('dashJump')} ${q.trim()}`, 'success');
-    } else if (act === 'later') {
-      const target = b.dataset.q;
-      const r = await api(`/api/w/${enc(ctx.worldId)}/resolve?target=${enc(target)}`);
-      if (r.path) { await addReadlater(ctx, r.path); }
-      else showToast(state.lang === 'zh-CN' ? `无此条目：${target}` : `Not found: ${target}`, 'warning');
-    } else if (act === 'newentry') {
-      const name = b.dataset.q;
-      const book = currentBookOf(ctx);
-      if (!book?.dir) { showToast(state.lang === 'zh-CN' ? '世界根只放 README 与 books/——请先打开某本书' : 'Open a book first', 'warning'); return; }
-      try {
-        const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: book.dir, name, pair: false } });
-        await refreshTree(ctx);
-        refreshGitStatus(ctx);
-        if (r2.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path)}`);
-        showToast(state.lang === 'zh-CN' ? `已新建：${name}` : `Created: ${name}`, 'success');
-      } catch (e2) { showToast(String(e2.message), 'error'); }
-    } else if (act === 'tools') {
-      setPanel(ctx, ctx.panel === 'tools' ? '' : 'tools');
-    } else if (act === 'dash') {
-      openDashboard(ctx);
-    } else if (act === 'map') {
-      openMapPlaceholder();
-    }
-  }));
-}
-
-// ============ 仪表盘（功能设计 §15.4：条目/双链/标签/深度/警报/git 一览） ============
-// ============ 地图占位（§14：⌘K → 地图；待外部编辑器定型后接入热点渲染） ============
-function openMapPlaceholder() {
-  const { body } = openPaperDialog2('🗺 ' + lt('dashMap'));
-  body.innerHTML = `
-    <div class="empty-state">
-      <div class="eyebrow">${state.lang === 'zh-CN' ? '地图 · 敬请期待' : 'Map · Coming soon'}</div>
-      <p>${state.lang === 'zh-CN'
-        ? '接入契约已备：外部编辑器导出 assets/maps/*.png + hotspots.json（热区 → 条目）；或以 iframe 嵌入（?world=&pin=）回传热区参数。'
-        : 'Contract ready: external editor exports assets/maps/*.png + hotspots.json (hotspots → entries), or iframe embed (?world=&pin=).'}</p>
-    </div>`;
-}
-
 // ============ 图片管线（§B.5）：上传 / 选择器 / 大图纸面 ============
 /** 上传图片文件 → assets/imported/（重名加序号）；返回相对路径。 */
 async function uploadAsset(ctx, file) {
@@ -1603,245 +1489,4 @@ function openImagePaper(url, label = '') {
   const title = label || (state.lang === 'zh-CN' ? '图片' : 'Image');
   const { body } = openPaperDialog2('▣ ' + title);
   body.innerHTML = `<div class="img-paper"><img src="${esc(url)}" alt="${esc(label)}"></div>`;
-}
-
-async function openDashboard(ctx) {
-  const { close, body } = openPaperDialog2('📊 ' + lt('dashboard'));
-  body.innerHTML = `<div class="dash-loading loading">…</div>`;
-  try {
-    const d = await api(`/api/w/${enc(ctx.worldId)}/dashboard`);
-    const span = ctx.timeline.length
-      ? `${ctx.timeline[0].start} → ${ctx.timeline[ctx.timeline.length - 1].end || ctx.timeline[ctx.timeline.length - 1].start}`
-      : '—';
-    body.innerHTML = `
-      <div class="dash-grid">
-        <div class="dash-card"><span class="eyebrow">${lt('entriesN')}</span><b>${d.entries}</b></div>
-        <div class="dash-card"><span class="eyebrow">${lt('booksN')}</span><b>${d.books}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '双链' : 'Links'}</span><b>${d.links}</b><small>${d.entries ? (d.links / d.entries).toFixed(2) : '0'} ${state.lang === 'zh-CN' ? '条/条目' : '/entry'}</small></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '树深度' : 'Depth'}</span><b>${d.maxDepth}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '悬空' : 'Dangling'}</span><b class="${d.dangling ? 'warn' : ''}">${d.dangling}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '孤立' : 'Isolated'}</span><b class="${d.isolated ? 'warn' : ''}">${d.isolated}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '近7天提交' : 'Commits 7d'}</span><b>${d.commitsWeek}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '时间轴跨度' : 'Timeline'}</span><b class="dash-span">${esc(span)}</b></div>
-      </div>
-      <div class="dash-tags"><span class="eyebrow">${state.lang === 'zh-CN' ? '标签覆盖 Top' : 'Tags Top'}</span>
-        ${d.tags.length ? d.tags.map((t2) => `<span class="dash-tag"><i style="width:${Math.round((t2.n / d.tags[0].n) * 100)}%"></i><em>${esc(t2.t)}</em><b>${t2.n}</b></span>`).join('') : '—'}
-      </div>`;
-  } catch (e) {
-    body.innerHTML = `<div class="empty-state">${esc(String(e.message))}</div>`;
-  }
-}
-
-// ============ 工具箱跳转批注：打开条目并把错误处框起来（类似批注） ============
-function openWithAnnotation(ctx, path, rawLine) {
-  const needle = String(rawLine || '').replace(/^\s*&[a-z]\s+/, '').trim();
-  sessionStorage.setItem('soliterra.goto', JSON.stringify({ path, needle: needle.slice(0, 60) }));
-  if (ctx.currentPath === path) annotateCurrent(ctx);
-  else navigate(`#/w/${enc(ctx.worldId)}/${enc(path)}`);
-}
-
-/** 在当前已渲染的条目里找含 needle 片段的元素并框住（找不到则退回标题/元数据行）。 */
-function annotateCurrent(ctx) {
-  const g = JSON.parse(sessionStorage.getItem('soliterra.goto') || 'null');
-  if (!g) return;
-  sessionStorage.removeItem('soliterra.goto');
-  const entry = document.querySelector('.entry');
-  if (!entry) return;
-  const frag = (g.needle || '').slice(0, 12);
-  let hit = null;
-  if (frag) {
-    const walk = (el2) => {
-      for (const n of el2.childNodes) {
-        if (n.nodeType === 3 && n.textContent.includes(frag)) { hit = n.parentElement; return; }
-        if (n.nodeType === 1) { walk(n); if (hit) return; }
-      }
-    };
-    walk(entry);
-  }
-  const target = (hit && hit !== entry) ? hit : (entry.querySelector('.entry-meta-top') || entry.querySelector('.entry-title') || entry);
-  target.classList.add('doc-annotation');
-  target.scrollIntoView({ block: 'center', behavior: 'auto' });
-  setTimeout(() => target.classList.remove('doc-annotation'), 4000);
-}
-
-// ============ 工具箱（右 push 面板：扫描 → diff-row 预览 → 应用） ============
-/** 工具按钮计数徽章（问题数在工具箱面板的功能按钮上，不在工具 fab 上）。
- *  lint 有 error→红、否则黄；修复类工具 = 待修复处数（中性）；0 隐藏。 */
-function setToolBadge(modal, tool, items) {
-  const b = modal.querySelector(`.tool-badge[data-badge="${tool}"]`);
-  if (!b) return;
-  const n = items.length;
-  b.hidden = n === 0;
-  b.textContent = n > 99 ? '99+' : String(n);
-  if (tool === 'lint') {
-    const errs = items.filter((i) => i.severity === 'error').length;
-    b.className = `tool-badge${errs ? ' err' : ' warn'}`;
-  } else {
-    b.className = 'tool-badge';
-  }
-}
-/** 打开工具箱面板时并行预扫全部工具的计数（不阻塞当前工具列表）。 */
-async function refreshToolBadges(ctx, modal) {
-  const tools = ['lint', 'date', 'onboard', 'brackets', 'symbols', 'drift', 'images', 'regex', 'dup'];
-  await Promise.all(tools.map(async (tk) => {
-    try {
-      const r = await api(`/api/w/${enc(ctx.worldId)}/tools/scan?tool=${tk}`);
-      setToolBadge(modal, tk, r.items || []);
-    } catch { /* 某工具扫描失败不阻塞其它徽章 */ }
-  }));
-}
-function renderTools(ctx) {
-  const modal = document.getElementById('tools-host');
-  if (!modal) return;
-  modal.innerHTML = `
-      <div class="tools-layout">
-        <nav class="tools-nav">
-          ${['lint', 'structure', 'date', 'onboard', 'brackets', 'symbols', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
-          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ structure: 'toolStructure', date: 'toolDate', onboard: 'toolOnboard', brackets: 'toolBrackets', symbols: 'toolSymbols', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
-        </nav>
-        <div class="tools-main">
-          <div class="tools-list" id="tools-list"><div class="loading">${lt('toolScanning')}</div></div>
-          <div class="tools-foot">
-            ${checkHTML(true, 'ALL', 'id="tools-all-row"')}
-            <span class="tools-count" id="tools-count"></span>
-            <button class="button-primary" id="tools-apply" disabled>${lt('toolApply')}</button>
-          </div>
-        </div>
-      </div>`;
-  attachScrollIndicators(modal);
-
-  const list = modal.querySelector('#tools-list');
-  const count = modal.querySelector('#tools-count');
-  const applyBtn = modal.querySelector('#tools-apply');
-  let currentTool = 'date';
-  let items = [];
-
-  function esc2(s2) { return esc(s2); }
-
-  async function runScan(tool) {
-    currentTool = tool;
-    list.innerHTML = `<div class="loading">${lt('toolScanning')}</div>`;
-    applyBtn.disabled = true;
-    try {
-      const params = tool === 'regex' && ctx.regexQ ? `&q=${enc(ctx.regexQ)}&r=${enc(ctx.regexR || '')}` : '';
-      const r = await api(`/api/w/${enc(ctx.worldId)}/tools/scan?tool=${tool}${params}`);
-      items = r.items.map((x) => ({ ...x, checked: true }));
-      setToolBadge(modal, tool, items);        // 计数徽章跟随扫描结果
-    } catch (e) { items = []; showToast(String(e.message || e), 'error'); }
-    paint();
-  }
-
-  function paint() {
-    const isLint = currentTool === 'lint';
-    applyBtn.style.display = isLint ? 'none' : '';
-    const allRow0 = modal.querySelector('#tools-all-row');
-    if (allRow0) allRow0.style.display = isLint ? 'none' : '';
-    if (isLint) {
-      count.textContent = `${items.length}`;
-      list.innerHTML = items.map((it) => `
-        <div class="alert-row lint-${it.severity}" data-path="${esc(it.path)}" title="${lt('lintJump')}">
-          <span class="lint-msg">${esc(it.message)}</span>
-          <span class="lint-loc">${esc(it.path)}${it.line ? ':' + it.line : ''}</span>
-        </div>`).join('');
-      list.querySelectorAll('.alert-row[data-path]').forEach((row) => row.addEventListener('click', () => {
-        const p2 = row.dataset.path;
-        if (!p2) return;
-        if (p2 === ctx.currentPath) return;
-        navigate(`#/w/${enc(ctx.worldId)}/${enc(p2)}`);
-      }));
-      return;
-    }
-    if (!items.length) {
-      list.innerHTML = `<div class="empty-state">${lt('toolNoIssues')}</div>`;
-      count.textContent = '';
-      applyBtn.disabled = true;
-      return;
-    }
-    const fixRows = items.filter((x) => !x.manual);
-    const manualRows = items.filter((x) => x.manual);
-    list.innerHTML = [
-      ...manualRows.map((it) => `<div class="alert-row lint-info"><span class="lint-msg">${esc2(it.before)}</span><span class="lint-loc">${esc2(String(it.path).slice(0, 60))}</span></div>`),
-      ...fixRows.map((it, i) => it.kind === 'move' ? `
-      <div class="diff-row diff-move">
-        ${checkHTML(it.checked, '', `data-i="${i}"`)}
-        <span class="diff-path diff-move-tag">${state.lang === 'zh-CN' ? '移动' : 'move'}</span>
-        <span class="diff-before">${esc2(it.before)}</span>
-        <span class="diff-arrow">→</span>
-        <span class="diff-after">${esc2(it.after)}</span>
-      </div>` : `
-      <div class="diff-row">
-        ${checkHTML(it.checked, '', `data-i="${i}"`)}
-        <span class="diff-path" title="${esc2(it.src || it.path)}">${esc2(it.path)}:${it.line}</span>
-        <span class="diff-before">${esc2(it.before)}</span>
-        <span class="diff-arrow">→</span>
-        <span class="diff-after">${esc2(it.after === '' ? '（删除此行）' : it.after)}</span>
-      </div>`),
-    ].join('');
-    bindChecks(list);
-    list.querySelectorAll('.check-row[data-i]').forEach((row) => row.addEventListener('click', () => {
-      fixRows[+row.dataset.i].checked = row.classList.contains('on');
-      refreshCount();
-    }));
-    // 点击行（勾选框以外）→ 打开条目，并把错误处用批注框标出
-    list.querySelectorAll('.diff-row').forEach((row, i) => row.addEventListener('click', (e) => {
-      if (e.target.closest('.check-row')) return;
-      const it = fixRows[i];
-      if (!it?.path || it.kind === 'move') return;   // 移动行不跳转
-      openWithAnnotation(ctx, it.path, `${it.before || ''}`);
-    }));
-    refreshCount();
-  }
-  function refreshCount() {
-    const fixRows = items.filter((x) => !x.manual);
-    const n = fixRows.filter((x) => x.checked).length;
-    count.textContent = `${n} / ${fixRows.length}`;
-    applyBtn.disabled = n === 0;
-  }
-
-  modal.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', async () => {
-    modal.querySelectorAll('[data-tool]').forEach((x) => x.classList.remove('is-active'));
-    b.classList.add('is-active');
-    if (b.dataset.tool === 'regex') {
-      const q = await askText(lt('toolRegexFind'), ctx.regexQ || '');
-      if (q === null) return;
-      const r2 = await askText(lt('toolRegexRepl'), ctx.regexR || '');
-      if (r2 === null) return;
-      ctx.regexQ = q; ctx.regexR = r2;
-    }
-    runScan(b.dataset.tool);
-  }));
-  const allRow = modal.querySelector('#tools-all-row');
-  bindChecks(modal);
-  allRow.addEventListener('click', () => {
-    const on = allRow.classList.contains('on');
-    items.forEach((x) => { if (!x.manual) x.checked = on; });
-    paint();
-    const row = modal.querySelector('#tools-all-row');
-    row.classList.toggle('on', on);
-  });
-  applyBtn.addEventListener('click', async () => {
-    const chosen = items.filter((x) => x.checked && !x.manual);
-    if (!chosen.length) return;
-    applyBtn.disabled = true;
-    try {
-      const r = await api(`/api/w/${enc(ctx.worldId)}/tools/apply`, {
-        method: 'POST', body: { tool: currentTool, items: chosen },
-      });
-      worldDataCache.delete(ctx.worldId);
-      refreshGitStatus(ctx);
-      await refreshTimeline(ctx);   // 工具改动（含日期归一等）即刻上轴
-          showToast(`${lt('toolApplied')} ${r.changed} ${lt('toolPlaces')} · backup: ${r.backup}`, 'success');
-      runScan(currentTool);
-      // 刷新当前阅读内容（若被修改）——原地重载，不动面板
-      if (chosen.some((x) => x.path === ctx.currentPath)) {
-        await openEntry(ctx, ctx.currentPath, ctx.chrono);
-      }
-    } catch (e) {
-      showToast(String(e.message), 'error');
-      applyBtn.disabled = false;
-    }
-  });
-
-  runScan('lint');
-  refreshToolBadges(ctx, modal);               // 打开面板即并行预扫全部工具的计数徽章
 }

@@ -86,7 +86,7 @@ class ImageWidget extends WidgetType {
     img.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      window.__soliterraImgClick?.(this.url, this.label);
+      window.SoliterraEditor.imgClick?.(this.url, this.label);
     });
     const cap = document.createElement('span');
     cap.className = 'cm-img-cap';
@@ -205,7 +205,7 @@ function pasteDropUpload(opts) {
         view.dispatch({ changes: { from: pos, insert: text }, selection: { anchor: pos + text.length } });
         pos += text.length;
       } catch (e) {
-        window.__soliterraToast?.(String(e.message || e), 'error');
+        window.SoliterraEditor.onToast?.(String(e.message || e), 'error');
       }
     }
   };
