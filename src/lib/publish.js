@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { collectMarkdown } from './indexer.js';
-import { parseEntry } from './parser.js';
+import { parseEntry, extractLinks } from './parser.js';
 import { renderEntry, renderFragment, sectionOf } from './render.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -14,6 +14,11 @@ const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<
 export function isPublished(meta, visibility = 'public') {
   if (visibility === 'all') return true;
   return meta?.v?.[0] !== '作者';
+}
+
+/** 锚点 slug：h 标签纯文本 → 去标签 → trim → 空白转 '-'（中文保留；浏览器 href="#中文" 可用）。 */
+export function slugify(text) {
+  return String(text || '').replace(/<[^>]+>/g, '').trim().replace(/\s+/g, '-');
 }
 
 /** 站内相对链接：from → to（posix 相对，同目录无前缀）。 */
@@ -28,21 +33,33 @@ const relTo = (fromRel, toRel) => path.posix.relative(path.posix.dirname(fromRel
  */
 function postProcess(html, { curRel, resolveTarget, assetsOut }) {
   let out = html;
-  // ① wikilink（含勘误态 data-refuted、annotation-row 内 data-anchor）
+  // ① wikilink（含勘误态 data-refuted、annotation-row 内 data-anchor）→ href（可带 #锚）
   out = out.replace(
     /<a class="(wikilink[^"]*)"([^>]*?)data-target="([^"]+)"([^>]*)>/g,
     (whole, cls, pre, target, post2) => {
       const href = resolveTarget(target);   // null → 不出 href
       if (!href) return `<a class="${cls}"${pre}data-target="${esc(target)}"${post2}>`;
-      return `<a class="${cls}"${pre}data-target="${esc(target)}" data-site-href="${esc(href)}"${post2}>`;
+      const anchor = post2.match(/data-anchor="([^"]*)"/)?.[1];   // [[X#锚]] → href 带 #slug
+      const frag = anchor ? `#${slugify(anchor)}` : '';
+      return `<a class="${cls}"${pre}data-target="${esc(target)}" data-site-href="${esc(href + frag)}"${post2}>`;
     },
   );
   out = out.replace(/ data-site-href="([^"]+)"/g, (_, h) => ` href="${h}"`);
-  // ② m-item 按钮 → span（button 内只有文本，无嵌套）
+  // ② m-item 按钮 → span（静态站无编辑语义；button 内只有文本，无嵌套）
   out = out.replace(/<button class="(m-item[^"]*)" data-key="[^"]*">([^<]*)<\/button>/g, '<span class="$1">$2</span>');
-  // ③ 图片相对化 + 收集
+  // ③ h1-h6 注入 id（锚点落点；同页重复标题 → -2/-3 去重）
+  const seen = new Map();
+  out = out.replace(/<h([1-6])(\s[^>]*)?>([\s\S]*?)<\/h\1>/g, (whole, lv, attrs, inner) => {
+    let id = slugify(inner);
+    if (!id) return whole;
+    const n = (seen.get(id) || 0) + 1;
+    seen.set(id, n);
+    if (n > 1) id = `${id}-${n}`;
+    return `<h${lv}${attrs || ''} id="${esc(id)}">${inner}</h${lv}>`;
+  });
+  // ④ 正文图片 assets/ → 按页面深度相对化（外链 http(s)/data 不动），收集待复制清单
   out = out.replace(/src="(?!https?:|data:|\/)([^"]+)"/g, (whole, src) => {
-    if (!src.startsWith('assets/')) return whole;   // 非世界资产（如站内生成物）不动
+    if (!src.startsWith('assets/')) return whole;
     const rel = relTo(curRel, src);
     assetsOut.add(src);
     return `src="${rel}"`;
@@ -113,6 +130,16 @@ export function buildSite(worldDir, { visibility = 'public', lang = 'zh-CN' } = 
     const t = String(target || '').trim();
     return byTitle.get(t) || byTitle.get(`${t}.md`) || null;
   };
+  // 反向链接（仅可见条目间的 [[链接]]）：目标 rel → [来源 rel]
+  const reverse = new Map();
+  for (const src of visible) {
+    for (const tgt of extractLinks(src.body)) {
+      const hit = resolveVisible(tgt);
+      if (!hit || hit.rel === src.rel) continue;
+      if (!reverse.has(hit.rel)) reverse.set(hit.rel, []);
+      if (!reverse.get(hit.rel).includes(src.rel)) reverse.get(hit.rel).push(src.rel);
+    }
+  }
 
   const outDir = path.join(worldDir, 'assets', 'exports', `site-${new Date().toISOString().replace(/[:.]/g, '-')}`);
   fs.mkdirSync(outDir, { recursive: true });
@@ -134,6 +161,14 @@ export function buildSite(worldDir, { visibility = 'public', lang = 'zh-CN' } = 
     };
     const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, lang, resolver);
     const up = relHtml.split('/').length > 1 ? '../'.repeat(relHtml.split('/').length - 1) : '';
+    const bl = (reverse.get(e.rel) || []).map((srcRel) => {
+      const src = visible.find((v) => v.rel === srcRel);
+      const label = src ? src.title : srcRel.replace(/\.md$/, '');
+      return `<a class="wikilink" href="${esc(relTo(relHtml, srcRel.replace(/\.md$/i, '.html')))}">${esc(label)}</a>`;
+    }).join('');
+    const backlinksHtml = bl
+      ? `<div class="backlinks"><span class="eyebrow">${lang === 'en' ? 'Backlinks' : '被引用'}</span>${bl}</div>`
+      : '';
     const nav = [
       `<a href="${up}index.html">← ${esc(worldBaseName(worldDir))}</a>`,
       i > 0 ? `<a href="${esc(relTo(relHtml, ordered[i - 1].rel.replace(/\.md$/i, '.html')))}">← 上一篇</a>` : '',
@@ -151,7 +186,7 @@ export function buildSite(worldDir, { visibility = 'public', lang = 'zh-CN' } = 
 <body><div class="world-view site-page"><main class="reader-column">
 ${metaTop}
 <div class="entry-title-row"><h1 class="entry-title">${esc(e.title)}</h1>${range}</div>
-<div class="entry-body">${page}</div>
+<div class="entry-body">${page}</div>${backlinksHtml}
 <nav class="entry-nav site-nav">${nav}</nav>
 </main></div></body></html>
 `;
@@ -186,7 +221,16 @@ ${intro ? `<div class="entry-body site-intro">${esc(intro).replace(/\n+/g, '<br>
   const appCss = fs.readFileSync(new URL('../public/css/app.css', import.meta.url), 'utf8');
   fs.writeFileSync(path.join(outDir, 'style.css'), appCss + SITE_CSS, 'utf8');
 
-  // ⑤ 图片资源按需复制
+  // ⑤ 发布产物剪枝：assets/exports/ 下只留最近 keep 份（站点每份数 MB；名字含 ISO 时间戳 → 字典序即时间序）
+  try {
+    const exportsDir = path.join(worldDir, 'assets', 'exports');
+    const olds = fs.readdirSync(exportsDir).filter((n) => n.startsWith('site-')).sort();
+    for (const n of olds.slice(0, Math.max(0, olds.length - 3))) {
+      fs.rmSync(path.join(exportsDir, n), { recursive: true, force: true });
+    }
+  } catch { /* 剪枝尽力而为，不阻断发布 */ }
+
+  // ⑥ 图片资源按需复制
   let assets = 0;
   for (const src of assetsOut) {
     const from = path.join(worldDir, src);

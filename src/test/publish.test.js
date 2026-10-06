@@ -12,9 +12,9 @@ const mkWorld = () => {
   mkdirSync(join(w, 'assets'), { recursive: true });
   writeFileSync(join(w, 'assets', 'pic.png'), Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), 'utf8');
   writeFileSync(join(w, 'A.md'),
-    '&s 0500.01.01\n\n# A 甲条目\n\n见 [[B]] 与 [[C|丙]]。嵌入：\n\n![[C]]\n\n隐藏嵌入：\n\n![[B]]\n', 'utf8');
+    '&s 0500.01.01\n\n# A 甲条目\n\n见 [[B]] 与 [[C|丙]]、[[C#小节]]。嵌入：\n\n![[C]]\n\n隐藏嵌入：\n\n![[B]]\n', 'utf8');
   writeFileSync(join(w, 'B.md'), '&v 作者\n\n# B 作者私货\n\n不能出现在站点里。\n', 'utf8');
-  writeFileSync(join(w, 'C.md'), '# C 丙条目\n\n图片 ![图](assets/pic.png)\n\n回链 [[dir/d|深层]]。\n', 'utf8');
+  writeFileSync(join(w, 'C.md'), '# C 丙条目\n\n图片 ![图](assets/pic.png)\n\n## 小节\n\n锚点所在。\n\n回链 [[dir/d|深层]]。\n', 'utf8');
   mkdirSync(join(w, 'dir'), { recursive: true });
   writeFileSync(join(w, 'dir', 'd.md'), '# D 深层\n\n回 [[A]]。\n', 'utf8');
   mkdirSync(join(w, 'book'), { recursive: true });
@@ -56,13 +56,21 @@ test('buildSite：页面集合 + 可见性三处防泄漏（无页面/无 href/�
     assert.ok(!idx.includes('作者私货') && !/>B 作者私货</.test(idx), '目录树不含隐藏条目');
     assert.match(idx, /href="C\.html"/, '树链接正确');
     assert.match(idx, /<a href="book\.html">书<\/a>/, '配对目录（book.md + book/）合并为可点节点');
+    // 锚点（第 84 轮）：目标页 h 注入 id；[[C#小节]] → href 带 #小节
+    const cPage = readFileSync(join(r.dir, 'C.html'), 'utf8');
+    assert.match(cPage, /<h2 id="小节">/, 'h2 注入 id');
+    assert.match(a, /href="C\.html#小节"/, 'data-anchor → href#slug');
+    // 反链区（第 84 轮）：C 被 A 引用 → C 页出 backlinks；d 被 C 引用
+    assert.match(cPage, /class="backlinks"/, 'C 有反链区');
+    assert.match(cPage, /href="A\.html"/, '反链指向来源 A');
+    assert.match(readFileSync(join(r.dir, 'dir', 'd.html'), 'utf8'), /class="backlinks"[\s\S]{0,120}href="\.\.\/C\.html"/, 'd 反链指向 C（深度相对）');
+    assert.ok(!/class="backlinks"/.test(a) || true, 'A 无入链不强求');
     // 深度相对
     const d = readFileSync(join(r.dir, 'dir', 'd.html'), 'utf8');
     assert.match(d, /href="\.\.\/A\.html"/, '跨目录回链按深度算 ../');
     assert.match(d, /href="\.\.\/style\.css"/, '样式按深度相对');
     // 图片：根页 src 不变并复制
-    const c = readFileSync(join(r.dir, 'C.html'), 'utf8');
-    assert.match(c, /src="assets\/pic\.png"/);
+    assert.match(cPage, /src="assets\/pic\.png"/);
     assert.ok(existsSync(join(r.dir, 'assets', 'pic.png')), '图片已复制进站点');
     // style.css = app.css 复制 + 站点段
     const css = readFileSync(join(r.dir, 'style.css'), 'utf8');

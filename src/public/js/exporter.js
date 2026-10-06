@@ -133,3 +133,70 @@ export function buildEpub({ title, chapters, cover = null }) {
 </package>`) });
   return zipBuild(files);
 }
+
+/* ---------- DOCX（第 84 轮：最小 OOXML，STORED zip 复用 zipBuild，零依赖） ---------- */
+
+/** 行内 markdown → OOXML runs：**粗** *斜* `码` [[双链|别名]] ~~删除线~~ 图片占位。 */
+function docxRuns(text) {
+  const esc2 = xmlEsc;
+  const out = [];
+  const re = /(\*\*([^*]+)\*\*)|(\*([^*]+)\*)|(`([^`]+)`)|(!?\[\[([^\]|]+)(?:\|([^\]]+))?\]\])|(~~([^~]+)~~)/g;
+  let last = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(`<w:r><w:t xml:space="preserve">${esc2(text.slice(last, m.index))}</w:t></w:r>`);
+    if (m[2]) out.push(`<w:r><w:rPr><w:b/></w:rPr><w:t>${esc2(m[2])}</w:t></w:r>`);
+    else if (m[4]) out.push(`<w:r><w:rPr><w:i/></w:rPr><w:t>${esc2(m[4])}</w:t></w:r>`);
+    else if (m[6]) out.push(`<w:r><w:rPr><w:rFonts w:ascii="Consolas" w:hAnsi="Consolas"/></w:rPr><w:t>${esc2(m[6])}</w:t></w:r>`);
+    else if (m[7]) out.push(`<w:r><w:t>${esc2(m[9] || m[8])}</w:t></w:r>`);
+    else if (m[10]) out.push(`<w:r><w:rPr><w:strike/></w:rPr><w:t>${esc2(m[10])}</w:t></w:r>`);
+    last = re.lastIndex;
+  }
+  if (last < text.length) out.push(`<w:r><w:t xml:space="preserve">${esc2(text.slice(last))}</w:t></w:r>`);
+  return out.join('');
+}
+
+/** md 章节 → OOXML body 片段：标题 = 字号直写（无需 styles.xml）；元数据行剔除；围栏标记行跳过；其余成段。 */
+function mdToDocxBody(md) {
+  const paras = [];
+  const heads = { 1: 32, 2: 28, 3: 24, 4: 21, 5: 19, 6: 18 };   // 半点字号（16pt 起）
+  let inFence = false;
+  for (const line of String(md).split('\n')) {
+    if (/^\s*```/.test(line)) { inFence = !inFence; continue; }   // 围栏标记行跳过，内容保留
+    if (/^&[a-z]\s|^\s*&[a-z]\s*$/.test(line)) continue;          // 元数据行剔除
+    if (!line.trim()) continue;
+    const h = /^(#{1,6})\s+(.+)$/.exec(line);
+    if (h && !inFence) {
+      const sz = heads[h[1].length] || 18;
+      paras.push(`<w:p><w:pPr><w:spacing w:before="240" w:after="120"/></w:pPr><w:r><w:rPr><w:b/><w:sz w:val="${sz}"/></w:rPr><w:t>${xmlEsc(h[2])}</w:t></w:r></w:p>`);
+      continue;
+    }
+    const li = /^(\s*)[-*+]\s+(.+)$/.exec(line);
+    const text = li ? `${inFence ? '' : '· '}${li[2]}` : line.replace(/^\s*>\s?/, '');
+    paras.push(`<w:p><w:pPr><w:spacing w:after="80"/></w:pPr>${docxRuns(text)}</w:p>`);
+  }
+  return paras.join('');
+}
+
+/** buildDocx({ title, chapters:[rawMd] }) → Blob（最小 docx 包：Content_Types + _rels + document.xml）。 */
+export function buildDocx({ title, chapters }) {
+  const enc8 = new TextEncoder();
+  const body = chapters.map((raw) => mdToDocxBody(raw)).join('');
+  const files = [
+    { name: '[Content_Types].xml', bytes: enc8.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`) },
+    { name: '_rels/.rels', bytes: enc8.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`) },
+    { name: 'word/document.xml', bytes: enc8.encode(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body><w:p><w:r><w:rPr><w:b/><w:sz w:val="36"/></w:rPr><w:t>${xmlEsc(title)}</w:t></w:r></w:p>${body}
+<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr>
+</w:body></w:document>`) },
+  ];
+  return zipBuild(files);
+}

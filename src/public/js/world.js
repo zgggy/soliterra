@@ -5,7 +5,7 @@
 import { api, t, state, navigate, bindCoverFallbacks } from './app.js';
 import { showLinkCard, hideCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
-import { download, subtreePaths, mdToTxt, buildEpub } from './exporter.js';
+import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporter.js';
 import { computeLayout, flagBaseW, LAYOUT, YEAR } from './timeline-layout.js';   // 第 75/76 轮：布局引擎（规则与常量单点真相）
 
 // 世界数据缓存（tree/timeline 变化少）：导航重渲染几乎同步 → 消除闪屏（YEAR 已由引擎导出，单一来源）
@@ -69,6 +69,7 @@ const L = {
   exBookMd: { 'zh-CN': '本书 md', en: 'Book md' },
   exBookEpub: { 'zh-CN': '本书 EPUB', en: 'Book EPUB' },
   exBookPdf: { 'zh-CN': '本书 PDF', en: 'Book PDF' },
+  exBookDocx: { 'zh-CN': '本书 DOCX', en: 'Book DOCX' },
   exSite: { 'zh-CN': '只读站点', en: 'Site' },
   siteBuilt: { 'zh-CN': '站点已生成：', en: 'Site built: ' },
   gitHistory: { 'zh-CN': '历史', en: 'History' },
@@ -543,6 +544,7 @@ async function renderWorldPanel(ctx) {
         <button class="button-ghost" id="ex-book-md">${lt('exBookMd')}</button>
         <button class="button-ghost" id="ex-book-epub">${lt('exBookEpub')}</button>
         <button class="button-ghost" id="ex-book-pdf">${lt('exBookPdf')}</button>
+        <button class="button-ghost" id="ex-book-docx">${lt('exBookDocx')}</button>
         <button class="button-ghost" id="ex-site">${lt('exSite')}</button>
       </span>
     </div>
@@ -560,6 +562,7 @@ async function renderWorldPanel(ctx) {
   host.querySelector('#ex-doc-txt').addEventListener('click', () => exportDoc(ctx, 'txt'));
   host.querySelector('#ex-book-md').addEventListener('click', () => exportBook(ctx, 'md', top));
   host.querySelector('#ex-book-epub').addEventListener('click', () => exportBook(ctx, 'epub', top));
+  host.querySelector('#ex-book-docx').addEventListener('click', () => exportBook(ctx, 'docx', top));
   host.querySelector('#ex-book-pdf').addEventListener('click', () => exportBook(ctx, 'pdf', top));
   host.querySelector('#ex-site').addEventListener('click', async (ev) => {
     const btn = ev.currentTarget;
@@ -567,6 +570,7 @@ async function renderWorldPanel(ctx) {
     try {
       const r = await api(`/api/w/${enc(ctx.worldId)}/publish`, { method: 'POST', body: {} });
       showToast(`${lt('siteBuilt')}${r.rel}（${r.pages} ${state.lang === 'zh-CN' ? '页' : 'pages'}${r.hidden ? ` · ${state.lang === 'zh-CN' ? '隐藏' : 'hidden'} ${r.hidden}` : ''}${r.assets ? ` · ${state.lang === 'zh-CN' ? '图片' : 'assets'} ${r.assets}` : ''}）`, 'success', 6000);
+      window.open(`/w/${enc(ctx.worldId)}/${enc(r.rel)}/index.html`, '_blank');   // 生成即所见（手势内打开不被拦）
     } catch (e) { showToast(String(e.message), 'error'); }
     btn.disabled = false;
   });
@@ -591,14 +595,19 @@ async function exportBook(ctx, fmt, book) {
   if (!paths.length) { showToast(state.lang === 'zh-CN' ? '本书无条目' : 'Empty book', 'warning'); return; }
   const name = book.title || book.name;
   try {
-    if (fmt === 'md') {
+    if (fmt === 'md' || fmt === 'docx') {
       const parts = [];
       for (const p2 of paths) {
         const { text } = await api(`/api/w/${enc(ctx.worldId)}/raw?path=${enc(p2)}`);
         parts.push(text);
       }
+      if (fmt === 'docx') {
+        download(`${name}.docx`, buildDocx({ title: name, chapters: parts }));
+        showToast(`${state.lang === 'zh-CN' ? '已导出' : 'Exported'} DOCX · ${parts.length} §`, 'success');
+        return;
+      }
       download(`${name}.md`, new Blob([parts.join('\n\n---\n\n')], { type: 'text/markdown;charset=utf-8' }));
-      showToast(`${state.lang === 'zh-CN' ? '已导出' : 'Exported'} · ${paths.length} §`, 'success');
+      showToast(`${state.lang === 'zh-CN' ? '已导出' : 'Exported'} · ${parts.length} §`, 'success');
       return;
     }
     const chapters = [];
