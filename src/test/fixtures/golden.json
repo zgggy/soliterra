@@ -1,0 +1,7586 @@
+{
+ "capturedAt": "2026-10-06",
+ "notes": "第 75 轮等价探针捕获：输入 + computeLayout 输出（旧管线逐字段等价验证后的冻结快照）",
+ "frames": [
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 58,
+     "width": 1164
+    },
+    "compact": false,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 242025.58,
+      "left": 665.1390794811438,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 2,
+     "offR": 0,
+     "ordL": 89940.9975,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 58.181818181818166,
+      "text": "320"
+     },
+     {
+      "edge": true,
+      "px": 1221.8181818181818,
+      "text": "976"
+     },
+     {
+      "edge": false,
+      "px": 665.1390794811438,
+      "text": "662"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -115.45454545454547,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": -115.45454545454547,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -73.45454545454545,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -73.45454545454545,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -31.454545454545446,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -31.454545454545446,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 58.181818181818166,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": 58.181818181818166,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0650.*.*",
+      "eyebrow": "技术",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 567.1390794811438,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源",
+      "top": 10,
+      "trueX": 643.5476718403548,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": true,
+      "lane": 0,
+      "left": 665.1390794811438,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼",
+      "top": "axis",
+      "trueX": 665.1390794811438,
+      "w": 78,
+      "z": 80
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 616.1390794811438,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 665.1390794811438,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 735.7871396895787,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 735.7871396895787,
+      "w": 50,
+      "z": 17
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 856.4079822616408,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 856.4079822616408,
+      "w": 78,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1041.1922945587492,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 1041.1922945587492,
+      "w": 64,
+      "z": 19
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 58.181818181818166,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 982.7050997782704
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 643.5476718403548,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 397.33924611973373
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": true,
+      "left": 665.1390794811438,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 665.1390794811438,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 735.7871396895787,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 76.27494456762747
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 856.4079822616408,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 35.47671840354769
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 930.909090909091,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 1041.1922945587492,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 180.6258872594326
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 199.28154181672485,
+      "text": "400"
+     },
+     {
+      "px": 376.66513383446323,
+      "text": "500"
+     },
+     {
+      "px": 554.0487258522015,
+      "text": "600"
+     },
+     {
+      "px": 731.4323178699399,
+      "text": "700"
+     },
+     {
+      "px": 908.8159098876782,
+      "text": "800"
+     },
+     {
+      "px": 1086.1995019054166,
+      "text": "900"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E9%BB%84%E9%87%91%E6%97%B6%E4%BB%A3%2F%E5%8C%97%E4%BC%90.md",
+   "input": {
+    "chronoH": 112,
+    "currentPath": "黄金时代/北伐.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 64,
+     "w": 70
+    },
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": "axis",
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "width": 1280
+   },
+   "label": "beifa-default-112"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 0,
+     "width": 1280
+    },
+    "compact": false,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 242025.58,
+      "left": 711.8259413746965,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 4,
+     "offR": 1,
+     "ordL": 117046.2,
+     "ordR": 319457.58
+    },
+    "markers": [
+     {
+      "edge": false,
+      "px": 711.8259413746965,
+      "text": "662"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1518.4415584415578,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": -1518.4415584415578,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1398.4415584415578,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -1398.4415584415578,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1278.4415584415578,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -1278.4415584415578,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1022.3376623376619,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": -1022.3376623376619,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0650.*.*",
+      "eyebrow": "技术",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 650.1362052581566,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源",
+      "top": 10,
+      "trueX": 650.1362052581566,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": true,
+      "lane": 0,
+      "left": 711.8259413746965,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼",
+      "top": "axis",
+      "trueX": 711.8259413746965,
+      "w": 78,
+      "z": 80
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 711.8259413746965,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 711.8259413746965,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 913.6775419702248,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 913.6775419702248,
+      "w": 50,
+      "z": 17
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1258.308520747545,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 1258.308520747545,
+      "w": 78,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1786.263698739283,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 1786.263698739283,
+      "w": 64,
+      "z": 19
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": -1022.3376623376619,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 2807.728856509343
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 650.1362052581566,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 1135.2549889135248
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": true,
+      "left": 711.8259413746965,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 711.8259413746965,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 913.6775419702248,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 217.92841305036416
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 1258.308520747545,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 101.36205258156474
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 1471.1688311688308,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 15.20430788723479
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 1786.263698739283,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 516.0739635983787
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 14.317233825422429,
+      "text": "525"
+     },
+     {
+      "px": 141.01979955237834,
+      "text": "550"
+     },
+     {
+      "px": 267.72236527933427,
+      "text": "575"
+     },
+     {
+      "px": 394.42493100629014,
+      "text": "600"
+     },
+     {
+      "px": 521.1274967332461,
+      "text": "625"
+     },
+     {
+      "px": 647.830062460202,
+      "text": "650"
+     },
+     {
+      "px": 774.532628187158,
+      "text": "675"
+     },
+     {
+      "px": 901.2351939141139,
+      "text": "700"
+     },
+     {
+      "px": 1027.9377596410698,
+      "text": "725"
+     },
+     {
+      "px": 1154.6403253680257,
+      "text": "750"
+     },
+     {
+      "px": 1281.3428910949815,
+      "text": "775"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E9%BB%84%E9%87%91%E6%97%B6%E4%BB%A3%2F%E5%8C%97%E4%BC%90.md",
+   "input": {
+    "chronoH": 200,
+    "currentPath": "黄金时代/北伐.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 64,
+     "w": 70
+    },
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": "axis",
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 282971.97000000003,
+     "lo": 190724.43
+    },
+    "width": 1280
+   },
+   "label": "beifa-mid-200"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 58,
+     "width": 1164
+    },
+    "compact": false,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 242025.58,
+      "left": 665.1390794811438,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 2,
+     "offR": 0,
+     "ordL": 89940.9975,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 58.181818181818166,
+      "text": "320"
+     },
+     {
+      "edge": true,
+      "px": 1221.8181818181818,
+      "text": "976"
+     },
+     {
+      "edge": false,
+      "px": 665.1390794811438,
+      "text": "662"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -115.45454545454547,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": -115.45454545454547,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -73.45454545454545,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -73.45454545454545,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -31.454545454545446,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -31.454545454545446,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 58.181818181818166,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": 58.181818181818166,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0650.*.*",
+      "eyebrow": "技术",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 643.5476718403548,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源",
+      "top": 10,
+      "trueX": 643.5476718403548,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": true,
+      "lane": 0,
+      "left": 665.1390794811438,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼",
+      "top": "axis",
+      "trueX": 665.1390794811438,
+      "w": 78,
+      "z": 80
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 1,
+      "left": 616.1390794811438,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼",
+      "top": 68,
+      "trueX": 665.1390794811438,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 735.7871396895787,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 735.7871396895787,
+      "w": 50,
+      "z": 17
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 856.4079822616408,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 856.4079822616408,
+      "w": 78,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1041.1922945587492,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 1041.1922945587492,
+      "w": 64,
+      "z": 19
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 58.181818181818166,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 982.7050997782704
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 643.5476718403548,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 397.33924611973373
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": true,
+      "left": 665.1390794811438,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 665.1390794811438,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 735.7871396895787,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 76.27494456762747
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 856.4079822616408,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 35.47671840354769
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 930.909090909091,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 1041.1922945587492,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 180.6258872594326
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 199.28154181672485,
+      "text": "400"
+     },
+     {
+      "px": 376.66513383446323,
+      "text": "500"
+     },
+     {
+      "px": 554.0487258522015,
+      "text": "600"
+     },
+     {
+      "px": 731.4323178699399,
+      "text": "700"
+     },
+     {
+      "px": 908.8159098876782,
+      "text": "800"
+     },
+     {
+      "px": 1086.1995019054166,
+      "text": "900"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E9%BB%84%E9%87%91%E6%97%B6%E4%BB%A3%2F%E5%8C%97%E4%BC%90.md",
+   "input": {
+    "chronoH": 200,
+    "currentPath": "黄金时代/北伐.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 64,
+     "w": 70
+    },
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": "axis",
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "width": 1280
+   },
+   "label": "beifa-full-200"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 58,
+     "width": 1164
+    },
+    "compact": false,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 242025.58,
+      "left": 665.1390794811438,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 2,
+     "offR": 0,
+     "ordL": 89940.9975,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 58.181818181818166,
+      "text": "320"
+     },
+     {
+      "edge": true,
+      "px": 1221.8181818181818,
+      "text": "976"
+     },
+     {
+      "edge": false,
+      "px": 1040.8869179600886,
+      "text": "874"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -115.45454545454547,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": -115.45454545454547,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -73.45454545454545,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -73.45454545454545,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -31.454545454545446,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -31.454545454545446,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": true,
+      "lane": 0,
+      "left": 58.181818181818166,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": "axis",
+      "trueX": 58.181818181818166,
+      "w": 50,
+      "z": 80
+     },
+     {
+      "cluster": null,
+      "date": "0650.*.*",
+      "eyebrow": "技术",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 567.1390794811438,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源",
+      "top": 10,
+      "trueX": 643.5476718403548,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 616.1390794811438,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 665.1390794811438,
+      "w": 78,
+      "z": 15
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 665.1390794811438,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 665.1390794811438,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 735.7871396895787,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 735.7871396895787,
+      "w": 50,
+      "z": 17
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 856.4079822616408,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 856.4079822616408,
+      "w": 78,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1041.1922945587492,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 1041.1922945587492,
+      "w": 64,
+      "z": 19
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": true,
+      "left": 58.181818181818166,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 982.7050997782704
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 643.5476718403548,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 397.33924611973373
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 665.1390794811438,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 665.1390794811438,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 735.7871396895787,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 76.27494456762747
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 856.4079822616408,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 35.47671840354769
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 930.909090909091,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 1041.1922945587492,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 180.6258872594326
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 199.28154181672485,
+      "text": "400"
+     },
+     {
+      "px": 376.66513383446323,
+      "text": "500"
+     },
+     {
+      "px": 554.0487258522015,
+      "text": "600"
+     },
+     {
+      "px": 731.4323178699399,
+      "text": "700"
+     },
+     {
+      "px": 908.8159098876782,
+      "text": "800"
+     },
+     {
+      "px": 1086.1995019054166,
+      "text": "900"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E9%BB%84%E9%87%91%E6%97%B6%E4%BB%A3%2F%E9%93%B6%E6%B9%BE.md",
+   "input": {
+    "chronoH": 112,
+    "currentPath": "黄金时代/银湾.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 64,
+     "w": 58
+    },
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 68,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 126,
+     "黄金时代/银湾.md": "axis"
+    },
+    "view": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "width": 1280
+   },
+   "label": "yinwan-default-112"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 0,
+     "width": 1280
+    },
+    "compact": true,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 242025.58,
+      "left": 711.8259413746965,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 4,
+     "offR": 1,
+     "ordL": 117046.2,
+     "ordR": 319457.58
+    },
+    "markers": [
+     {
+      "edge": false,
+      "px": 913.6775419702248,
+      "text": "702"
+     },
+     {
+      "edge": false,
+      "px": 1131.605955020589,
+      "text": "745"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1518.4415584415578,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": -1518.4415584415578,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1398.4415584415578,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -1398.4415584415578,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1278.4415584415578,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -1278.4415584415578,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1022.3376623376619,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": -1022.3376623376619,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0650.*.*",
+      "eyebrow": "技术",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 613.8259413746965,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源",
+      "top": 10,
+      "trueX": 650.1362052581566,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 662.8259413746965,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 711.8259413746965,
+      "w": 78,
+      "z": 15
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 711.8259413746965,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 711.8259413746965,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": true,
+      "lane": 0,
+      "left": 913.6775419702248,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": "axis",
+      "trueX": 913.6775419702248,
+      "w": 50,
+      "z": 80
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1258.308520747545,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 1258.308520747545,
+      "w": 78,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1786.263698739283,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 1786.263698739283,
+      "w": 64,
+      "z": 19
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": -1022.3376623376619,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 2807.728856509343
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 650.1362052581566,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 1135.2549889135248
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 711.8259413746965,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 711.8259413746965,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": true,
+      "left": 913.6775419702248,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 217.92841305036416
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 1258.308520747545,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 101.36205258156474
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 1471.1688311688308,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 15.20430788723479
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 1786.263698739283,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 516.0739635983787
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 14.317233825422429,
+      "text": "525"
+     },
+     {
+      "px": 141.01979955237834,
+      "text": "550"
+     },
+     {
+      "px": 267.72236527933427,
+      "text": "575"
+     },
+     {
+      "px": 394.42493100629014,
+      "text": "600"
+     },
+     {
+      "px": 521.1274967332461,
+      "text": "625"
+     },
+     {
+      "px": 647.830062460202,
+      "text": "650"
+     },
+     {
+      "px": 774.532628187158,
+      "text": "675"
+     },
+     {
+      "px": 1027.9377596410698,
+      "text": "725"
+     },
+     {
+      "px": 1281.3428910949815,
+      "text": "775"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E9%BB%84%E9%87%91%E6%97%B6%E4%BB%A3%2F%E5%BA%9F%E5%A5%B4.md",
+   "input": {
+    "chronoH": 70,
+    "currentPath": "黄金时代/废奴.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 64,
+     "w": 58
+    },
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": "axis",
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 282971.97000000003,
+     "lo": 190724.43
+    },
+    "width": 1280
+   },
+   "label": "feinu-mid-70"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 0,
+     "width": 1280
+    },
+    "compact": false,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 242025.58,
+      "left": 711.8259413746965,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 4,
+     "offR": 1,
+     "ordL": 117046.2,
+     "ordR": 319457.58
+    },
+    "markers": [],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": true,
+      "lane": 0,
+      "left": -1518.4415584415578,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": "axis",
+      "trueX": -1518.4415584415578,
+      "w": 64,
+      "z": 80
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1398.4415584415578,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -1398.4415584415578,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1278.4415584415578,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -1278.4415584415578,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -1022.3376623376619,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": -1022.3376623376619,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0650.*.*",
+      "eyebrow": "技术",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 613.8259413746965,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源",
+      "top": 10,
+      "trueX": 650.1362052581566,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 662.8259413746965,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 711.8259413746965,
+      "w": 78,
+      "z": 15
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 711.8259413746965,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 711.8259413746965,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 913.6775419702248,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 913.6775419702248,
+      "w": 50,
+      "z": 17
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1258.308520747545,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 1258.308520747545,
+      "w": 78,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1786.263698739283,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 1786.263698739283,
+      "w": 64,
+      "z": 19
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": -1022.3376623376619,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 2807.728856509343
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 650.1362052581566,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 1135.2549889135248
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 711.8259413746965,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 711.8259413746965,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 913.6775419702248,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 217.92841305036416
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 1258.308520747545,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 101.36205258156474
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 1471.1688311688308,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 15.20430788723479
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 1786.263698739283,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 516.0739635983787
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 14.317233825422429,
+      "text": "525"
+     },
+     {
+      "px": 141.01979955237834,
+      "text": "550"
+     },
+     {
+      "px": 267.72236527933427,
+      "text": "575"
+     },
+     {
+      "px": 394.42493100629014,
+      "text": "600"
+     },
+     {
+      "px": 521.1274967332461,
+      "text": "625"
+     },
+     {
+      "px": 647.830062460202,
+      "text": "650"
+     },
+     {
+      "px": 774.532628187158,
+      "text": "675"
+     },
+     {
+      "px": 901.2351939141139,
+      "text": "700"
+     },
+     {
+      "px": 1027.9377596410698,
+      "text": "725"
+     },
+     {
+      "px": 1154.6403253680257,
+      "text": "750"
+     },
+     {
+      "px": 1281.3428910949815,
+      "text": "775"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E5%8F%B9%E6%81%AF%E4%B9%8B%E5%A2%83%2F%E9%98%BF%E8%8E%B1%E4%BA%9A.md",
+   "input": {
+    "chronoH": 112,
+    "currentPath": "叹息之境/阿莱亚.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 24,
+     "w": 57
+    },
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": "axis",
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 282971.97000000003,
+     "lo": 190724.43
+    },
+    "width": 1280
+   },
+   "label": "alaiya-default-112"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 1222,
+     "width": 58
+    },
+    "compact": false,
+    "eras": [],
+    "hints": {
+     "offL": 3,
+     "offR": 6,
+     "ordL": 98589.204375,
+     "ordR": 237578.7
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 1221.8181818181802,
+      "text": "320"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": true,
+      "lane": 0,
+      "left": -7460.000000000001,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": "axis",
+      "trueX": -7460.000000000001,
+      "w": 64,
+      "z": 80
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -5360.000000000001,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -5360.000000000001,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -3260,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -3260,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 1221.8181818181802,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": 1221.8181818181802,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0650.*.*",
+      "eyebrow": "技术",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 30490.11086474501,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源",
+      "top": 10,
+      "trueX": 30490.11086474501,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 31569.68124678446,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼",
+      "top": 10,
+      "trueX": 31569.68124678446,
+      "w": 78,
+      "z": 15
+     },
+     {
+      "cluster": null,
+      "date": "0662.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 1,
+      "left": 31569.68124678446,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼",
+      "top": 68,
+      "trueX": 31569.68124678446,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 35102.08425720621,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 35102.08425720621,
+      "w": 50,
+      "z": 17
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 41133.12638580931,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 41133.12638580931,
+      "w": 78,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 50372.34200066473,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 50372.34200066473,
+      "w": 64,
+      "z": 19
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 1221.8181818181802,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 49135.254988913526
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 30490.11086474501,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 19866.962305986694
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 31569.68124678446,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 31569.68124678446,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 35102.08425720621,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 3813.7472283813695
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 41133.12638580931,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 1773.8359201773928
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 44858.18181818182,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 266.0753880265984
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 50372.34200066473,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 9031.294362971632
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": []
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E5%8F%B9%E6%81%AF%E4%B9%8B%E5%A2%83%2F%E9%98%BF%E8%8E%B1%E4%BA%9A.md",
+   "input": {
+    "chronoH": 520,
+    "currentPath": "叹息之境/阿莱亚.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 64,
+     "w": 61
+    },
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": "axis",
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 117285.804,
+     "lo": 112014.516
+    },
+    "width": 1280
+   },
+   "label": "alaiya-deepgen-520"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 58,
+     "width": 1164
+    },
+    "compact": false,
+    "eras": [],
+    "hints": {
+     "offL": 2,
+     "offR": 0,
+     "ordL": 89940.9975,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 58.181818181818166,
+      "text": "320"
+     },
+     {
+      "edge": true,
+      "px": 1221.8181818181818,
+      "text": "976"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -115.45454545454547,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": -115.45454545454547,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -73.45454545454545,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -73.45454545454545,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -31.454545454545446,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -31.454545454545446,
+      "w": 78,
+      "z": 12
+     }
+    ],
+    "spans": [],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 199.28154181672485,
+      "text": "400"
+     },
+     {
+      "px": 376.66513383446323,
+      "text": "500"
+     },
+     {
+      "px": 554.0487258522015,
+      "text": "600"
+     },
+     {
+      "px": 731.4323178699399,
+      "text": "700"
+     },
+     {
+      "px": 908.8159098876782,
+      "text": "800"
+     },
+     {
+      "px": 1086.1995019054166,
+      "text": "900"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E5%8F%B9%E6%81%AF%E4%B9%8B%E5%A2%83%2F%E8%90%A8%E7%BA%B3%E6%89%98%E6%96%AF.md",
+   "input": {
+    "chronoH": 112,
+    "currentPath": "叹息之境/萨纳托斯.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": null,
+    "prevTops": {
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 68,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "width": 1280
+   },
+   "label": "sanatos-default-112"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 642,
+     "width": 194
+    },
+    "compact": true,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 0,
+      "left": -2408.762749445676,
+      "lo": -3651968.55,
+      "name": "远古",
+      "showName": true,
+      "width": 2955.963035979062
+     },
+     {
+      "alt": true,
+      "hi": 242025.58,
+      "left": 743.0989374892815,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 0,
+     "offR": 0,
+     "ordL": null,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 641.9393939393939,
+      "text": "320"
+     },
+     {
+      "edge": true,
+      "px": 835.8787878787878,
+      "text": "976"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 603.4101995565409,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": 641.9393939393939,
+      "w": 50,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 687.4101995565409,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 754.8736141906874,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 771.4101995565409,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 805.7744733355491,
+      "w": 64,
+      "z": 15
+     },
+     {
+      "cluster": null,
+      "date": "0900.*.*",
+      "eyebrow": "当前",
+      "fuzzy": true,
+      "isOpen": true,
+      "lane": 0,
+      "left": 813.4101995565409,
+      "path": "关系测试.md",
+      "title": "关系测试",
+      "top": "axis",
+      "trueX": 813.4101995565409,
+      "w": 78,
+      "z": 80
+     },
+     {
+      "cluster": {
+       "altTitle": "阿莱亚、塞勒玛、叹息之境",
+       "memberTitles": [
+        "阿莱亚",
+        "塞勒玛",
+        "叹息之境"
+       ],
+       "ord": 114650.16,
+       "spanYears": 180.4
+      },
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 562,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "＋3 条",
+      "top": 10,
+      "trueX": 562,
+      "w": 78,
+      "z": 10
+     },
+     {
+      "cluster": {
+       "altTitle": "绯红能源、血色婚礼、血色婚礼",
+       "memberTitles": [
+        "绯红能源",
+        "血色婚礼",
+        "血色婚礼"
+       ],
+       "ord": 239801.64,
+       "spanYears": 36.516468172484394
+      },
+      "date": "0650.*.*",
+      "eyebrow": "同时",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 638.4101995565409,
+      "path": "黄金时代/绯红能源.md",
+      "title": "＋3 条",
+      "top": 10,
+      "trueX": 741.2996535192158,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": {
+       "altTitle": "灵矿航道之乱、丙卡、丁卡…",
+       "memberTitles": [
+        "灵矿航道之乱",
+        "丙卡",
+        "丁卡",
+        "甲卡",
+        "乙卡"
+       ],
+       "ord": 286804.35,
+       "spanYears": 88.63490759753584
+      },
+      "date": "0770.*.*",
+      "eyebrow": "同时",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 722.4101995565409,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "＋5 条",
+      "top": 10,
+      "trueX": 779.3444152548675,
+      "w": 78,
+      "z": 14
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 641.9393939393939,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 163.7841832963784
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 739.5003695491499,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 66.22320768662235
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 743.0989374892815,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 743.0989374892815,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 754.8736141906874,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 12.71249076127117
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 774.9770879526976,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 783.7117425570373,
+      "path": "簇测试/乙卡.md",
+      "title": "乙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 783.7117425570373,
+      "path": "簇测试/丙卡.md",
+      "title": "丙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 783.7117425570373,
+      "path": "簇测试/甲卡.md",
+      "title": "甲卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 783.7117425570373,
+      "path": "簇测试/丁卡.md",
+      "title": "丁卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 787.3939393939394,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 805.7744733355491,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 30.104314543238615
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": true,
+      "isOpen": true,
+      "left": 813.4101995565409,
+      "path": "关系测试.md",
+      "title": "关系测试 · 0900.*.*",
+      "width": 0
+     }
+    ],
+    "tail": {
+     "hidden": false,
+     "left": 536,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 695.0199465481682,
+      "text": "500"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E5%85%B3%E7%B3%BB%E6%B5%8B%E8%AF%95.md",
+   "input": {
+    "chronoH": 70,
+    "currentPath": "关系测试.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "关系测试.md": "当前",
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "簇测试/丁卡.md": "事件",
+     "簇测试/丙卡.md": "事件",
+     "簇测试/乙卡.md": "事件",
+     "簇测试/甲卡.md": "事件",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 64,
+     "w": 70
+    },
+    "prevTops": {
+     "关系测试.md": "axis",
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 905343.3600000001,
+     "lo": -676043.04
+    },
+    "width": 1280
+   },
+   "label": "guanxi-fargen-70"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": false,
+     "left": 446,
+     "width": 388
+    },
+    "compact": false,
+    "eras": [
+     {
+      "alt": false,
+      "hi": 0,
+      "left": -5655.343680709534,
+      "lo": -3651968.55,
+      "name": "远古",
+      "showName": true,
+      "width": 5911.926071958124
+     },
+     {
+      "alt": true,
+      "hi": 242025.58,
+      "left": 648.3796931603813,
+      "lo": 242024.58,
+      "name": "黄金时代",
+      "showName": false,
+      "width": 10
+     }
+    ],
+    "hints": {
+     "offL": 0,
+     "offR": 0,
+     "ordL": null,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 446.0606060606061,
+      "text": "320"
+     },
+     {
+      "edge": true,
+      "px": 833.9393939393939,
+      "text": "976"
+     },
+     {
+      "edge": false,
+      "px": 789.0022172949002,
+      "text": "900"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 313.0606060606061,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": 388.1818181818182,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 355.0606060606061,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": 402.1818181818182,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 397.0606060606061,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": 416.1818181818182,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0320.*.*",
+      "eyebrow": "贸易",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 446.0606060606061,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾",
+      "top": 10,
+      "trueX": 446.0606060606061,
+      "w": 50,
+      "z": 13
+     },
+     {
+      "cluster": null,
+      "date": "0702.*.*",
+      "eyebrow": "变法",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 640.7307648529163,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴",
+      "top": 10,
+      "trueX": 671.9290465631929,
+      "w": 50,
+      "z": 15
+     },
+     {
+      "cluster": null,
+      "date": "0770.*.*",
+      "eyebrow": "战争",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 675.7307648529163,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱",
+      "top": 10,
+      "trueX": 712.1359940872137,
+      "w": 78,
+      "z": 16
+     },
+     {
+      "cluster": null,
+      "date": "0874.08.17",
+      "eyebrow": "灾变",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 773.7307648529163,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏",
+      "top": 10,
+      "trueX": 773.7307648529163,
+      "w": 64,
+      "z": 18
+     },
+     {
+      "cluster": null,
+      "date": "0900.*.*",
+      "eyebrow": "当前",
+      "fuzzy": true,
+      "isOpen": true,
+      "lane": 0,
+      "left": 789.0022172949002,
+      "path": "关系测试.md",
+      "title": "关系测试",
+      "top": "axis",
+      "trueX": 789.0022172949002,
+      "w": 78,
+      "z": 80
+     },
+     {
+      "cluster": {
+       "altTitle": "绯红能源、血色婚礼、血色婚礼",
+       "memberTitles": [
+        "绯红能源",
+        "血色婚礼",
+        "血色婚礼"
+       ],
+       "ord": 239801.64,
+       "spanYears": 36.516468172484394
+      },
+      "date": "0650.*.*",
+      "eyebrow": "同时",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 591.7307648529163,
+      "path": "黄金时代/绯红能源.md",
+      "title": "＋3 条",
+      "top": 10,
+      "trueX": 644.7811252202497,
+      "w": 78,
+      "z": 14
+     },
+     {
+      "cluster": {
+       "altTitle": "丙卡、丁卡、甲卡…",
+       "memberTitles": [
+        "丙卡",
+        "丁卡",
+        "甲卡",
+        "乙卡"
+       ],
+       "ord": 292200,
+       "spanYears": 1
+      },
+      "date": "0800.01.01",
+      "eyebrow": "同时",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 724.7307648529163,
+      "path": "簇测试/丙卡.md",
+      "title": "＋4 条",
+      "top": 10,
+      "trueX": 729.6053032958928,
+      "w": 78,
+      "z": 17
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 446.0606060606061,
+      "path": "黄金时代/银湾.md",
+      "title": "银湾 · 0320.*.* → 0874.*.*",
+      "width": 327.5683665927568
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 641.1825572801183,
+      "path": "黄金时代/绯红能源.md",
+      "title": "绯红能源 · 0650.*.* → 0874.*.*",
+      "width": 132.44641537324458
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 648.3796931603813,
+      "path": "黄金时代/北伐.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 648.3796931603813,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "title": "血色婚礼 · 0662.08.17 → 0662.08.18",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 671.9290465631929,
+      "path": "黄金时代/废奴.md",
+      "title": "废奴 · 0702.*.* → 0745.*.*",
+      "width": 25.424981522542566
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 712.1359940872137,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "title": "灵矿航道之乱 · 0770.*.* → 0790.*.*",
+      "width": 11.825572801182375
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 729.6053032958928,
+      "path": "簇测试/乙卡.md",
+      "title": "乙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 729.6053032958928,
+      "path": "簇测试/丙卡.md",
+      "title": "丙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 729.6053032958928,
+      "path": "簇测试/甲卡.md",
+      "title": "甲卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 729.6053032958928,
+      "path": "簇测试/丁卡.md",
+      "title": "丁卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": true,
+      "isOpen": false,
+      "left": 736.969696969697,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "title": "卡德伦编年史 · 0812.*.* → 0815.*.*",
+      "width": 6
+     },
+     {
+      "fuzzyE": true,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 773.7307648529163,
+      "path": "黄金时代/大崩坏.md",
+      "title": "大崩坏 · 0874.08.17 → 0976.*.*",
+      "width": 60.20862908647757
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": true,
+      "isOpen": true,
+      "left": 789.0022172949002,
+      "path": "关系测试.md",
+      "title": "关系测试 · 0900.*.*",
+      "width": 0
+     }
+    ],
+    "tail": {
+     "hidden": false,
+     "left": 287.0606060606061,
+     "top": 30
+    },
+    "ticks": [
+     {
+      "px": 493.09384727224165,
+      "text": "400"
+     },
+     {
+      "px": 611.3495752840672,
+      "text": "600"
+     },
+     {
+      "px": 729.6053032958928,
+      "text": "800"
+     }
+    ]
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E5%85%B3%E7%B3%BB%E6%B5%8B%E8%AF%95.md",
+   "input": {
+    "chronoH": 112,
+    "currentPath": "关系测试.md",
+    "earliestOrd": 117046.2,
+    "flags": {
+     "关系测试.md": "当前",
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "簇测试/丁卡.md": "事件",
+     "簇测试/丙卡.md": "事件",
+     "簇测试/乙卡.md": "事件",
+     "簇测试/甲卡.md": "事件",
+     "黄金时代/北伐.md": "灾变",
+     "黄金时代/大崩坏.md": "灾变",
+     "黄金时代/废奴.md": "变法",
+     "黄金时代/灵矿航道之乱.md": "战争",
+     "黄金时代/绯红能源.md": "技术",
+     "黄金时代/血色婚礼/血色婚礼.md": "灾变",
+     "黄金时代/银湾.md": "贸易"
+    },
+    "full": {
+     "hi": 368630.4,
+     "lo": 105066
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 114650.16,
+    "items": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 356650.2,
+    "openSize": {
+     "h": 24,
+     "w": 70
+    },
+    "prevTops": {
+     "关系测试.md": "axis",
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 632194.8,
+     "lo": -158498.40000000002
+    },
+    "width": 1280
+   },
+   "label": "guanxi-farmid-112"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": true,
+     "left": 640,
+     "width": 0
+    },
+    "compact": false,
+    "eras": [],
+    "hints": {
+     "offL": 3,
+     "offR": 0,
+     "ordL": 291790.23515625,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 640,
+      "text": "800"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -162.00000000002038,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": -162.00000000002038,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -120,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": -120,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": -77.99999999997961,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": -77.99999999997961,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0800.01.01",
+      "eyebrow": "事件",
+      "fuzzy": false,
+      "isOpen": true,
+      "lane": 0,
+      "left": 640,
+      "path": "簇测试/甲卡.md",
+      "title": "甲卡",
+      "top": "axis",
+      "trueX": 640,
+      "w": 50,
+      "z": 80
+     },
+     {
+      "cluster": {
+       "altTitle": "丙卡、丁卡、乙卡",
+       "memberTitles": [
+        "丙卡",
+        "丁卡",
+        "乙卡"
+       ],
+       "ord": 292200,
+       "spanYears": 1
+      },
+      "date": "0800.01.01",
+      "eyebrow": "同时",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 591,
+      "path": "簇测试/丙卡.md",
+      "title": "＋3 条",
+      "top": 10,
+      "trueX": 640,
+      "w": 78,
+      "z": 13
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 640,
+      "path": "簇测试/乙卡.md",
+      "title": "乙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 640,
+      "path": "簇测试/丙卡.md",
+      "title": "丙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": true,
+      "left": 640,
+      "path": "簇测试/甲卡.md",
+      "title": "甲卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 640,
+      "path": "簇测试/丁卡.md",
+      "title": "丁卡 · 0800.01.01",
+      "width": 0
+     }
+    ],
+    "tail": {
+     "hidden": true,
+     "left": 2,
+     "top": 30
+    },
+    "ticks": []
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E7%B0%87%E6%B5%8B%E8%AF%95%2F%E7%94%B2%E5%8D%A1.md",
+   "input": {
+    "chronoH": 112,
+    "currentPath": "簇测试/甲卡.md",
+    "earliestOrd": 292200,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "簇测试/丁卡.md": "事件",
+     "簇测试/丙卡.md": "事件",
+     "簇测试/乙卡.md": "事件",
+     "簇测试/甲卡.md": "事件"
+    },
+    "full": {
+     "hi": 292565.25,
+     "lo": 291834.75
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 291834.75,
+    "items": [
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 292200,
+    "openSize": {
+     "h": 64,
+     "w": 58
+    },
+    "prevTops": {
+     "关系测试.md": "axis",
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 292565.25,
+     "lo": 291834.75
+    },
+    "width": 1280
+   },
+   "label": "jiaka-default-112"
+  },
+  {
+   "frame": {
+    "axis": {
+     "hidden": true,
+     "left": 640,
+     "width": 0
+    },
+    "compact": false,
+    "eras": [],
+    "hints": {
+     "offL": 0,
+     "offR": 0,
+     "ordL": null,
+     "ordR": null
+    },
+    "markers": [
+     {
+      "edge": true,
+      "px": 640,
+      "text": "800"
+     }
+    ],
+    "placements": [
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 316.66666666667345,
+      "path": "叹息之境/阿莱亚.md",
+      "title": "阿莱亚",
+      "top": 10,
+      "trueX": 372.6666666666598,
+      "w": 64,
+      "z": 10
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 358.66666666667345,
+      "path": "叹息之境/塞勒玛.md",
+      "title": "塞勒玛",
+      "top": 10,
+      "trueX": 386.66666666666663,
+      "w": 64,
+      "z": 11
+     },
+     {
+      "cluster": null,
+      "date": "-9999.*.*",
+      "eyebrow": "创世",
+      "fuzzy": true,
+      "isOpen": false,
+      "lane": 0,
+      "left": 400.66666666667345,
+      "path": "叹息之境/叹息之境.md",
+      "title": "叹息之境",
+      "top": 10,
+      "trueX": 400.66666666667345,
+      "w": 78,
+      "z": 12
+     },
+     {
+      "cluster": null,
+      "date": "0800.01.01",
+      "eyebrow": "事件",
+      "fuzzy": false,
+      "isOpen": true,
+      "lane": 0,
+      "left": 640,
+      "path": "簇测试/甲卡.md",
+      "title": "甲卡",
+      "top": "axis",
+      "trueX": 640,
+      "w": 50,
+      "z": 80
+     },
+     {
+      "cluster": {
+       "altTitle": "丙卡、丁卡、乙卡",
+       "memberTitles": [
+        "丙卡",
+        "丁卡",
+        "乙卡"
+       ],
+       "ord": 292200,
+       "spanYears": 1
+      },
+      "date": "0800.01.01",
+      "eyebrow": "同时",
+      "fuzzy": false,
+      "isOpen": false,
+      "lane": 0,
+      "left": 591,
+      "path": "簇测试/丙卡.md",
+      "title": "＋3 条",
+      "top": 10,
+      "trueX": 640,
+      "w": 78,
+      "z": 13
+     }
+    ],
+    "spans": [
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 640,
+      "path": "簇测试/乙卡.md",
+      "title": "乙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 640,
+      "path": "簇测试/丙卡.md",
+      "title": "丙卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": true,
+      "left": 640,
+      "path": "簇测试/甲卡.md",
+      "title": "甲卡 · 0800.01.01",
+      "width": 0
+     },
+     {
+      "fuzzyE": false,
+      "fuzzyS": false,
+      "isOpen": false,
+      "left": 640,
+      "path": "簇测试/丁卡.md",
+      "title": "丁卡 · 0800.01.01",
+      "width": 0
+     }
+    ],
+    "tail": {
+     "hidden": false,
+     "left": 290.66666666667345,
+     "top": 30
+    },
+    "ticks": []
+   },
+   "hash": "#/w/%E5%8D%A1%E7%BA%B3%E5%88%A9%E6%96%AF/%E7%B0%87%E6%B5%8B%E8%AF%95%2F%E7%94%B2%E5%8D%A1.md",
+   "input": {
+    "chronoH": 112,
+    "currentPath": "簇测试/甲卡.md",
+    "earliestOrd": 292200,
+    "flags": {
+     "叹息之境/叹息之境.md": "创世",
+     "叹息之境/塞勒玛.md": "创世",
+     "叹息之境/阿莱亚.md": "创世",
+     "簇测试/丁卡.md": "事件",
+     "簇测试/丙卡.md": "事件",
+     "簇测试/乙卡.md": "事件",
+     "簇测试/甲卡.md": "事件"
+    },
+    "full": {
+     "hi": 292565.25,
+     "lo": 291834.75
+    },
+    "genesisAll": [
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": "远古",
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/叹息之境.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "叹息之境"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/塞勒玛.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "塞勒玛"
+     },
+     {
+      "e": 0,
+      "end": "0000.01.01",
+      "era": null,
+      "flag": "创世",
+      "fuzzy": true,
+      "genesis": true,
+      "instant": false,
+      "path": "叹息之境/阿莱亚.md",
+      "s": -3651968.55,
+      "start": "-9999.*.*",
+      "title": "阿莱亚"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "贸易",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/银湾.md",
+      "s": 117046.2,
+      "start": "0320.*.*",
+      "title": "银湾"
+     },
+     {
+      "e": 319394.7,
+      "end": "0874.*.*",
+      "era": null,
+      "flag": "技术",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/绯红能源.md",
+      "s": 237578.7,
+      "start": "0650.*.*",
+      "title": "绯红能源"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/北伐.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 242025.58,
+      "end": "0662.08.18",
+      "era": "黄金时代",
+      "flag": "灾变",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/血色婚礼.md",
+      "s": 242024.58,
+      "start": "0662.08.17",
+      "title": "血色婚礼"
+     },
+     {
+      "e": 272277.45,
+      "end": "0745.*.*",
+      "era": null,
+      "flag": "变法",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/废奴.md",
+      "s": 256571.7,
+      "start": "0702.*.*",
+      "title": "废奴"
+     },
+     {
+      "e": 288713.7,
+      "end": "0790.*.*",
+      "era": null,
+      "flag": "战争",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/灵矿航道之乱.md",
+      "s": 281408.7,
+      "start": "0770.*.*",
+      "title": "灵矿航道之乱"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     },
+     {
+      "e": 297844.95,
+      "end": "0815.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/血色婚礼/卡德伦编年史.md",
+      "s": 296749.2,
+      "start": "0812.*.*",
+      "title": "卡德伦编年史"
+     },
+     {
+      "e": 356650.2,
+      "end": "0976.*.*",
+      "era": null,
+      "flag": "灾变",
+      "fuzzy": true,
+      "genesis": false,
+      "instant": false,
+      "path": "黄金时代/大崩坏.md",
+      "s": 319457.58,
+      "start": "0874.08.17",
+      "title": "大崩坏"
+     },
+     {
+      "e": 328891.2,
+      "end": "0900.*.*",
+      "era": null,
+      "flag": null,
+      "fuzzy": true,
+      "genesis": false,
+      "instant": true,
+      "path": "关系测试.md",
+      "s": 328891.2,
+      "start": "0900.*.*",
+      "title": "关系测试"
+     }
+    ],
+    "genesisOrd": 291834.75,
+    "items": [
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/乙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "乙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丙卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丙卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/甲卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "甲卡"
+     },
+     {
+      "e": 292200,
+      "end": "0800.01.01",
+      "era": null,
+      "flag": "事件",
+      "fuzzy": false,
+      "genesis": false,
+      "instant": true,
+      "path": "簇测试/丁卡.md",
+      "s": 292200,
+      "start": "0800.01.01",
+      "title": "丁卡"
+     }
+    ],
+    "lang": "zh-CN",
+    "latestOrd": 292200,
+    "openSize": {
+     "h": 64,
+     "w": 58
+    },
+    "prevTops": {
+     "关系测试.md": "axis",
+     "叹息之境/叹息之境.md": 10,
+     "叹息之境/塞勒玛.md": 10,
+     "叹息之境/阿莱亚.md": 10,
+     "簇测试/甲卡.md": "axis",
+     "黄金时代/北伐.md": 10,
+     "黄金时代/大崩坏.md": 10,
+     "黄金时代/废奴.md": 10,
+     "黄金时代/灵矿航道之乱.md": 10,
+     "黄金时代/绯红能源.md": 10,
+     "黄金时代/血色婚礼/血色婚礼.md": 10,
+     "黄金时代/银湾.md": 10
+    },
+    "view": {
+     "hi": 293295.75,
+     "lo": 291104.25
+    },
+    "width": 1280
+   },
+   "label": "jiaka-farmid-112"
+  }
+ ]
+}

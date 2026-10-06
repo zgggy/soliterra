@@ -6,6 +6,7 @@ import { api, t, state, navigate, bindCoverFallbacks } from './app.js';
 import { showLinkCard, hideCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub } from './exporter.js';
+import { computeLayout } from './timeline-layout.js';   // 第 75 轮：布局引擎（纯函数；规则单点真相，本文件只做输入装配与 DOM 应用）
 
 const YEAR = 365.25;
 // 世界数据缓存（tree/timeline 变化少）：导航重渲染几乎同步 → 消除闪屏
@@ -951,6 +952,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   wrap.appendChild(eras);
   const flagEls = new Map();     // path -> 旗标元素（跨 layout 复用 → 位置/宽度随缩放平滑过渡）
   const spanEls = new Map();     // path -> 覆盖条元素
+  const topMemo = new Map();     // path -> 上一帧 top（创世尾箭头单帧滞后取样；第 75 轮起不再写回条目对象）
 
   // ---------- 高模式（§A 修正版）：高度 > 2/3 屏 → 本书全部（有时刻）条目上轴 ----------
   // 显示逻辑与普通模式完全一致（轴线/刻度/按时间定位/引线/分道堆叠都不变），只是面积变大、
@@ -1041,394 +1043,138 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     return '';
   }
 
-  const TICK_STEPS = [1, 2, 5, 10, 25, 50, 100, 200, 500, 1000, 2000, 5000, 10000];
-  function tickStep() {
-    const width = wrap.clientWidth || 1200;
-    const perYear = width / ((view.hi - view.lo) / YEAR);
-    return TICK_STEPS.find((s) => s >= 90 / perYear) || 10000;
-  }
-  function x(ord) { return ((ord - view.lo) / (view.hi - view.lo)) * wrap.clientWidth; }
-
   function layout() {
     const width = wrap.clientWidth;
     if (!width) return;
+    // 打开卡实测尺寸：**应用前**取样（与本帧样式一致；旧管线亦在应用前读取）
+    const oEl0 = flagEls.get(ctx.currentPath);
+    const openSize = oEl0 ? { w: oEl0.offsetWidth, h: oEl0.offsetHeight } : null;
+    const prevTops = Object.fromEntries(topMemo);   // 上一帧 top（创世尾箭头取样沿用单帧滞后；合并成员保留其上次单独显示的值）
     // 高模式判定（§A）：高度目标 > 2/3 屏进入（退出阈 2/3 − 24px 滞回）；读 --chrono-h（拖动目标值，非过渡值）
     const hTarget = parseInt(getComputedStyle(worldViewEl).getPropertyValue('--chrono-h')) || 112;
     const t1 = window.innerHeight * 2 / 3;
     tall = tall ? hTarget > t1 - 24 : hTarget > t1;
-    ticks.innerHTML = '';
-    // 打开文档的起止时刻：与标尺刻度同款——轴下方一个年份（墨色、加粗区分）；顺带避免与常规刻度标签重叠
-    markers.innerHTML = '';
-    const cur = items.find((i) => i.path === ctx.currentPath);
-    const markerPx = [];
-    const zh = state.lang === 'zh-CN';
-    const addMarker = (ord, { edge = false, title = '' } = {}) => {
-      if (ord == null) return;
-      const px = x(ord);
-      if (px < -40 || px > width + 40) return;
-      if (markerPx.some((mp) => Math.abs(mp - px) < 24)) return;   // 就近让位（同年份同位不重复绘）
-      markerPx.push(px);
-      const tEl = document.createElement('span');
-      tEl.className = `tick chrono-marker-tick${edge ? ' edge' : ''}`;
-      tEl.style.left = px + 'px';
-      const y = Math.floor(ord / YEAR);   // 所在年份（0847.08 不得四舍五入成 848）
-
-      tEl.textContent = y < 0 ? `前${Math.abs(y)}` : String(y);
-      if (title) tEl.title = title;
-      markers.appendChild(tEl);
-    };
-    // 范围起终点（2026-10-06）：首尾各一个更高刻度；常规刻度让位
-    addMarker(earliestOrd, { edge: true, title: zh ? '范围起点（最早时间）' : 'Range start' });
-    addMarker(latestOrd, { edge: true, title: zh ? '范围终点（最晚结束）' : 'Range end' });
-    if (cur && !cur.genesis) {   // 创世条目无时间语义，不起止标记
-      addMarker(cur.s);
-      if (cur.e != null && cur.e > cur.s) addMarker(cur.e);
-    }
-    const step = tickStep();
-    const y0 = Math.floor((view.lo / YEAR) / step) * step;
-    const y1 = Math.ceil((view.hi / YEAR) / step) * step;
-    let guard = 0;
-    for (let y = y0; y <= y1 && guard < 400; y += step, guard++) {
-      const ord = y * YEAR;
-      if (earliestOrd != null && (ord < earliestOrd || ord > latestOrd)) continue;   // 范围外不刻度
-      const px = x(y * YEAR);
-      if (px < -20 || px > width + 20) continue;
-      if (markerPx.some((mp2) => Math.abs(mp2 - px) < 30)) continue;   // 让位起止标记
-      const tEl = document.createElement('span');
-      tEl.className = 'tick';
-      tEl.style.left = px + 'px';
-      tEl.textContent = y < 0 ? `前${Math.abs(y)}` : String(y);
-      ticks.appendChild(tEl);
-    }
-    // 旗标布局：正常位置显示；重叠时「越晚图层越高」，较早的卡片依次向左让出 10px（时间位置不变）
-    // 旗标池 = 当前范围条目 ∪ **全世界创世条目**（跨书恒显示：创世是世界本源，点进任何书/文档都不消失）
+    // ── 布局引擎（第 75 轮）：纯函数算出整帧（placements/spans/ticks/markers/eras/axis/hints/tail）——
+    //    碰撞半箱、first-fit 分道、三类聚簇、创世虚拟时刻、O 卡三通道等规则全部收敛在 timeline-layout.js；
+    //    本文件只负责「读输入 → computeLayout → 应用 DOM」+ 显示策略（displayFlagOf）与元素池。
     const pool = new Map(items.map((i) => [i.path, i]));
-    for (const i of allItems) if (i.genesis) pool.set(i.path, i);
-    const GAP = 10;   // 半箱让位最小间距（级联 / O 链 / 创世虚拟排布共用——统一常量）
-    const cmpTime = (a, b) => ((a.s ?? -Infinity) - (b.s ?? -Infinity)) || String(a.title).localeCompare(String(b.title), 'zh-Hans-CN');   // 时间序 → 首字母（拼音）序
-    const flagItems = [...pool.values()].filter((i) => displayFlagOf(i)).sort(cmpTime);
-    const genesisX = genesisOrd != null ? x(genesisOrd) : 6;   // 创世基准 = 虚拟时刻坐标（与普通卡同式 x(ord)）；全库无时刻时贴左缘
-    // 创世**逐条虚拟时刻**（第 74 轮，用户方案）：在**默认视图尺度**下先把整排按半箱避让排开（右缘齐基准、
-    // 逐张向左让位——与级联同式），再把避让后的最终 px 位置**反解成各自的虚拟时刻**——每条创世有自己的虚拟时间
-    // （不再是同一锚点再事后级联）；顺序 = 时间序（创世 &s 可不同）→ 首字母序。默认视图下零级联位移；
-    // 缩放/拖动/合并全部走普通坐标逻辑（缩到间距 <10px 时按同一规则聚簇）。
-    const genV = new Map();
-    if (genesisOrd != null && earliestOrd != null && width > 0) {
-      const genList = flagItems.filter((i) => i.genesis);
-      if (genList.length) {
-        const spanD = full.hi - full.lo;                        // 默认视图跨度（rescope 的 [lo−pad, hi+pad]）
-        const pxA = ((genesisOrd - full.lo) / spanD) * width;   // 基准右缘在默认视图的 px
-        const lw = genList.map((it) => flagBaseW(it.title));
-        const left = genList.map((it, i) => pxA - lw[i]);       // 初始：右缘齐基准（时间→首字母序，右者为后）
-        for (let i = genList.length - 2; i >= 0; i--) {
-          const need = left[i + 1] - lw[i] / 2 - GAP;           // 半箱避让（与级联同式）
-          if (left[i] > need) left[i] = need;
-        }
-        genList.forEach((it, i) => genV.set(it.path, full.lo + (left[i] / width) * spanD));
-      }
-    }
-    for (let i = 0; i < flagItems.length; i++) {
-      const it = flagItems[i];
-      it._w = flagBaseW(it.title);
-      it._trueX = it.genesis
-        ? (genV.has(it.path) ? x(genV.get(it.path)) : (genesisX - it._w))   // 创世 = 各自虚拟时刻（genV 存序数 → x() 转像素）
-        : x(it.s);                                                          // 普通卡 = 真实时刻
-      it._left = it._trueX;
-      it._z = 10 + i;               // 越晚（列表越靠后）图层越高
-    }
-    // 高度：道数/形态/让位统一读 --chrono-h 目标值（与 tall 同源；旧码用过渡中的 clientHeight 会分段跳变）
-    const chronoH = hTarget;
-    const FLAG_H = 52;
-    const COMPACT = chronoH < 84;                                            // 矮：只显示名字
-    const maxLanes = Math.max(1, Math.floor((chronoH - 26 - FLAG_H) / (FLAG_H + 6)) + 1);   // 高：允许重叠卡片分道
-    // 让位量恒为「露出左半」（w/2 + GAP），**所有卡片统一、无上限**——半箱规则是硬保证
-    // （第 69 轮：删除 1.5×卡宽上限——它会截断让位、把卡片留在被盖状态；创世卡同样遵循，无例外）
-    const chain = flagItems.filter((it) => it.path !== ctx.currentPath);   // 打开中的卡片恒在最上，不参与堆叠位移
+    for (const i of allItems) if (i.genesis) pool.set(i.path, i);   // 旗标池 = 本书 items ∪ 全世界创世（跨书恒显示）
+    const flags = {};
+    for (const it of pool.values()) { const e2 = displayFlagOf(it); if (e2) flags[it.path] = e2; }
+    const frame = computeLayout({
+      items, genesisAll: allItems, flags,
+      view, full, width, chronoH: hTarget, lang: state.lang, currentPath: ctx.currentPath,
+      genesisOrd, earliestOrd, latestOrd,
+      openSize, prevTops,
+    });
+    applyFrame(frame);
+    topMemo.clear();
+    for (const p of frame.placements) if (!p.cluster) topMemo.set(p.path, p.top);
+    // （旗标池装配 / 逐条虚拟时刻 / first-fit 分道 / 三类聚簇 / z 重排 / 同道级联 / O 卡 A·B·C 三通道 /
+    //   尾箭头取样 / 出界计数——全部收敛进引擎 timeline-layout.js，本文件不再保留第二份实现）
 
-    // ── 分道 first-fit（§E.2）：找最低的道「其末卡左半 + GAP 不越过本卡真实位置」；全满 → 重叠最小之道兜底
-    const laneLast = new Array(maxLanes).fill(null);
-    for (const it of chain) {
-      let L = -1;
-      for (let j = 0; j < maxLanes; j++) {
-        const last = laneLast[j];
-        if (!last || last._trueX + last._w / 2 + GAP <= it._trueX) { L = j; break; }
-      }
-      if (L < 0) {
-        let best = 0, bestOv = Infinity;
-        for (let j = 0; j < maxLanes; j++) {
-          const last = laneLast[j];
-          const ov = last ? Math.max(0, last._trueX + last._w / 2 + GAP - it._trueX) : 0;
-          if (ov < bestOv) { bestOv = ov; best = j; }
-        }
-        L = best;
-      }
-      it._lane = L;
-      laneLast[L] = it;
-    }
 
-    // ── 聚合簇（§E.3 + 第 71 轮统一规则）：**三类互斥、类内全并**——
-    //    ① 创世（时间轴前）② 打开条目左侧的 ③ 打开条目右侧的；
-    //    跨类不并，类内满足「同道 + 相邻锚点 < CLUSTER_GAP + ≥3 张」即可并；
-    //    打开卡自身是三类的参照点、永不参与聚簇（强调卡不再豁免——所有满足条件的都能并）。
-    const CLUSTER_GAP = 10;
-    const openOrd = flagItems.find((it) => it.path === ctx.currentPath)?.s ?? null;
-    const clsOf = (it) => (it.genesis ? 1 : (openOrd != null && it.s < openOrd ? 2 : 3));
-    const clusterable = (it) => it.path !== ctx.currentPath;
-    const laneMembers = new Map();
-    for (const it of chain) {
-      if (!laneMembers.has(it._lane)) laneMembers.set(it._lane, []);
-      laneMembers.get(it._lane).push(it);
-    }
-    const mergedPaths = new Set();
-    const clusters = [];
-    // 相邻判定 = **左缘距离（_trueX）**——逐条虚拟时刻后创世的 v 即左缘，与普通卡完全同式
-    // （旧「创世右缘对齐」特例已随第 74 轮逐条虚拟时刻废除：右缘差=宽度差会在深缩放撑破 <10 阈值）
-    for (const grp of laneMembers.values()) {
-      let i = 0;
-      while (i < grp.length) {
-        if (!clusterable(grp[i])) { i++; continue; }
-        let j = i + 1;
-        // 段延续 = 同类（clsOf 相等即天然断在类别边界，含打开卡两侧）+ 左缘间距达标
-        while (j < grp.length && clusterable(grp[j])
-               && Math.abs(grp[j]._trueX - grp[j - 1]._trueX) < CLUSTER_GAP
-               && clsOf(grp[j]) === clsOf(grp[j - 1])) j++;
-        const run = grp.slice(i, j);
-        if (run.length >= 3) {
-          const first = run[0], last = run[run.length - 1];
-          const isGen = !!first.genesis;
-          const cl = {
-            ...first,
-            path: first.path,                    // 元素复用键 = 首成员
-            cluster: run,
-            flag: isGen ? first.flag : (zh ? '同时' : 'SAME'),   // 创世簇眉题=创世；余为「同时」
-            title: zh ? `＋${run.length} 条` : `+${run.length}`,
-            s: isGen ? (genesisOrd ?? first.s ?? last.s)   // 创世簇 = **虚拟时刻**（点击取景不再飞到前 9999）
-                     : ((first.s != null && last.s != null) ? (first.s + last.s) / 2 : (first.s ?? last.s ?? earliestOrd)),   // 普通簇 = 成员中心（首成员时刻会与同刻打开卡混淆左右侧）
-            e: null, instant: true,
-            fuzzy: run.some((m) => m.fuzzy),
-            genesis: isGen,                      // 创世簇保持创世身份（尾箭头/互避链照常）
-          };
-          cl._lane = first._lane;
-          cl._w = flagBaseW(cl.title);
-          cl._trueX = isGen ? genesisX - cl._w : x(cl.s);   // 创世簇同创世锚定规则
-          cl._left = cl._trueX;
-          clusters.push(cl);
-          for (const m of run) mergedPaths.add(m.path);
-        }
-        i = j;
-      }
-    }
-    const arrange = [...flagItems.filter((it) => !mergedPaths.has(it.path)), ...clusters];
-    // z 序 = 时间序，**簇按中心时刻参与排名**（第 72 轮：「合并为簇的也要比左边的图层高，因为它的时间晚」）——
-    // 原 cl._z = first._z 取首成员（最早）的 z：时间介于首成员与中心之间的左侧卡片会反过来压住簇。
-    arrange.slice().sort(cmpTime)
-      .forEach((it, i) => { it._z = 10 + i; });
 
-    // ── 让位（§E.1）：同道内级联——「左 1/2 检测箱」，后卡只可压前卡右半；
-    //    不撞左半零位移；单卡累计左移 ≤ 1.5×卡宽（护栏）。_trueX 不变 → 引线垂真实时刻。
-    const laneArrange = new Map();
-    for (const it of arrange) {
-      if (it.path === ctx.currentPath) continue;      // 打开中的卡片贴轴，不参与堆叠位移
-      if (it._lane == null) continue;
-      if (!laneArrange.has(it._lane)) laneArrange.set(it._lane, []);
-      laneArrange.get(it._lane).push(it);
-    }
-    for (const grp of laneArrange.values()) {
-      grp.sort((a, b) => a._trueX - b._trueX);   // 簇对象 append 在末尾会错乱链序 → 按时间位置排序再级联（第 71 轮）
-      for (let i = grp.length - 2; i >= 0; i--) {
-        const cur = grp[i], nxt = grp[i + 1];
-        const need = nxt._left - cur._w / 2 - GAP;                     // 露左半（创世卡同规则）
-        if (cur._left > need) cur._left = need;
-      }
-    }
 
-    // 创世组：**不钉在屏幕内**（2026-10-06 用户要求）——锚在「最早时间坐标左 8px」处、按同一半箱规则向左铺开；
-    // 拖动/缩放时与其他卡片一样自然随之移动（可整排移出屏幕；出界指示「◀N」可一键带回）。
-    const genItems = arrange.filter((it) => it.genesis);
-    // ── 打开中的卡片参与碰撞（2026-10-06 用户要求）：它恒在最上（z=80），但与其他卡片互不遮挡。
-    //    A) O 是创世 → 创世组（含 O，O 视作组内最上）重排 + 整组归一
-    //    B) O 非创世且盖到创世卡左半 → **O 右移越过**（创世恒可见优先，改由打开卡让位）
-    //    C) 纵向带与 O 相交（重叠 >6px）的各道：被 O 盖住左半的卡片链式左让（O 视作链末"后卡"）
-    const openIt = arrange.find((it) => it.path === ctx.currentPath);
-    if (openIt) {
-      const oEl = flagEls.get(openIt.path);
-      const oH = (oEl && oEl.offsetHeight) || (COMPACT ? 26 : 64);   // 打开卡实际高度（元素已存在时实测）
-      // 卡片在 .chrono-canvas（inset 0 0 28px）内定位：贴轴卡底边 = 画布底 −6（画布 = 面板 −28）
-      const oTop = (chronoH - 28) - 6 - oH;
-      if (openIt.genesis && genItems.length > 1) {
-        // O 是创世：**按虚拟时刻相对 O 分两侧**（第 74 轮）——早于 O 的向左链（右端对 O 左半保半箱）、
-        // 晚于 O 的向右链（首位贴 O 右缘零间距，链内半箱），与普通卡 C 通道同构。
-        // （旧「O 视作链末」假定 O 必是最右——首字母序下 O 可在组中间/最左，会把组序拉乱。）
-        const oLg = openIt._left;
-        const oRg = openIt._left + (oEl && oEl.offsetWidth ? oEl.offsetWidth : openIt._w);
-        const others = genItems.filter((x) => x !== openIt).slice().sort((a, b) => a._trueX - b._trueX);
-        let li = -1;
-        for (let i = 0; i < others.length; i++) if (others[i]._trueX < openIt._trueX) li = i;   // 最后一个虚拟位置在 O 之前的
-        for (let i = li; i >= 0; i--) {                    // 左侧：自右向左链式
-          const cur = others[i];
-          const nxt = i === li ? { _left: oLg, _w: openIt._w } : others[i + 1];
-          const need = nxt._left - cur._w / 2 - GAP;
-          if (cur._left > need) cur._left = need;
-        }
-        let block = oRg;                                  // 右侧：自左向右，首位贴 O 右缘（零间距）
-        for (let i = li + 1; i < others.length; i++) {
-          const cur = others[i];
-          if (cur._left < block) cur._left = block;
-          block = cur._left + cur._w / 2 + GAP;
-        }
-      } else if (genItems.length && !openIt.genesis) {
-        for (let it2 = 0; it2 < 4; it2++) {                 // O 右移越过被压的创世卡（循环至稳定）
-          let need = openIt._left;
-          for (const g of genItems) {
-            if (g._left < openIt._left + openIt._w && g._left + g._w / 2 + GAP > openIt._left) need = Math.max(need, g._left + g._w / 2 + GAP);
-          }
-          if (need === openIt._left) break;
-          openIt._left = need;
-        }
-      }
-      const oR = openIt._left + (oEl && oEl.offsetWidth ? oEl.offsetWidth : openIt._w);   // 实测宽（右侧贴齐用）
-      for (const [lane, grp] of laneArrange) {
-        if (10 + lane * (FLAG_H + 6) + oH - oTop <= 10) continue;  // 带状不相交（相邻道叠片 ≤10px 属设计）→ 不干涉
-        const grpC = grp.filter((x) => !x.genesis);                // 创世卡不在此让位（A/B 已保证不与 O 互遮）
-        const covered = (cur) => cur._left < oR && cur._left + cur._w / 2 + GAP > openIt._left;
-        // 不晚于 O 的卡片：向左链式让位（自右向左）
-        for (let i = grpC.length - 1; i >= 0; i--) {
-          const cur = grpC[i];
-          if (cur._trueX > openIt._trueX) continue;
-          let target = cur._left;
-          if (covered(cur)) target = Math.min(target, openIt._left - cur._w / 2 - GAP);
-          const nxt = i === grpC.length - 1 ? null : grpC[i + 1];
-          if (nxt && nxt._trueX <= openIt._trueX && nxt._left < cur._left + cur._w / 2 + GAP) target = Math.min(target, nxt._left - cur._w / 2 - GAP);
-          if (target < cur._left) cur._left = target;
-        }
-        // 晚于 O 的卡片：向右链式让位（自左向右，保持时间次序）——右侧**不留间距**，紧贴打开卡右缘（2026-10-06 用户要求）
-        let blockUntil = oR;
-        for (let i = 0; i < grpC.length; i++) {
-          const cur = grpC[i];
-          if (cur._trueX <= openIt._trueX) continue;
-          if (cur._left < blockUntil) cur._left = blockUntil;
-          blockUntil = cur._left + cur._w / 2 + GAP;
-        }
-      }
-    }
-    // 创世向左渐隐箭头：跟组左缘；组左缘已出屏（或整组出屏）时隐藏——箭头只标"组的左端在哪"
-    if (genItems.length) {
-      let mnT = Infinity, minTop = Infinity;
-      for (const it of genItems) { mnT = Math.min(mnT, it._left); minTop = Math.min(minTop, typeof it._top === 'number' ? it._top : 10); }
-      genesisTail.hidden = !(mnT > 6);
-      genesisTail.style.left = (mnT - 26) + 'px';
-      genesisTail.style.top = (minTop + FLAG_H / 2 - 6) + 'px';
-    } else genesisTail.hidden = true;
-    // 出界指示：完全在视口外的卡片数（按放置位置；簇计入）
-    let offL = 0, offR = 0, nearL = null, nearR = null;
-    for (const it of arrange) {
-      if (it._left + it._w < 2) { offL++; if (!nearL || it._trueX > nearL._trueX) nearL = it; }
-      else if (it._left > width - 2) { offR++; if (!nearR || it._trueX < nearR._trueX) nearR = it; }
-    }
-    hintL.hidden = offL === 0;
-    hintL.__ord = nearL ? (nearL.genesis ? (genV.get(nearL.path) ?? genesisOrd) : nearL.s) : null;   // 时间序数（创世取**该条目自己的**虚拟时刻，勿传真实 -9999）
-    hintL.querySelector('.hint-n').textContent = String(offL);
-    hintL.title = zh ? `还有 ${offL} 条在视野外 · 点击带回` : `${offL} off-screen · click to bring back`;
-    hintR.hidden = offR === 0;
-    hintR.__ord = nearR ? (nearR.genesis ? (genV.get(nearR.path) ?? genesisOrd) : nearR.s) : null;
-    hintR.querySelector('.hint-n').textContent = String(offR);
-    hintR.title = zh ? `还有 ${offR} 条在视野外 · 点击带回` : `${offR} off-screen · click to bring back`;
-    for (const it of arrange) {
-      if (it._lane == null) it._lane = 0;
-      if (it.path === ctx.currentPath) { it._z = 80; it._top = 'axis'; }   // 打开中的卡片图层最上、紧贴轴线
-      else it._top = 10 + it._lane * (FLAG_H + 6);
-    }
 
-    // 覆盖条 + 旗标：**复用既有元素**（跨 layout 只改样式）→ 缩放/改高时位置与大小平滑过渡
+
+
+
+
+
+
+    lastTimelineView = { world: ctx.worldId, book: (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, ''), lo: view.lo, hi: view.hi };
+  }
+
+  /** 应用一帧布局（引擎输出 → DOM）：元素池复用（跨 layout 只改样式）→ 缩放/改高平滑过渡；本函数不做任何布局计算。 */
+  function applyFrame(frame) {
+    const zh = state.lang === 'zh-CN';
+    const COMPACT = frame.compact;
+    // 刻度（第 75 轮起由引擎给 px/text；第 77 轮改元素复用）
+    ticks.innerHTML = '';
+    for (const t2 of frame.ticks) {
+      const el = document.createElement('span');
+      el.className = 'tick';
+      el.style.left = t2.px + 'px';
+      el.textContent = t2.text;
+      ticks.appendChild(el);
+    }
+    // 起止标记：范围首尾高刻度（edge）+ 打开文档起止（与标尺同款墨色）
+    markers.innerHTML = '';
+    for (const m of frame.markers) {
+      const el = document.createElement('span');
+      el.className = `tick chrono-marker-tick${m.edge ? ' edge' : ''}`;
+      el.style.left = m.px + 'px';
+      el.textContent = m.text;
+      if (m.kind === 'start') el.title = zh ? '范围起点（最早时间）' : 'Range start';
+      else if (m.kind === 'end') el.title = zh ? '范围终点（最晚结束）' : 'Range end';
+      markers.appendChild(el);
+    }
+    // 覆盖条
     const shownSpans = new Set();
-    for (const it of items) {
-      if (it.genesis) continue;   // 创世条目无覆盖条（不按 &s 生效）
-      const sx = x(it.s);
-      const ex = it.e != null ? x(it.e) : sx;
-      const w = Math.max(ex - sx, it.instant ? 0 : 6);
-      let span = spanEls.get(it.path);
+    for (const s of frame.spans) {
+      let span = spanEls.get(s.path);
       if (!span) {
         span = document.createElement('div');
-        span.dataset.path = it.path;
-        spanEls.set(it.path, span);
+        span.dataset.path = s.path;
+        spanEls.set(s.path, span);
         canvas.appendChild(span);
       }
-      // 模糊 = 按端渐隐（§E.4）：从 &s/&e 原文串解析每端 `*`（前端自足）
-      const sFz = String(it.start || '').includes('*');
-      const eFz = !it.instant && String(it.end || '').includes('*');
-      span.className = `span-bar${sFz ? ' fuzzy-s' : ''}${eFz ? ' fuzzy-e' : ''}${it.path === ctx.currentPath ? ' open' : ''}`;
-      span.style.left = sx + 'px';
-      span.style.width = w + 'px';
-      span.title = `${it.title} · ${it.start}${it.end && !it.instant ? ' → ' + it.end : ''}`;
-      shownSpans.add(it.path);
+      // 模糊 = 按端渐隐（§E.4）：引擎已按端解析 `*`（第 76 轮迁入数据层）
+      span.className = `span-bar${s.fuzzyS ? ' fuzzy-s' : ''}${s.fuzzyE ? ' fuzzy-e' : ''}${s.isOpen ? ' open' : ''}`;
+      span.style.left = s.left + 'px';
+      span.style.width = s.width + 'px';
+      span.title = s.title;
+      shownSpans.add(s.path);
     }
-    for (const [path0, el0] of [...spanEls]) if (!shownSpans.has(path0)) { el0.remove(); spanEls.delete(path0); }
-
+    for (const [p0, el0] of [...spanEls]) if (!shownSpans.has(p0)) { el0.remove(); spanEls.delete(p0); }
+    // 旗标（渲染 = 引擎最终排布列表，含簇；全世界创世在池内）
     const shownFlags = new Set();
-    for (const it of arrange) {   // 渲染 = 最终排布列表（含簇；全世界创世在池内）
-      const eyebrow = displayFlagOf(it);
-      if (!eyebrow) continue;
-      const flag = ensureFlagEl(it.path);
-      const isHoverExpand = it.path === ctx.currentPath;
-      flag.className = `event-flag${isHoverExpand ? ' open expand' : ''}${ctx.pins.has(it.path) ? ' pinned' : ''}${COMPACT ? ' compact' : ''}${!COMPACT && it._lane > 0 ? ' lane' : ''}`;
-      flag.dataset.z = String(it._z);
-      flag.style.left = it._left + 'px';
-      if (it._top === 'axis') { flag.style.top = 'auto'; flag.style.bottom = '6px'; flag.classList.add('axis-anchored'); }
-      else { flag.style.top = (it._top || 10) + 'px'; flag.style.bottom = 'auto'; flag.classList.remove('axis-anchored'); }
-      flag.style.setProperty('--lead-x', (it._trueX - it._left + 10) + 'px');   // 引线始终垂在真实开始时刻
-      flag.style.setProperty('--flag-w', it._w + 'px');   // 基础宽 = 最多 4 字（内容自然宽，hover 不跳变）
+    for (const p of frame.placements) {
+      const flag = ensureFlagEl(p.path);
+      flag.className = `event-flag${p.isOpen ? ' open expand' : ''}${ctx.pins.has(p.path) ? ' pinned' : ''}${COMPACT ? ' compact' : ''}${!COMPACT && p.lane > 0 ? ' lane' : ''}`;
+      flag.dataset.z = String(p.z);
+      flag.style.left = p.left + 'px';
+      if (p.top === 'axis') { flag.style.top = 'auto'; flag.style.bottom = '6px'; flag.classList.add('axis-anchored'); }
+      else { flag.style.top = p.top + 'px'; flag.style.bottom = 'auto'; flag.classList.remove('axis-anchored'); }
+      flag.style.setProperty('--lead-x', (p.trueX - p.left + 10) + 'px');   // 引线始终垂在真实开始时刻
+      flag.style.setProperty('--flag-w', p.w + 'px');                      // 基础宽 = 最多 4 字（内容自然宽，hover 不跳变）
       // 打开中的卡片恒最上（z=80；expand 态也被显式置 80，不因 hover 逻辑漏设）
-      if (it.path === ctx.currentPath) flag.style.zIndex = '80';
-      else if (!flag.classList.contains('expand')) flag.style.zIndex = String(it._z);
+      if (p.isOpen) flag.style.zIndex = '80';
+      else if (!flag.classList.contains('expand')) flag.style.zIndex = String(p.z);
       if (flag.dataset.fresh === '1') {       // 新建卡片淡入（160ms；高分道展开/缩回时同样生效）
         flag.dataset.fresh = '';
         flag.classList.add('card-in');
         flag.addEventListener('animationend', () => flag.classList.remove('card-in'), { once: true });
       }
-      paintFlag(flag, { eyebrow, title: it.title, date: it.start, fuzzy: it.fuzzy, pinned: ctx.pins.has(it.path) });
+      paintFlag(flag, { eyebrow: p.eyebrow, title: p.title, date: p.date, fuzzy: p.fuzzy, pinned: ctx.pins.has(p.path) });
       // 聚合簇（§E.3）：点击=取景、hover 换成员名单、原生 title=全名单；解散（同元素复用键）时还原
-      if (it.cluster) {
-        const last = it.cluster[it.cluster.length - 1];
-        flag.__clusterOrd = it.s;
-        // 取景跨度：普通簇 = 成员跨度×3（≥1 年）；**创世簇 = 全范围的 25%**（成员同刻跨度为 0，
-        // 1 年深缩会把轴线与起点刻度全部推出屏外）——取景落在虚拟时刻上，轴首与创世排同框。
-        flag.__clusterSpan = it.cluster[0].genesis
-          ? Math.max(((full.hi - full.lo) / YEAR) * 0.25, 1)
-          : Math.max(((last.s - it.cluster[0].s) / YEAR) * 3, 1);
-        flag.__baseTitle = it.title;
-        flag.__altTitle = it.cluster.map((m) => m.title).slice(0, 3).join('、') + (it.cluster.length > 3 ? '…' : '');
-        flag.title = it.cluster.map((m) => m.title).join('、');
+      if (p.cluster) {
+        flag.__clusterOrd = p.cluster.ord;
+        flag.__clusterSpan = p.cluster.spanYears;   // 普通簇 = 成员跨度×3（≥1 年）；创世簇 = 全范围 25%
+        flag.__baseTitle = p.title;
+        flag.__altTitle = p.cluster.altTitle;
+        flag.title = p.cluster.memberTitles.join('、');
       } else if (flag.__clusterSpan) {
         flag.__clusterSpan = null; flag.__altTitle = null; flag.__baseTitle = null;
         flag.title = '';
-        const t = flag.querySelector('.flag-title');
-        if (t) t.textContent = it.title;
+        const t2 = flag.querySelector('.flag-title');
+        if (t2) t2.textContent = p.title;
       }
-      shownFlags.add(it.path);
+      shownFlags.add(p.path);
     }
-    for (const [path0, el0] of [...flagEls]) if (!shownFlags.has(path0)) { el0.remove(); flagEls.delete(path0); }
-
+    for (const [p0, el0] of [...flagEls]) if (!shownFlags.has(p0)) { el0.remove(); flagEls.delete(p0); }
     // 时代带（§3.2）：同 &a 条目的时间并集，bg/bg-soft 交替 + 名称；点击取景该时代；「更多设置」可关
     const eraOn = (ctx.settings?.axisEra ?? 'on') !== 'off';
     eras.style.display = eraOn ? '' : 'none';
     eras.innerHTML = '';
-    const eraMap = new Map();
-    for (const it of items) {
-      if (!it.era || it.s == null) continue;
-      const e2 = eraMap.get(it.era);
-      if (e2) { e2.lo = Math.min(e2.lo, it.s); e2.hi = Math.max(e2.hi, it.e ?? it.s); }
-      else eraMap.set(it.era, { era: it.era, lo: it.s, hi: it.e ?? it.s });
-    }
-    let eraIdx = 0;
-    for (const e2 of [...eraMap.values()].sort((a, b) => a.lo - b.lo)) {
-      const x1 = x(e2.lo), x2 = x(e2.hi);
-      if (x2 < -60 || x1 > width + 60) { eraIdx++; continue; }
+    for (const e2 of frame.eras) {
       const seg = document.createElement('button');
-      seg.className = `era-band${eraIdx % 2 ? ' alt' : ''}`;
-      seg.style.left = x1 + 'px';
-      seg.style.width = Math.max(10, x2 - x1) + 'px';
-      seg.title = e2.era;
-      if (x2 - x1 > 72) seg.innerHTML = `<span class="era-name">${esc(e2.era)}</span>`;
+      seg.className = `era-band${e2.alt ? ' alt' : ''}`;
+      seg.style.left = e2.left + 'px';
+      seg.style.width = e2.width + 'px';
+      seg.title = e2.name;
+      if (e2.showName) seg.innerHTML = `<span class="era-name">${esc(e2.name)}</span>`;
       seg.addEventListener('pointerdown', (ev) => ev.stopPropagation());   // 不触发轴拖拽
       seg.addEventListener('click', (ev) => {
         ev.stopPropagation();
@@ -1436,17 +1182,24 @@ function initTimeline(ctx, wrap, canvas, ticks) {
         focusOrd((e2.lo + e2.hi) / 2, years);
       });
       eras.appendChild(seg);
-      eraIdx++;
     }
-
     // 轴线段：只画 [最早时间, 最晚时间] 与视口的交集（范围外含创世区无线）
-    if (earliestOrd != null) {
-      const ax1 = Math.max(0, x(earliestOrd)), ax2 = Math.min(width, x(latestOrd));
-      axisLine.hidden = ax2 <= ax1;
-      axisLine.style.left = Math.round(ax1) + 'px';
-      axisLine.style.width = Math.round(Math.max(0, ax2 - ax1)) + 'px';
-    } else axisLine.hidden = true;
-    lastTimelineView = { world: ctx.worldId, book: (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, ''), lo: view.lo, hi: view.hi };
+    axisLine.hidden = frame.axis.hidden;
+    axisLine.style.left = frame.axis.left + 'px';
+    axisLine.style.width = frame.axis.width + 'px';
+    // 出界指示（◀ N / N ▶）：点击平滑取景把最近一批带回
+    hintL.hidden = frame.hints.offL === 0;
+    hintL.__ord = frame.hints.ordL;
+    hintL.querySelector('.hint-n').textContent = String(frame.hints.offL);
+    hintL.title = zh ? `还有 ${frame.hints.offL} 条在视野外 · 点击带回` : `${frame.hints.offL} off-screen · click to bring back`;
+    hintR.hidden = frame.hints.offR === 0;
+    hintR.__ord = frame.hints.ordR;
+    hintR.querySelector('.hint-n').textContent = String(frame.hints.offR);
+    hintR.title = zh ? `还有 ${frame.hints.offR} 条在视野外 · 点击带回` : `${frame.hints.offR} off-screen · click to bring back`;
+    // 创世向左渐隐箭头（跟组左缘；组左缘已出屏时隐藏——箭头只标"组的左端在哪"）
+    genesisTail.hidden = frame.tail.hidden;
+    genesisTail.style.left = frame.tail.left + 'px';
+    genesisTail.style.top = frame.tail.top + 'px';
   }
 
   /** 视野补间：300ms cubic-bezier(.22,1,.36,1)（≈easeOutCubic）；reduced-motion 瞬时。 */
@@ -1527,10 +1280,6 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     animateTo(s - dur, (e ?? s) + dur, 300);
   }
 
-  /** 旗标基础宽：按字数（最多 4 字；不足 4 字按实际字数收窄）。 */
-  function flagBaseW(title) {
-    return Math.min(title.length, 4) * 14 + 22;
-  }
   // 拖到时间轴 = 强调该条目
   wrap.addEventListener('dragover', (e) => {
     const from = ctx.dragPath || sessionStorage.getItem('soliterra.dragPath');

@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "node server.js",
+    "test": "node --test",
     "build:editor": "esbuild editor/editor-entry.js --bundle --format=esm --minify --outfile=public/js/vendor/soliterra-editor.js"
   },
   "engines": {
