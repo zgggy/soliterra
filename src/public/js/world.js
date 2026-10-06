@@ -1138,10 +1138,14 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       laneLast[L] = it;
     }
 
-    // ── 聚合簇（§E.3）：同道内相邻锚点间距 < CLUSTER_GAP 的连续组、≥3 张 → 「＋N」；
-    //    当前/强调/创世不参与（含受保护卡的同刻串整段不动，交级联处理）
+    // ── 聚合簇（§E.3 + 第 71 轮统一规则）：**三类互斥、类内全并**——
+    //    ① 创世（时间轴前）② 打开条目左侧的 ③ 打开条目右侧的；
+    //    跨类不并，类内满足「同道 + 相邻锚点 < CLUSTER_GAP + ≥3 张」即可并；
+    //    打开卡自身是三类的参照点、永不参与聚簇（强调卡不再豁免——所有满足条件的都能并）。
     const CLUSTER_GAP = 10;
-    const clusterable = (it) => !it.genesis && !ctx.pins.has(it.path) && it.path !== ctx.currentPath;
+    const openOrd = flagItems.find((it) => it.path === ctx.currentPath)?.s ?? null;
+    const clsOf = (it) => (it.genesis ? 1 : (openOrd != null && it.s < openOrd ? 2 : 3));
+    const clusterable = (it) => it.path !== ctx.currentPath;
     const laneMembers = new Map();
     for (const it of chain) {
       if (!laneMembers.has(it._lane)) laneMembers.set(it._lane, []);
@@ -1149,35 +1153,35 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     }
     const mergedPaths = new Set();
     const clusters = [];
-    // 打开卡 = 硬边界（2026-10-06 用户要求「合并簇不能越过已打开的条目」）：
-    // 打开卡不在链里，簇扫描看不见它 → 会跨过它把两侧成员并进同一簇、簇卡（成员中心）落到它另一侧。
-    // 修法：打开卡的 ord 落在相邻两成员之间（含同刻）即断开该连续段。
-    const curOrd = flagItems.find((it) => it.path === ctx.currentPath)?.s ?? null;
+    // 相邻判定用「视觉锚点」：普通卡左缘（_trueX）、创世组右缘（右缘对齐、左缘差=宽度差会误断）
+    const anchorX = (it) => (it.genesis ? it._trueX + it._w : it._trueX);
     for (const grp of laneMembers.values()) {
       let i = 0;
       while (i < grp.length) {
         if (!clusterable(grp[i])) { i++; continue; }
         let j = i + 1;
-        while (j < grp.length && clusterable(grp[j]) && grp[j]._trueX - grp[j - 1]._trueX < CLUSTER_GAP) {
-          if (curOrd != null && curOrd >= grp[j - 1].s && curOrd <= grp[j].s) break;   // 越过打开卡 → 断
-          j++;
-        }
+        // 段延续 = 同类（clsOf 相等即天然断在类别边界，含打开卡两侧）+ 锚点间距达标
+        while (j < grp.length && clusterable(grp[j])
+               && Math.abs(anchorX(grp[j]) - anchorX(grp[j - 1])) < CLUSTER_GAP
+               && clsOf(grp[j]) === clsOf(grp[j - 1])) j++;
         const run = grp.slice(i, j);
         if (run.length >= 3) {
           const first = run[0], last = run[run.length - 1];
+          const isGen = !!first.genesis;
           const cl = {
             ...first,
             path: first.path,                    // 元素复用键 = 首成员
             cluster: run,
-            flag: zh ? '同时' : 'SAME',           // displayFlagOf 眉题
+            flag: isGen ? first.flag : (zh ? '同时' : 'SAME'),   // 创世簇眉题=创世；余为「同时」
             title: zh ? `＋${run.length} 条` : `+${run.length}`,
-            s: (first.s + last.s) / 2, e: null, instant: true,
+            s: (first.s != null && last.s != null) ? (first.s + last.s) / 2 : (first.s ?? last.s ?? earliestOrd),   // 中心时刻（首成员时刻会与同刻打开卡混淆左右侧）
+            e: null, instant: true,
             fuzzy: run.some((m) => m.fuzzy),
-            genesis: false,
+            genesis: isGen,                      // 创世簇保持创世身份（尾箭头/互避链照常）
           };
           cl._lane = first._lane;
           cl._w = flagBaseW(cl.title);
-          cl._trueX = x(cl.s);
+          cl._trueX = isGen ? genesisX - cl._w : x(cl.s);   // 创世簇同创世锚定规则
           cl._left = cl._trueX;
           cl._z = first._z;
           clusters.push(cl);
@@ -1198,6 +1202,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       laneArrange.get(it._lane).push(it);
     }
     for (const grp of laneArrange.values()) {
+      grp.sort((a, b) => a._trueX - b._trueX);   // 簇对象 append 在末尾会错乱链序 → 按时间位置排序再级联（第 71 轮）
       for (let i = grp.length - 2; i >= 0; i--) {
         const cur = grp[i], nxt = grp[i + 1];
         const need = nxt._left - cur._w / 2 - GAP;                     // 露左半（创世卡同规则）
