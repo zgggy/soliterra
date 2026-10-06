@@ -275,6 +275,20 @@ export function lint(worldDir, limit = 800) {
     const eOrd = e.meta?.e?.[0] ? parseDate(e.meta.e[0]) : null;
     if (sOrd != null && eOrd != null && eOrd < sOrd) push({ kind: 'range', severity: 'warn', path: rel, message: `时间区间倒置：&e ${e.meta.e[0]} < &s ${e.meta.s[0]}` });
     if ((e.meta?.f || []).length && !(e.meta?.s || []).length) push({ kind: 'flag', severity: 'warn', path: rel, message: '打了 &f 事件旗标却缺 &s（无法上时间轴）' });
+    // ④.5 时间范围校验：缺起始或结束时间的条目全部识别（&f 缺 &s 已由上一项报过则不重复）
+    const hasS = (e.meta?.s || []).length > 0;
+    const hasE = (e.meta?.e || []).length > 0;
+    const hasF = (e.meta?.f || []).length > 0;
+    if ((!hasS || !hasE) && !( !hasS && hasF )) {
+      let lineNo = 1;
+      for (let i = 0; i < lines.length; i++) {
+        if (/^\s*&[a-z]/.test(lines[i])) { lineNo = i + 1; break; }
+      }
+      const what = !hasS && !hasE ? '缺起始时间 &s 与结束时间 &e（全无时间，不上时间轴）'
+        : !hasS ? '缺起始时间 &s（无法上时间轴）'
+          : '缺结束时间 &e（瞬时事件——如需时间范围请补）';
+      push({ kind: 'timerange', severity: hasS ? 'info' : 'warn', path: rel, line: lineNo, message: `时间范围校验：${what}` });
+    }
     // ⑤ 勘误缺链：passage 围栏 status: disproven 无 ref
     for (const f of extractFences(text)) {
       if (f.kind === 'passage' && /status:\s*(disproven|已证伪)/.test(f.content) && !/ref:\s*\S/.test(f.content)) {
