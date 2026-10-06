@@ -1149,12 +1149,19 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     }
     const mergedPaths = new Set();
     const clusters = [];
+    // 打开卡 = 硬边界（2026-10-06 用户要求「合并簇不能越过已打开的条目」）：
+    // 打开卡不在链里，簇扫描看不见它 → 会跨过它把两侧成员并进同一簇、簇卡（成员中心）落到它另一侧。
+    // 修法：打开卡的 ord 落在相邻两成员之间（含同刻）即断开该连续段。
+    const curOrd = flagItems.find((it) => it.path === ctx.currentPath)?.s ?? null;
     for (const grp of laneMembers.values()) {
       let i = 0;
       while (i < grp.length) {
         if (!clusterable(grp[i])) { i++; continue; }
         let j = i + 1;
-        while (j < grp.length && clusterable(grp[j]) && grp[j]._trueX - grp[j - 1]._trueX < CLUSTER_GAP) j++;
+        while (j < grp.length && clusterable(grp[j]) && grp[j]._trueX - grp[j - 1]._trueX < CLUSTER_GAP) {
+          if (curOrd != null && curOrd >= grp[j - 1].s && curOrd <= grp[j].s) break;   // 越过打开卡 → 断
+          j++;
+        }
         const run = grp.slice(i, j);
         if (run.length >= 3) {
           const first = run[0], last = run[run.length - 1];
@@ -1228,10 +1235,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
           openIt._left = need;
         }
       }
+      const oR = openIt._left + (oEl && oEl.offsetWidth ? oEl.offsetWidth : openIt._w);   // 实测宽（右侧贴齐用）
       for (const [lane, grp] of laneArrange) {
         if (10 + lane * (FLAG_H + 6) + oH - oTop <= 10) continue;  // 带状不相交（相邻道叠片 ≤10px 属设计）→ 不干涉
         const grpC = grp.filter((x) => !x.genesis);                // 创世卡不在此让位（A/B 已保证不与 O 互遮）
-        const covered = (cur) => cur._left < openIt._left + openIt._w && cur._left + cur._w / 2 + GAP > openIt._left;
+        const covered = (cur) => cur._left < oR && cur._left + cur._w / 2 + GAP > openIt._left;
         // 不晚于 O 的卡片：向左链式让位（自右向左）
         for (let i = grpC.length - 1; i >= 0; i--) {
           const cur = grpC[i];
@@ -1242,8 +1250,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
           if (nxt && nxt._trueX <= openIt._trueX && nxt._left < cur._left + cur._w / 2 + GAP) target = Math.min(target, nxt._left - cur._w / 2 - GAP);
           if (target < cur._left) cur._left = target;
         }
-        // 晚于 O 的卡片：向右链式让位（自左向右，保持时间次序的视觉顺序——不跨过打开卡）
-        let blockUntil = openIt._left + openIt._w + GAP;
+        // 晚于 O 的卡片：向右链式让位（自左向右，保持时间次序）——右侧**不留间距**，紧贴打开卡右缘（2026-10-06 用户要求）
+        let blockUntil = oR;
         for (let i = 0; i < grpC.length; i++) {
           const cur = grpC[i];
           if (cur._trueX <= openIt._trueX) continue;
