@@ -1248,15 +1248,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   wrap.addEventListener('pointerup', stop);
   wrap.addEventListener('pointercancel', stop);
 
-  /** 取景（打开文档）：&s 落在屏幕 1/3、&e 落在屏幕 2/3（瞬时事件置于 1/3）。300ms。 */
+  /** 取景（打开文档）：&s 落在屏幕 1/3、&e 落在屏幕 2/3（瞬时事件置于 1/3）。300ms。
+   *  **创世条目不取景**（无时间语义；不许自动缩放时间线）——视野保持原样，创世排贴边恒可见。 */
   function focusPath(path) {
     const it = items.find((i) => i.path === path);
-    if (it && it.genesis && earliestOrd != null) {
-      const span = (full.hi - full.lo) * 0.12;
-      animateTo(earliestOrd - span * 2, earliestOrd + span, 300);   // 创世排 + 最早时间同框
-      return;
-    }
-    if (!it) return;
+    if (!it || it.genesis) return;
     const s = it.s;
     const e = it.e != null && it.e > it.s ? it.e : null;
     const dur = e != null ? e - s : Math.max(YEAR, (full.hi - full.lo) * 0.02);
