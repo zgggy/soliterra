@@ -82,6 +82,7 @@ const L = {
   toolRegexRepl: { 'zh-CN': '替换为（可含 $1…）', en: 'Replace with ($1…)' },
   lintJump: { 'zh-CN': '打开条目', en: 'Open entry' },
   toolDate: { 'zh-CN': '日期时间规范化', en: 'Normalize dates & times' },
+  toolOnboard: { 'zh-CN': '时间上手（按时间线提取 &s）', en: 'Onboard dates from timeline' },
   toolBrackets: { 'zh-CN': '【【】】 → [[ ]]', en: '【【】】 → [[ ]]' },
   toolScanning: { 'zh-CN': '扫描中…', en: 'Scanning…' },
   toolNoIssues: { 'zh-CN': '没有需要修复的内容', en: 'Nothing to fix' },
@@ -2728,7 +2729,7 @@ function setToolBadge(modal, tool, items) {
 }
 /** 打开工具箱面板时并行预扫全部工具的计数（不阻塞当前工具列表）。 */
 async function refreshToolBadges(ctx, modal) {
-  const tools = ['lint', 'date', 'brackets', 'drift', 'images', 'regex', 'dup'];
+  const tools = ['lint', 'date', 'onboard', 'brackets', 'drift', 'images', 'regex', 'dup'];
   await Promise.all(tools.map(async (tk) => {
     try {
       const r = await api(`/api/w/${enc(ctx.worldId)}/tools/scan?tool=${tk}`);
@@ -2742,8 +2743,8 @@ function renderTools(ctx) {
   modal.innerHTML = `
       <div class="tools-layout">
         <nav class="tools-nav">
-          ${['lint', 'date', 'brackets', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
-          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ date: 'toolDate', brackets: 'toolBrackets', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
+          ${['lint', 'date', 'onboard', 'brackets', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
+          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ date: 'toolDate', onboard: 'toolOnboard', brackets: 'toolBrackets', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
         </nav>
         <div class="tools-main">
           <div class="tools-list" id="tools-list"><div class="loading">${lt('toolScanning')}</div></div>
@@ -2810,7 +2811,7 @@ function renderTools(ctx) {
       ...fixRows.map((it, i) => `
       <div class="diff-row">
         ${checkHTML(it.checked, '', `data-i="${i}"`)}
-        <span class="diff-path">${esc2(it.path)}:${it.line}</span>
+        <span class="diff-path" title="${esc2(it.src || it.path)}">${esc2(it.path)}:${it.line}</span>
         <span class="diff-before">${esc2(it.before)}</span>
         <span class="diff-arrow">→</span>
         <span class="diff-after">${esc2(it.after === '' ? '（删除此行）' : it.after)}</span>

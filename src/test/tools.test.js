@@ -62,3 +62,88 @@ test('apply：删除行（after 为空）与行号漂移（同内容多处按计
   assert.ok(existsSync(join(dir, '.soliterra')));
   rmSync(dir, { recursive: true, force: true });
 });
+
+// ── 第 82 轮：时间上手（候选提取纯函数 + 扫描） ────────────────────
+import { parseYearCell, fmtOnboardYear, parseTimelineTable, scanOnboard } from '../lib/tools.js';
+
+test('parseYearCell：年份单元格全样式（约/前/区间/不可机械化的）', () => {
+  assert.deepEqual(parseYearCell('约770'), { y: 770, y2: null });
+  assert.deepEqual(parseYearCell('前300'), { y: -300, y2: null });
+  assert.deepEqual(parseYearCell('657–700'), { y: 657, y2: 700 });          // en dash
+  assert.deepEqual(parseYearCell('约前100–0'), { y: -100, y2: 0 });
+  assert.deepEqual(parseYearCell('约80-200'), { y: 80, y2: 200 });           // hyphen
+  assert.equal(parseYearCell('远古'), null);                                  // 不机械化
+  assert.equal(parseYearCell('至今'), null);
+  assert.equal(parseYearCell('年'), null);                                    // 表头
+  assert.equal(parseYearCell('----'), null);                                  // 分隔行
+  assert.equal(parseYearCell('前200-'), null);                                // 残缺 → 保守跳过
+  assert.equal(parseYearCell(''), null);
+});
+
+test('fmtOnboardYear：一律 yyyy.*.*（月日未知诚实模糊；负年 = 前纪）', () => {
+  assert.equal(fmtOnboardYear(770), '0770.*.*');
+  assert.equal(fmtOnboardYear(-300), '-0300.*.*');
+  assert.equal(fmtOnboardYear(0), '0000.*.*');
+  assert.equal(fmtOnboardYear(4090), '4090.*.*');
+});
+
+test('parseTimelineTable：只认 | 年 | 事件 | … | 行', () => {
+  const md = `# 时间线
+| 年 | 事件 | 要点 |
+|----|------|------|
+| 远古 | 三力 | 不可机械化 |
+| 约770 | 灵矿航道之乱 | 要点 |
+| 前300–前100 | 霜脊联盟 | 要点 |
+| 657–700 | 弗拉维朝 | 要点 |
+| 874 | 大崩坏 | 要点 |
+非表格行
+`;
+  const rows = parseTimelineTable(md);
+  assert.equal(rows.length, 4, '远古行跳过');
+  assert.deepEqual(rows[0], { y: 770, y2: null, event: '灵矿航道之乱' });
+  assert.deepEqual(rows[1], { y: -300, y2: -100, event: '霜脊联盟' });
+  assert.deepEqual(rows[2], { y: 657, y2: 700, event: '弗拉维朝' });
+  assert.deepEqual(rows[3], { y: 874, y2: null, event: '大崩坏' });
+});
+
+test('scanOnboard：时间线匹配（双向包含/多命中取最早/带区间附 &e）+ 无候选 manual + 幂等 + old 跳过', () => {
+  const dir = mkWorld();
+  writeFileSync(join(dir, '0.0 详细时间线.md'),
+    '| 年 | 事件 | 要点 |\n|----|------|------|\n| 657–700 | 弗拉维朝 | x |\n| 702 | 北伐令 | x |\n| 662 | 北伐前期 | x |\n| 874 | 大崩坏 | x |\n', 'utf8');
+  writeFileSync(join(dir, '北伐.md'), '# 1.7 北伐\n\n正文\n', 'utf8');             // 多命中（北伐令/北伐前期）→ 取最早 662
+  writeFileSync(join(dir, '弗拉维朝.md'), '# 弗拉维朝\n\n正文\n', 'utf8');             // 单命中带区间 → &s &e 成对
+  writeFileSync(join(dir, '星月.md'), '# 星月\n\n正文提 0705.09.10 隐现\n', 'utf8');  // 源 A 不中 → 源 B 正文日期
+  writeFileSync(join(dir, '设定.md'), '# 设定\n\n无任何日期\n', 'utf8');              // 无候选 → manual
+  writeFileSync(join(dir, '已有.md'), '&s 0500.01.01\n\n# 已有\n', 'utf8');          // 幂等跳过
+  mkdirSync(join(dir, 'old'), { recursive: true });
+  writeFileSync(join(dir, 'old', '旧稿.md'), '# 旧稿\n\n正文 0662.01.01\n', 'utf8'); // old 跳过
+  const items = scanOnboard(dir);
+  const byPath = Object.fromEntries(items.map((x) => [x.path, x]));
+  const fix = items.filter((x) => !x.manual);
+  const man = items.filter((x) => x.manual);
+  assert.equal(fix.length, 3, '三个可写候选：北伐/弗拉维朝/星月');
+  assert.equal(man.length, 1, '一个 manual 提示');
+  assert.equal(man[0].path, '设定.md');
+  assert.match(byPath['北伐.md'].after, /^&s 0662\.\*\.\*\n/, '多命中取最早年 662');
+  assert.match(byPath['弗拉维朝.md'].after, /^&s 0657\.\*\.\* &e 0700\.\*\.\*/, '单命中区间成对 &s &e');
+  assert.match(byPath['星月.md'].after, /^&s 0705\.09\.10\n/, '正文点分日期兜底');
+  assert.match(byPath['北伐.md'].src, /时间线/, '来源标注');
+  assert.equal(byPath['北伐.md'].before, '# 1.7 北伐', '锚行 = 首个非空行');
+  assert.ok(!items.some((x) => x.path === '已有.md'), '已有 &s 幂等跳过');
+  assert.ok(!items.some((x) => x.path.startsWith('old/')), 'old 目录跳过');
+  rmSync(dir, { recursive: true, force: true });
+});
+
+test('scanOnboard→apply：候选应用后条目带上 &s（备份含改前原文）', () => {
+  const dir = mkWorld();
+  writeFileSync(join(dir, '0.0 时间线.md'), '| 年 | 事件 | 要点 |\n|----|------|------|\n| 662 | 大崩坏 | x |\n', 'utf8');
+  writeFileSync(join(dir, '崩坏.md'), '# 崩坏\n\n正文\n', 'utf8');
+  const items = scanOnboard(dir).filter((x) => !x.manual);
+  assert.equal(items.length, 1);
+  const res = apply(dir, 'onboard', items);
+  assert.equal(res.changed, 1);
+  assert.match(readFileSync(join(dir, '崩坏.md'), 'utf8'), /^&s 0662\.\*\.\*\n# 崩坏/);
+  const newest = readdirSync(join(dir, '.soliterra')).filter((n) => n.startsWith('backup-')).sort().pop();
+  assert.equal(readFileSync(join(dir, '.soliterra', newest, '崩坏.md'), 'utf8'), '# 崩坏\n\n正文\n');
+  rmSync(dir, { recursive: true, force: true });
+});

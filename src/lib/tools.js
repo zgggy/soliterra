@@ -222,6 +222,111 @@ export function scanDuplicates(worldDir, limit = 500) {
   return out.slice(0, limit);
 }
 
+// ---------- 时间上手（第 82 轮 §12）：为缺 &s 的条目从「时间线文件」提取日期候选 ----------
+// 语义：作者的世界通常已有一份「年·事件」时间线文档 → 表格行就是事件↔年份的对应表。
+// 保守原则：只解析得动的给候选（无候选 → manual 提示行，绝不硬造）；写入仍走 scan→diff→apply 管线。
+
+/** 年份单元格语义：'约770'/'前300'/'657–700'/'约前100–0' → {y, y2}；'远古/至今/表头/分隔行' → null（不机械化）。 */
+export function parseYearCell(cell) {
+  const s = String(cell ?? '').trim();
+  if (!s || s.length > 20 || /^[-–—:. ]+$/.test(s)) return null;
+  const seg = (t) => {
+    const m = /^(约)?(前)?(\d{1,4})$/.exec(String(t).trim());
+    if (!m) return null;
+    return (m[2] ? -1 : 1) * parseInt(m[3], 10);
+  };
+  const parts = s.split(/\s*[–—-]\s*/);   // en dash / em dash / hyphen 区间
+  if (parts.length === 1) { const y = seg(s); return y == null ? null : { y, y2: null }; }
+  if (parts.length === 2) { const a = seg(parts[0]), b = seg(parts[1]); return a == null || b == null ? null : { y: a, y2: b }; }
+  return null;
+}
+
+/** 年份 → &s/&e 值：时间线只到年 → **一律 `yyyy.*.*`**（月日未知，诚实标模糊；负年 = 前纪）。 */
+export function fmtOnboardYear(y) {
+  return `${y < 0 ? '-' : ''}${String(Math.abs(y)).padStart(4, '0')}.*.*`;
+}
+
+/** 时间线 markdown 表格 → [{y, y2, event}]：只认 `| 年 | 事件 | … |` 行，非年份单元格（表头/分隔/非年事件）跳过。 */
+export function parseTimelineTable(text) {
+  const out = [];
+  for (const line of String(text).split('\n')) {
+    if (!/^\|/.test(line)) continue;
+    const cells = line.split('|').map((c) => c.trim());
+    if (cells.length < 4) continue;
+    const yr = parseYearCell(cells[1]);
+    const ev = cells[2];
+    if (!yr || !ev || ev === '事件') continue;
+    out.push({ y: yr.y, y2: yr.y2, event: ev });
+  }
+  return out;
+}
+
+/** 标题归一：去编号前缀（'1.7 北伐' → '北伐'；'0.0b 卷一…' → '卷一…'）。 */
+const normTitle = (t) => String(t).replace(/^\d+(?:\.\d+)?[a-z]?\s+/i, '').trim();
+
+/**
+ * 时间上手扫描 → apply items：
+ *  ① 源 A（主）：文件名含「时间线」的 md 表格 → 事件名与条目标题**双向包含**匹配；
+ *     多命中取**最早年**（章的主题起始）；单命中且带区间 → `&s &e` 成对。
+ *  ② 源 B（兜底）：正文首个点分日期 / `前 yyyy 年`。
+ *  ③ 皆无 → `manual` 提示行（不可勾选，不写盘）。
+ *  幂等：已有 &s 跳过；`old/`（旧稿目录约定）跳过。
+ */
+export function scanOnboard(worldDir, limit = 500) {
+  const files = collectMarkdown(worldDir);
+  let events = [];
+  for (const rel of files) {
+    if (!/时间线/.test(path.basename(rel))) continue;
+    let txt;
+    try { txt = fs.readFileSync(path.join(worldDir, rel), 'utf8'); } catch { continue; }
+    const evs = parseTimelineTable(txt);
+    if (evs.length) { events = evs; break; }
+  }
+  const items = [];
+  for (const rel of files) {
+    if (items.length >= limit) break;
+    if (/(^|\/)old\//i.test(rel)) continue;                     // 旧稿目录约定：不自动上手
+    let text;
+    try { text = fs.readFileSync(path.join(worldDir, rel), 'utf8'); } catch { continue; }
+    const e = parseEntry(rel, text);
+    if (e.meta?.s?.length) continue;                            // 已有 &s → 幂等跳过
+    const title = e.title || path.basename(rel, '.md');
+    const isTimelineDoc = /时间线/.test(path.basename(rel));     // 时间线文档是"数据源"，自身不作上手对象
+    if (isTimelineDoc) continue;
+    const lines = text.split('\n');
+    const ai = lines.findIndex((l) => l.trim() !== '');
+    if (ai < 0) continue;                                       // 空文件跳过
+    const before = lines[ai];                                   // 锚行 = 第一个非空行（&s 插其前）
+    const push = (valueLine, src) => items.push({ path: rel, line: ai + 1, before, after: `${valueLine}\n${before}`, src });
+    // ① 源 A：时间线事件
+    const nt = normTitle(title);
+    if (events.length && nt.length >= 2) {
+      const hits = events.filter((ev) => ev.event.includes(nt) || nt.includes(ev.event));
+      if (hits.length) {
+        const y = Math.min(...hits.map((h) => h.y));
+        if (hits.length === 1 && hits[0].y2 != null) push(`&s ${fmtOnboardYear(hits[0].y)} &e ${fmtOnboardYear(hits[0].y2)}`, `时间线·${hits[0].event}`);
+        else push(`&s ${fmtOnboardYear(y)}`, `时间线·${hits.map((h) => h.event).slice(0, 3).join('、')}${hits.length > 3 ? '…' : ''}`);
+        continue;
+      }
+    }
+    // ② 源 B：正文日期
+    {
+      const m = /(?<![\d.])(前)?(\d{3,4})\.(\d{1,2})\.(\d{1,2})(?!\d)/.exec(text);
+      if (m) {
+        const y = (m[1] ? -1 : 1) * parseInt(m[2], 10);
+        const val = `${y < 0 ? '-' : ''}${String(Math.abs(y)).padStart(4, '0')}.${m[3].padStart(2, '0')}.${m[4].padStart(2, '0')}`;
+        push(`&s ${val}`, `正文·${m[0]}`);
+        continue;
+      }
+      const m2 = /(?<![\d.])前(\d{1,4})年(?![\d])/.exec(text);
+      if (m2) { push(`&s ${fmtOnboardYear(-parseInt(m2[1], 10))}`, `正文·前${m2[1]}年`); continue; }
+    }
+    // ③ 无候选 → 提示行（不写盘）
+    items.push({ manual: true, path: rel, line: ai + 1, before: `${title} — 无时间候选（可在条目内手填 &s）` });
+  }
+  return items;
+}
+
 // ---------- lint（功能设计 §13：一致性校验；只读，不改文件） ----------
 
 /** lint：返回 [{kind, severity, path, line?, message}]（severity: error | warn | info）。 */

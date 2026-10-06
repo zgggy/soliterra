@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
 import { Vault } from './lib/vault.js';
 import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
-import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates } from './lib/tools.js';
+import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard } from './lib/tools.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.join(__dirname, '..');   // 项目根（src/ 的上级）
@@ -273,6 +273,10 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
     try { return { items: scanRegex(vault.worldDir(req.params.id), req.query.q || '', req.query.r || '') }; }
     catch (e) { return reply.code(400).send({ error: '正则无效: ' + e.message }); }
   }
+  if (tool === 'onboard') {
+    try { return { items: scanOnboard(vault.worldDir(req.params.id)) }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
   if (!['date', 'brackets'].includes(tool)) return reply.code(400).send({ error: 'unknown tool' });
   try { return { items: scan(vault.worldDir(req.params.id), tool) }; }
   catch (e) { reply.code(500).send({ error: e.message }); }
@@ -280,7 +284,7 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
 
 app.post('/api/w/:id/tools/apply', (req, reply) => {
   const { tool, items } = req.body || {};
-  const APPLY_TOOLS = ['date', 'brackets', 'dup', 'drift', 'images', 'regex'];
+  const APPLY_TOOLS = ['date', 'brackets', 'dup', 'drift', 'images', 'regex', 'onboard'];
   if (!APPLY_TOOLS.includes(tool) || !Array.isArray(items)) {
     return reply.code(400).send({ error: 'bad request' });
   }
