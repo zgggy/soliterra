@@ -129,7 +129,7 @@ export async function renderWorld(root, worldId, entryPath) {
       <div class="fab-cluster fab-right" id="fab-right">
         <button class="fab" id="fab-edit" title="${t('reader.edit')}">${ICON.pencil}</button>
         <button class="fab" id="fab-rel" title="${lt('showRel')}">${ICON.rel}</button>
-        <button class="fab" id="fab-tools" title="${lt('tools')}">${ICON.tools}<span class="fab-badge" hidden></span></button>
+        <button class="fab" id="fab-tools" title="${lt('tools')}">${ICON.tools}</button>
       </div>
 
       <!-- 底部中央：稍后阅读卡片集（rest = 扇形聚拢；hover = 横排展开） -->
@@ -173,7 +173,6 @@ export async function renderWorld(root, worldId, entryPath) {
   applySettings(ctx);
   renderReadlater(ctx);
   refreshGitStatus(ctx);
-  refreshLintBadge(ctx);
 
   // 时间轴高度（可拖动；最矮 56 限定）：56–320px，sessionStorage 记忆
   const chronoH = parseInt(sessionStorage.getItem('soliterra.chronoH') || '112', 10);
@@ -453,17 +452,12 @@ function settingsRowsHTML() {
       <div class="set-row"><span class="eyebrow">${lt('language')}</span>
         <div class="seg" data-lang></div>
       </div>
-      <div class="set-row wp-more-row"><button class="button-ghost wp-more" id="wp-more">${lt('moreSettings')} <span class="wp-more-arr">▸</span></button></div>
-      <div class="wp-more-body" id="wp-more-body" hidden>
-        <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '编辑器' : 'Editor'}</span>
-          <div class="seg" data-set="editor"><button data-val="std">${state.lang === 'zh-CN' ? '标准' : 'Std'}</button><button data-val="min">${state.lang === 'zh-CN' ? '极简' : 'Min'}</button></div></div>
-        <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '时代带' : 'Era band'}</span>
-          <div class="seg" data-set="axisEra"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
-        <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '智能收拢' : 'Smart shrink'}</span>
-          <div class="seg" data-set="axisCollapse"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
-        <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '目录展开' : 'TOC depth'}</span>
-          <div class="seg" data-set="tocDepth"><button data-val="1">1</button><button data-val="2">2</button><button data-val="3">3</button></div></div>
-      </div>`;
+      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '编辑器' : 'Editor'}</span>
+        <div class="seg" data-set="editor"><button data-val="std">${state.lang === 'zh-CN' ? '标准' : 'Std'}</button><button data-val="min">${state.lang === 'zh-CN' ? '极简' : 'Min'}</button></div></div>
+      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '时代带' : 'Era band'}</span>
+        <div class="seg" data-set="axisEra"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
+      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '智能收拢' : 'Smart shrink'}</span>
+        <div class="seg" data-set="axisCollapse"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>`;
 }
 
 /** 设置条目接线（即时生效 + 持久化）。 */
@@ -481,17 +475,9 @@ function bindSettings(ctx, scope) {
         await api(`/api/w/${enc(ctx.worldId)}/settings`, { method: 'POST', body: { [key]: b.dataset.val } }).catch(() => {});
         if (key === 'axisEra') ctx.chrono?.layout();                     // 时代带：即时重排
         if (key === 'axisCollapse' && b.dataset.val === 'off') document.querySelector('.world-view')?.classList.remove('shrunk');
-        if (key === 'tocDepth' && ctx.panel === 'toc') renderToc(ctx);   // 展开深度：即时重建树
         if (key === 'view') location.reload();   // 视图分级在渲染层生效 → 重载当前条目
       });
     });
-  });
-  const moreBtn = scope.querySelector('#wp-more');
-  const moreBody = scope.querySelector('#wp-more-body');
-  if (moreBtn && moreBody) moreBtn.addEventListener('click', () => {
-    moreBody.hidden = !moreBody.hidden;
-    const arr = moreBtn.querySelector('.wp-more-arr');
-    if (arr) arr.textContent = moreBody.hidden ? '▸' : '▾';
   });
   scope.querySelectorAll('[data-lang] button').forEach((b) => b.addEventListener('click', async () => {
     if (b.dataset.val === state.lang) return;
@@ -728,21 +714,6 @@ async function refreshGitStatus(ctx) {
     wd.textContent = st.dirty > 0 ? `${st.dirty} ${lt('uncommitted')}` : (state.lang === 'zh-CN' ? '无未提交条目' : 'clean');
   }
   if (wc) wc.hidden = st.dirty === 0;
-}
-
-/** lint 警报计数（§11）：工具 fab 角标——有 error 显红、否则 warn 显黄、0 隐藏。 */
-async function refreshLintBadge(ctx) {
-  const badge = document.querySelector('#fab-tools .fab-badge');
-  if (!badge) return;
-  try {
-    const { items } = await api(`/api/w/${enc(ctx.worldId)}/tools/scan?tool=lint`);
-    const errs = items.filter((i) => i.severity === 'error').length;
-    const warns = items.filter((i) => i.severity === 'warn').length;
-    if (errs) { badge.hidden = false; badge.className = 'fab-badge err'; badge.textContent = errs > 9 ? '9+' : String(errs); }
-    else if (warns) { badge.hidden = false; badge.className = 'fab-badge warn'; badge.textContent = warns > 9 ? '9+' : String(warns); }
-    else badge.hidden = true;
-    badge.title = `lint · ${errs} error · ${warns} warn`;
-  } catch { badge.hidden = true; }
 }
 
 /** 提交所有改动（世界面板直达，默认信息 update: <时间戳>）。 */
@@ -1304,7 +1275,6 @@ async function refreshTree(ctx) {
   ctx.tree = await api(`/api/w/${enc(ctx.worldId)}/tree`);
   worldDataCache.set(ctx.worldId, { tree: ctx.tree, timeline: ctx.timeline, ts: Date.now() });
   renderToc(ctx);
-  refreshLintBadge(ctx);
 }
 
 function closeTreeMenu() { document.querySelectorAll('.tree-menu').forEach((m) => m.remove()); }
@@ -1382,7 +1352,6 @@ function renderToc(ctx) {
     if (node.md && node.md === ctx.currentPath) return true;
     return node.children.some(containsCurrent);
   };
-  const depthLimit = Math.max(1, parseInt(ctx.settings?.tocDepth || '1', 10) || 1);   // 默认展开深度（「更多设置」）
 
   // 生成节点行（返回元素）
   const buildRow = (node, depth) => {
@@ -1427,7 +1396,7 @@ function renderToc(ctx) {
     if (node.children.length) {
       sub = document.createElement('div');
       sub.className = 'toc-children';
-      const expanded = depth < depthLimit || tocOpenDirs.has(node.dir) || containsCurrent(node);   // 默认深度 + 记忆手动展开 + 自动到当前
+      const expanded = depth === 0 ? true : (tocOpenDirs.has(node.dir) || containsCurrent(node));   // 自动展开到当前文档 + 记忆手动展开
       sub.hidden = !expanded;
       arrow.textContent = expanded ? '▾' : '▸';
       for (const child of node.children) sub.appendChild(buildRow(child, depth + 1));
@@ -1742,7 +1711,6 @@ async function exitEdit(ctx) {
   // 退出并保存（不提交——改动累计为未提交，提交在 + 面板）
   await saveEdit(ctx);
   worldDataCache.delete(ctx.worldId);
-  refreshLintBadge(ctx);
   ctx.editing = false;
   if (ctx.editor) { try { ctx.editor.destroy(); } catch {} ctx.editor = null; }
   setEditFab(ctx, false);
@@ -2516,19 +2484,39 @@ function annotateCurrent(ctx) {
 }
 
 // ============ 工具箱（右 push 面板：扫描 → diff-row 预览 → 应用） ============
+/** 工具按钮计数徽章（问题数在工具箱面板的功能按钮上，不在工具 fab 上）。
+ *  lint 有 error→红、否则黄；修复类工具 = 待修复处数（中性）；0 隐藏。 */
+function setToolBadge(modal, tool, items) {
+  const b = modal.querySelector(`.tool-badge[data-badge="${tool}"]`);
+  if (!b) return;
+  const n = items.length;
+  b.hidden = n === 0;
+  b.textContent = n > 99 ? '99+' : String(n);
+  if (tool === 'lint') {
+    const errs = items.filter((i) => i.severity === 'error').length;
+    b.className = `tool-badge${errs ? ' err' : ' warn'}`;
+  } else {
+    b.className = 'tool-badge';
+  }
+}
+/** 打开工具箱面板时并行预扫全部工具的计数（不阻塞当前工具列表）。 */
+async function refreshToolBadges(ctx, modal) {
+  const tools = ['lint', 'date', 'brackets', 'drift', 'images', 'regex', 'dup'];
+  await Promise.all(tools.map(async (tk) => {
+    try {
+      const r = await api(`/api/w/${enc(ctx.worldId)}/tools/scan?tool=${tk}`);
+      setToolBadge(modal, tk, r.items || []);
+    } catch { /* 某工具扫描失败不阻塞其它徽章 */ }
+  }));
+}
 function renderTools(ctx) {
   const modal = document.getElementById('tools-host');
   if (!modal) return;
   modal.innerHTML = `
       <div class="tools-layout">
         <nav class="tools-nav">
-          <button class="filter-button is-active" data-tool="lint"><span>${lt('lintTitle')}</span></button>
-          <button class="filter-button" data-tool="date"><span>${lt('toolDate')}</span></button>
-          <button class="filter-button" data-tool="brackets"><span>${lt('toolBrackets')}</span></button>
-          <button class="filter-button" data-tool="drift"><span>${lt('toolDrift')}</span></button>
-          <button class="filter-button" data-tool="images"><span>${lt('toolImages')}</span></button>
-          <button class="filter-button" data-tool="regex"><span>${lt('toolRegex')}</span></button>
-          <button class="filter-button" data-tool="dup"><span>${lt('toolDup')}</span></button>
+          ${['lint', 'date', 'brackets', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
+          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ date: 'toolDate', brackets: 'toolBrackets', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
         </nav>
         <div class="tools-main">
           <div class="tools-list" id="tools-list"><div class="loading">${lt('toolScanning')}</div></div>
@@ -2557,6 +2545,7 @@ function renderTools(ctx) {
       const params = tool === 'regex' && ctx.regexQ ? `&q=${enc(ctx.regexQ)}&r=${enc(ctx.regexR || '')}` : '';
       const r = await api(`/api/w/${enc(ctx.worldId)}/tools/scan?tool=${tool}${params}`);
       items = r.items.map((x) => ({ ...x, checked: true }));
+      setToolBadge(modal, tool, items);        // 计数徽章跟随扫描结果
     } catch (e) { items = []; showToast(String(e.message || e), 'error'); }
     paint();
   }
@@ -2652,8 +2641,7 @@ function renderTools(ctx) {
       });
       worldDataCache.delete(ctx.worldId);
       refreshGitStatus(ctx);
-      refreshLintBadge(ctx);
-      showToast(`${lt('toolApplied')} ${r.changed} ${lt('toolPlaces')} · backup: ${r.backup}`, 'success');
+          showToast(`${lt('toolApplied')} ${r.changed} ${lt('toolPlaces')} · backup: ${r.backup}`, 'success');
       runScan(currentTool);
       // 刷新当前阅读内容（若被修改）——原地重载，不动面板
       if (chosen.some((x) => x.path === ctx.currentPath)) {
@@ -2667,6 +2655,7 @@ function renderTools(ctx) {
   });
 
   runScan('lint');
+  refreshToolBadges(ctx, modal);               // 打开面板即并行预扫全部工具的计数徽章
 }
 
 // ============ 通用滚动指示条（替代原生滚动条：内容区顶部横向百分比条） ============

@@ -1067,20 +1067,16 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 .bf-chip:hover { color: var(--text); border-color: var(--line-strong); }
 .bf-chip.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 
-/* 工具 fab：lint 警报角标（§11；有 error 红、否则 warn 黄、0 隐藏） */
-.fab { position: relative; }
-.fab-badge {
-  position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px;
-  border: 1px solid var(--surface); background: var(--err); color: #fff; border-radius: 0;
-  font-family: var(--font-mono); font-size: 0.56rem; line-height: 13px; text-align: center;
+/* 工具箱按钮计数徽章（问题数在面板内功能按钮上，不在工具 fab 上） */
+.tool-badge {
+  margin-left: auto; min-width: 16px; height: 15px; padding: 0 3px;
+  border: 1px solid var(--line); background: var(--bg-soft); color: var(--text-muted); border-radius: 0;
+  font-family: var(--font-mono); font-size: 0.58rem; line-height: 13px; text-align: center;
 }
-.fab-badge.warn { background: var(--warn); }
+.tool-badge[hidden] { display: none; }
+.tool-badge.warn { background: var(--warn); border-color: var(--warn); color: #fff; }
+.tool-badge.err { background: var(--err); border-color: var(--err); color: #fff; }
 
-/* 「更多设置」二级（§10 保留项：编辑器档位 / 时间轴选项 / 目录深度） */
-.wp-more-row { justify-content: flex-start; }
-.wp-more { font-family: var(--font-ui); font-size: 0.8rem; }
-.wp-more-arr { font-family: var(--font-mono); font-size: 0.7rem; color: var(--text-muted); }
-.wp-more-body { border-top: 1px solid var(--line); }
 
 /* 极简编辑器（A 档降级：纯 textarea，无装饰层） */
 .editor-min-note { margin-bottom: 10px; }
