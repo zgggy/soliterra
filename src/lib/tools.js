@@ -314,7 +314,21 @@ export function lint(worldDir, limit = 800) {
   return items;
 }
 
-/** 应用：按 path 分组改文件；写前备份到 .soliterra/backup-<ts>/。 */
+/** 备份剪枝（第 78 轮）：`.soliterra/backup-*` 只保留最近 keep 份。
+ *  名字内含 ISO 时间戳（字典序 = 时间序），删最旧的；失败静默（剪枝是尽力而为，绝不能影响主流程）。 */
+export function pruneBackups(worldDir, keep = 10) {
+  const storeDir = path.join(worldDir, '.soliterra');
+  let names = [];
+  try { names = fs.readdirSync(storeDir).filter((n) => n.startsWith('backup-')).sort(); } catch { return 0; }
+  const dead = names.slice(0, Math.max(0, names.length - keep));
+  let removed = 0;
+  for (const n of dead) {
+    try { fs.rmSync(path.join(storeDir, n), { recursive: true, force: true }); removed++; } catch { /* 尽力而为 */ }
+  }
+  return removed;
+}
+
+/** 应用：按 path 分组改文件；写前备份到 .soliterra/backup-<ts>/（写后自动剪枝，保留最近 10 份）。 */
 export function apply(worldDir, tool, items) {
   const ts = new Date().toISOString().replace(/[:.]/g, '-');
   const backupDir = path.join(worldDir, '.soliterra', `backup-${ts}`);
@@ -356,5 +370,6 @@ export function apply(worldDir, tool, items) {
     }
     fs.writeFileSync(abs, text, 'utf8');
   }
+  pruneBackups(worldDir);   // 自动剪枝（保留最近 10 份；尽力而为）
   return { changed, backup: path.relative(worldDir, backupDir) };
 }
