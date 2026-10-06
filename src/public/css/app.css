@@ -274,7 +274,12 @@ img { display: block; max-width: 100%; }
 }
 .chrono-bar.dragging { cursor: grabbing; }
 .chrono-canvas { position: absolute; inset: 0 0 28px; }
-.chrono-ticks { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; border-top: 1px solid var(--line-strong); }
+.chrono-ticks { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; }   /* 轴线由 .chrono-axis 承担（只画范围内） */
+.chrono-axis {
+  position: absolute; bottom: 28px; height: 0; border-top: 1px solid var(--line-strong);
+  transition: left var(--motion-view) var(--ease), width var(--motion-view) var(--ease);
+}
+.chrono-axis[hidden] { display: none; }
 .tick {
   position: absolute; top: 0; padding-top: 4px;
   font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted);

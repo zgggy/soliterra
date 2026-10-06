@@ -895,10 +895,15 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     }
     full.lo = view.lo; full.hi = view.hi;
     const timed = items.filter((i) => !i.genesis);
-    earliestOrd = timed.length ? Math.min(...timed.map((i) => i.s)) : (items.length ? Math.min(...items.map((i) => i.s)) : null);
+    const base2 = timed.length ? timed : items;
+    earliestOrd = base2.length ? Math.min(...base2.map((i) => i.s)) : null;
+    latestOrd = base2.length ? Math.max(...base2.map((i) => i.e ?? i.s)) : null;
     return top;
   }
-  let earliestOrd = null;
+  let earliestOrd = null, latestOrd = null;
+  const axisLine = document.createElement('div');   // 轴线段：只显示范围（最早→最晚时间）内，范围外（含创世排区）不画
+  axisLine.className = 'chrono-axis';
+  wrap.appendChild(axisLine);
   const scopeBook = rescope();
   // 从**当前视图**出发（不跳回默认初值）：同世界同书重渲染沿用上次视野，
   // 之后由 openEntry 的取景补间「从现在的值移动/缩放到目标」；同文档重渲染则不再取景（skipFrame）
@@ -1034,6 +1039,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     const y1 = Math.ceil((view.hi / YEAR) / step) * step;
     let guard = 0;
     for (let y = y0; y <= y1 && guard < 400; y += step, guard++) {
+      const ord = y * YEAR;
+      if (earliestOrd != null && (ord < earliestOrd || ord > latestOrd)) continue;   // 范围外不刻度
       const px = x(y * YEAR);
       if (px < -20 || px > width + 20) continue;
       if (markerPx.some((mp2) => Math.abs(mp2 - px) < 30)) continue;   // 让位起止标记
@@ -1153,6 +1160,13 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       eraIdx++;
     }
 
+    // 轴线段：只画 [最早时间, 最晚时间] 与视口的交集（范围外含创世区无线）
+    if (earliestOrd != null) {
+      const ax1 = Math.max(0, x(earliestOrd)), ax2 = Math.min(width, x(latestOrd));
+      axisLine.hidden = ax2 <= ax1;
+      axisLine.style.left = Math.round(ax1) + 'px';
+      axisLine.style.width = Math.round(Math.max(0, ax2 - ax1)) + 'px';
+    } else axisLine.hidden = true;
     lastTimelineView = { world: ctx.worldId, book: (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, ''), lo: view.lo, hi: view.hi };
   }
 
