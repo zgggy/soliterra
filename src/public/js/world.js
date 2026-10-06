@@ -105,6 +105,7 @@ const ICON = {
   close: '<svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>',
   chevronL: '<svg viewBox="0 0 16 16"><path d="M10 3.5L5.5 8l4.5 4.5"/></svg>',
   chevronR: '<svg viewBox="0 0 16 16"><path d="M6 3.5L10.5 8 6 12.5"/></svg>',
+  more: '<svg viewBox="0 0 16 16"><path d="M3.2 8h.01M8 8h.01M12.8 8h.01" stroke-linecap="round"/></svg>',
 };
 
 export async function renderWorld(root, worldId, entryPath) {
@@ -283,6 +284,19 @@ function setPanel(ctx, name) {
   else { right.classList.add('live'); renderRightPanel(ctx, name); }
 }
 
+/** 新建书籍（第 79 轮抽出共用）：书名 → `书名.md` + `书名/` 同名目录（pair）→ 刷新树/状态/书籍面板 → 打开新书。 */
+async function addBook(ctx) {
+  const name = await askText(state.lang === 'zh-CN' ? '新书名' : 'Book name');
+  if (!name || !name.trim()) return;
+  try {
+    const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: '', name: name.trim(), pair: true } });
+    await refreshTree(ctx);
+    refreshGitStatus(ctx);
+    showToast(state.lang === 'zh-CN' ? `已建书：${name}` : `Book created: ${name}`, 'success');
+    if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
+  } catch (e) { showToast(String(e.message), 'error'); }
+}
+
 function renderLeftPanel(ctx, name) {
   const host = document.getElementById('panel-left');
   const resize = (cssVar, storeKey) =>
@@ -296,28 +310,21 @@ function renderLeftPanel(ctx, name) {
       <div class="panel-scroll"><div class="toc-body" id="toc-body"></div></div>`;
     renderToc(ctx);
     bindPanelResize(ctx, 'left', '--toc-w', 'soliterra.tocW');
-    document.getElementById('toc-add-book')?.addEventListener('click', async () => {
-      const name = await askText(state.lang === 'zh-CN' ? '新书名' : 'Book name');
-      if (!name || !name.trim()) return;
-      try {
-        const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: '', name: name.trim(), pair: true } });
-        await refreshTree(ctx);
-        refreshGitStatus(ctx);
-        showToast(state.lang === 'zh-CN' ? `已建书：${name}` : `Book created: ${name}`, 'success');
-        if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
-      } catch (e) { showToast(String(e.message), 'error'); }
-    });
+    document.getElementById('toc-add-book')?.addEventListener('click', () => addBook(ctx));
   } else if (name === 'world') {
     host.innerHTML = `<div class="panel-scroll" id="wp-embed"></div>`;
     renderWorldPanel(ctx);
   } else if (name === 'books') {
     host.innerHTML = `
       ${resize()}
-      <div class="panel-head"><span class="eyebrow">${lt('shelfAll')}</span><span class="panel-count" id="books-count"></span></div>
+      <div class="panel-head"><span class="eyebrow">${lt('shelfAll')}</span><span class="panel-count" id="books-count"></span>
+        <button class="panel-head-btn" id="books-add-book" title="${state.lang === 'zh-CN' ? '加一本书' : 'New book'}">＋</button>
+      </div>
       <div class="books-filter" id="books-filter"></div>
       <div class="panel-scroll"><div class="books-grid" id="books-grid"></div></div>`;
     renderBooksPanel(ctx);
     bindPanelResize(ctx, 'left', '--books-w', 'soliterra.booksW');
+    document.getElementById('books-add-book')?.addEventListener('click', () => addBook(ctx));
   }
 }
 
@@ -743,6 +750,7 @@ function renderBooksPanel(ctx) {
       : `${shown.length} / ${books.length} ${lt('shelfBooks')}`;
     grid.innerHTML = shown.map((b) => `
       <button class="book-card" data-name="${esc(b.name)}">
+        <span class="book-card-more" role="button" tabindex="0" title="${state.lang === 'zh-CN' ? '管理（重命名 / 删除）' : 'Manage'}">${ICON.more}</span>
         <div class="book-card-cover">${b.cover
           ? `<img src="/w/${enc(ctx.worldId)}/${enc(b.cover)}" alt="" data-glyph="${esc((b.title || b.name).slice(0, 1))}" data-glyph-class="book-card-glyph">`
           : `<span class="book-card-glyph">${esc((b.title || b.name).slice(0, 1))}</span>`}</div>
@@ -751,13 +759,28 @@ function renderBooksPanel(ctx) {
       </button>`).join('');
     grid.querySelectorAll('.book-card').forEach((card) => {
       attachTilt(card);
+      const b = books.find((x) => x.name === card.dataset.name);
       card.addEventListener('click', () => {
-        const b = books.find((x) => x.name === card.dataset.name);
         const first = b ? firstEntryOf(b) : null;
         if (!first) return;
         sessionStorage.setItem('soliterra.panel', 'toc');
         if (first === ctx.currentPath) setPanel(ctx, 'toc');
         else navigate(`#/w/${enc(ctx.worldId)}/${enc(first)}`);
+      });
+      // 书籍管理（第 79 轮）：卡片 ⋯（悬浮显示）与右键 → 复用目录树菜单（重命名/删除/在书内加条目）
+      const openMenu = (e) => { if (b) showTreeMenu(e, ctx, b); };
+      card.addEventListener('contextmenu', openMenu);
+      const more = card.querySelector('.book-card-more');
+      more?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const r = more.getBoundingClientRect();
+        openMenu({ preventDefault() {}, clientX: r.left, clientY: r.bottom + 4 });
+      });
+      more?.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault(); e.stopPropagation();
+        const r = more.getBoundingClientRect();
+        openMenu({ preventDefault() {}, clientX: r.left, clientY: r.bottom + 4 });
       });
     });
     bindCoverFallbacks(grid);
@@ -1452,6 +1475,7 @@ async function refreshTree(ctx) {
   ctx.tree = await api(`/api/w/${enc(ctx.worldId)}/tree`);
   worldDataCache.set(ctx.worldId, { tree: ctx.tree, timeline: ctx.timeline, ts: Date.now() });
   renderToc(ctx);
+  if (document.getElementById('books-grid')) renderBooksPanel(ctx);   // 书籍面板在场时同步重绘（第 79 轮：面板内改书后即时反映）
 }
 
 function closeTreeMenu() { document.querySelectorAll('.tree-menu').forEach((m) => m.remove()); }
