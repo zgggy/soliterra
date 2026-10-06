@@ -875,7 +875,7 @@ function firstEntryOf(node) {
 function rootNodeOf(ctx) {
   const kids = ctx.tree?.children || [];
   return kids.find((c) => c.md === 'README.md' || c.name === 'README')
-    || kids.find((c) => c.name === ctx.worldId)
+    || topBookNodes(ctx).find((c) => c.name === ctx.worldId)   // 世界名书（迁入 books/ 后仍认）
     || topBookNodes(ctx)[0]
     || kids[0] || null;
 }

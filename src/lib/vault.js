@@ -41,11 +41,13 @@ export class Vault {
     try { return fs.lstatSync(this.worldDir(id)).isSymbolicLink(); } catch { return false; }
   }
 
-  /** 根条目相对路径（第 88 轮约定）：README.md（介绍/元数据）优先，历史世界回落 `<世界名>.md`。 */
+  /** 根条目相对路径（第 88 轮约定）：README.md（介绍/元数据）优先；
+   *  回落「世界名书」（`<世界名>.md`，第 89 轮迁入 books/ 后认 `books/<世界名>.md`）。 */
   rootEntryRel(id) {
     const idx = this.index(id);
     if (idx.entry('README.md')) return 'README.md';
     if (idx.entry(`${id}.md`)) return `${id}.md`;
+    if (idx.entry(`books/${id}.md`)) return `books/${id}.md`;
     return null;
   }
 

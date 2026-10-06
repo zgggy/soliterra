@@ -278,6 +278,23 @@ test('链接世界：renameWorld 连真实文件夹一起改名并重链；delet
   }
 });
 
+test('根条目兜底：世界名书迁入 books/ 后仍认（第 89 轮）', () => {
+  const { root, lib } = mkBare();
+  const w = join(lib, '卡纳利斯');
+  try {
+    mkdirSync(join(w, 'books'), { recursive: true });
+    writeFileSync(join(w, 'books', '卡纳利斯.md'), '&n 卡纳利斯\n&m assets/covers/c.png\n\n# 卡纳利斯\n', 'utf8');
+    const v2 = new Vault(lib);
+    const info = v2.worldInfo('卡纳利斯');
+    assert.equal(info.rootRel, 'books/卡纳利斯.md');
+    assert.equal(info.name, '卡纳利斯');
+    assert.equal(info.cover, 'assets/covers/c.png');
+    v2.close('卡纳利斯');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('根条目优先级：README.md 优先于 <世界名>.md', () => {
   const { root, lib } = mkBare();
   const w = join(lib, '双根');
