@@ -17,51 +17,82 @@ usage() {
   exit 2
 }
 
-# 当前由本脚本/已知方式启动的服务器 pid（pid 文件优先，回退 pgrep）
-running_pid() {
-  local pid=""
-  if [ -f "$PID_FILE" ]; then
-    pid="$(cat "$PID_FILE" 2>/dev/null || true)"
-    if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null; then
-      echo "${pid}"
-      return 0
-    fi
-  fi
-  pid="$(pgrep -f "node server.js" | head -n1 || true)"
-  echo "${pid}"
+# 该进程的工作目录是否属于本项目（避免 pgrep 误伤别的 node server.js）
+is_ours() {
+  local pid="$1" cwd
+  cwd="$(lsof -a -p "${pid}" -d cwd -Fn 2>/dev/null | sed -n 's/^n//p' | head -n1 || true)"
+  [ -n "${cwd}" ] || return 1
+  case "${cwd}" in
+    "${ROOT}" | "${ROOT}"/*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
-# 该 pid 正在监听的端口（无监听输出空）
+# 本项目所有在运行的服务器 pid（pid 文件 + pgrep，均经 is_ours 过滤）
+our_pids() {
+  local pid out=""
+  if [ -f "${PID_FILE}" ]; then
+    pid="$(cat "${PID_FILE}" 2>/dev/null || true)"
+    if [ -n "${pid}" ] && kill -0 "${pid}" 2>/dev/null && is_ours "${pid}"; then
+      out="${pid}"
+    fi
+  fi
+  for pid in $(pgrep -f "node server.js" 2>/dev/null || true); do
+    is_ours "${pid}" || continue
+    case " ${out} " in
+      *" ${pid} "*) ;;
+      *) out="${out:+${out} }${pid}" ;;
+    esac
+  done
+  echo "${out}"
+}
+
+running_pid() {
+  our_pids | awk 'NR==1 {print; exit}'
+}
+
+# 指定端口的监听进程 pid（无则空）
+port_pid() {
+  lsof -nP -iTCP:"$1" -sTCP:LISTEN -t 2>/dev/null | head -n1 || true
+}
+
+# 该 pid 正在监听的端口（无则空）
 port_of_pid() {
   local pid="$1"
+  [ -n "${pid}" ] || return 0
   lsof -nP -a -p "${pid}" -iTCP -sTCP:LISTEN 2>/dev/null \
     | awk 'NR>1 {n=split($9, a, ":"); print a[n]; exit}' || true
 }
 
 stop_server() {
-  local pid
-  pid="$(running_pid)"
-  if [ -z "${pid}" ]; then
+  local pids pid alive i
+  pids="$(our_pids)"
+  if [ -z "${pids}" ]; then
     echo "服务器未在运行。"
     rm -f "${PID_FILE}"
     return 0
   fi
-  kill "${pid}" 2>/dev/null || true
-  local i
+  for pid in ${pids}; do
+    kill "${pid}" 2>/dev/null || true
+  done
+  alive="${pids}"
   for i in $(seq 1 20); do
-    if ! kill -0 "${pid}" 2>/dev/null; then break; fi
+    alive=""
+    for pid in ${pids}; do
+      kill -0 "${pid}" 2>/dev/null && alive="${alive} ${pid}"
+    done
+    [ -n "${alive}" ] || break
     sleep 0.2
   done
-  if kill -0 "${pid}" 2>/dev/null; then
+  for pid in ${alive}; do
     kill -9 "${pid}" 2>/dev/null || true
-  fi
+  done
   rm -f "${PID_FILE}"
-  echo "已关闭服务器（pid ${pid}）。"
+  echo "已关闭服务器（pid $(echo "${pids}" | tr ' ' ',')）。"
 }
 
 start_server() {
-  local port="$1"
-  local pid cur_port
+  local port="$1" pid cur_port i
   pid="$(running_pid)"
   if [ -n "${pid}" ]; then
     cur_port="$(port_of_pid "${pid}")"
@@ -73,16 +104,26 @@ start_server() {
     stop_server
   fi
 
-  if lsof -nP -iTCP:"${port}" -sTCP:LISTEN >/dev/null 2>&1; then
-    echo "端口 ${port} 已被其他进程占用，无法启动。" >&2
+  if [ -n "$(port_pid "${port}")" ]; then
+    echo "端口 ${port} 已被其他进程占用，无法启动：" >&2
     lsof -nP -iTCP:"${port}" -sTCP:LISTEN >&2 || true
     return 1
   fi
 
-  (cd "${APP_DIR}" && PORT="${port}" nohup node server.js >>"${LOG_FILE}" 2>&1 & echo $! >"${PID_FILE}")
-  sleep 1
-  pid="$(running_pid)"
-  if [ -n "${pid}" ] && [ "$(port_of_pid "${pid}")" = "${port}" ]; then
+  (
+    cd "${APP_DIR}" &&
+      exec nohup env PORT="${port}" node server.js >>"${LOG_FILE}" 2>&1
+  ) &
+  # 等待监听就绪（最多 3 秒）
+  for i in $(seq 1 15); do
+    [ -n "$(port_pid "${port}")" ] && break
+    kill -0 "$!" 2>/dev/null || break
+    sleep 0.2
+  done
+
+  pid="$(port_pid "${port}")"
+  if [ -n "${pid}" ]; then
+    echo "${pid}" >"${PID_FILE}"
     echo "已启动（pid ${pid}，端口 ${port}）：http://127.0.0.1:${port}"
     echo "日志：${LOG_FILE}"
   else
