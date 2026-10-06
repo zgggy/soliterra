@@ -177,7 +177,7 @@ export async function renderWorld(root, worldId, entryPath) {
 
   // 时间轴高度（可拖动；最矮 56 限定）：56–320px，sessionStorage 记忆
   const chronoH = parseInt(sessionStorage.getItem('soliterra.chronoH') || '112', 10);
-  root.querySelector('.world-view').style.setProperty('--chrono-h', Math.min(window.innerHeight, Math.max(70, chronoH)) + 'px');   // §A：上限放开至屏高（>2/3 直接以全景墙开局）
+  root.querySelector('.world-view').style.setProperty('--chrono-h', Math.min(Math.round(window.innerHeight * 0.75), Math.max(70, chronoH)) + 'px');   // §A：上限 3/4 屏高（>2/3 即高模式）
   ctx.skipFrame = !!(lastEntry && lastEntry.world === worldId && lastEntry.path === entryPath);
   lastEntry = { world: worldId, path: entryPath };
   const chrono = initTimeline(ctx, el('chrono'), el('chrono-canvas'), el('chrono-ticks'));
@@ -209,8 +209,7 @@ export async function renderWorld(root, worldId, entryPath) {
   const readerCol = el('reader');
   let scrollSaveTimer = null;
   readerCol.addEventListener('scroll', () => {
-    const inWall = document.querySelector('.world-view')?.classList.contains('wall-mode');
-    const collapsed = !inWall && (ctx.settings?.axisCollapse ?? 'on') !== 'off' && readerCol.scrollTop > 80;
+    const collapsed = !(chrono?.isTall?.()) && (ctx.settings?.axisCollapse ?? 'on') !== 'off' && readerCol.scrollTop > 80;
     root.querySelector('.world-view').classList.toggle('shrunk', collapsed);
     clearTimeout(scrollSaveTimer);
     scrollSaveTimer = setTimeout(() => {
@@ -360,14 +359,17 @@ function bindChronoResize(root, ctx, chrono) {
     const startH = bar.getBoundingClientRect().height;
     try { handle.setPointerCapture(e.pointerId); } catch {}
     handle.classList.add('active');
+    bar.classList.add('no-h-anim');        // 拖动中禁用高度过渡：面板边缘 1:1 跟手
     const move = (ev) => {
-      const h = Math.min(window.innerHeight, Math.max(70, startH + (ev.clientY - startY)));   // §A：上限放开至屏幕底部（>2/3 进全景墙）
+      const h = Math.min(Math.round(window.innerHeight * 0.75), Math.max(70, startH + (ev.clientY - startY)));   // §A：上限 3/4 屏高
       root.querySelector('.world-view').style.setProperty('--chrono-h', Math.round(h) + 'px');
       sessionStorage.setItem('soliterra.chronoH', String(Math.round(h)));
       chrono.layout();
     };
     const up = () => {
       handle.classList.remove('active');
+      bar.classList.remove('no-h-anim');
+      chrono.layout();
       handle.removeEventListener('pointermove', move);
       handle.removeEventListener('pointerup', up);
     };
@@ -927,45 +929,33 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   const flagEls = new Map();     // path -> 旗标元素（跨 layout 复用 → 位置/宽度随缩放平滑过渡）
   const spanEls = new Map();     // path -> 覆盖条元素
 
-  // ---------- §A 全景墙（wall）：高度 > 2/3 屏 → 本书全部条目自由排布 ----------
+  // ---------- 高模式（§A 修正版）：高度 > 2/3 屏 → 本书全部（有时刻）条目上轴 ----------
+  // 显示逻辑与普通模式完全一致（轴线/刻度/按时间定位/引线/分道堆叠都不变），只是面积变大、
+  // 上轴的卡片从「&f ∪ 当前 ∪ 强调」扩为本书全部条目；无时刻条目不上轴（无 x 可放）。
   const worldViewEl = wrap.closest('.world-view') || wrap.parentElement;
-  const wallBar = document.createElement('div');
-  wallBar.className = 'wall-bar';
-  wrap.appendChild(wallBar);
-  const wallHead = document.createElement('div');            // 「未定时」分组标头（复用元素）
-  wallHead.className = 'wall-group-head';
-  wallHead.hidden = true;
-  canvas.appendChild(wallHead);
-  const wallScrollHint = document.createElement('div');      // 画布滚动指示（design：原生滚动条隐藏）
-  wallScrollHint.className = 'wall-scroll-hint';
-  wrap.appendChild(wallScrollHint);
-  let isWall = false;
+  let tall = false;                                          // 由 layout() 按 --chrono-h 目标值判定（24px 滞回）
+  let flagSetCache = { key: null, map: new Map() };
 
-  /** 确定性抖动（种子 = path hash）：jx/jy ∈ [0,0.20]，保证相邻重叠 ≤ 0.25+0.20 = 45% < 1/2。 */
-  function pathHash(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
-
-  /** 全景墙条目集：当前文档所属顶层书子树（散文件 → 全库）；有 &s 按时间升序，无 &s 缀尾。 */
-  function wallEntryList() {
-    const tMap = new Map(items.map((i) => [i.path, i]));
+  /** 当前文档所属书的条目 path→tags（散文件文档 → 全库）；跨导航按 top 缓存。 */
+  function bookFlagMap() {
     const top = (ctx.currentPath || '').split('/')[0].replace(/\.md$/i, '');
+    if (flagSetCache.key === top) return flagSetCache.map;
     const node = ctx.tree.children.find((c) => c.name === top);
-    const inBook = !!(node && node.children && node.children.length);
-    const base = inBook ? flattenTree(node) : flattenTree(ctx.tree);
-    const list = base.map((e) => {
-      const t2 = tMap.get(e.path);
-      return { path: e.path, title: e.title || e.path, timed: !!t2, s: t2 ? t2.s : null, start: t2 ? t2.start : '', flag: t2 ? t2.flag : '', fuzzy: t2 ? t2.fuzzy : false };
-    });
-    const timed = list.filter((x) => x.timed).sort((a, b) => a.s - b.s);
-    const untimed = list.filter((x) => !x.timed);
-    return { list: [...timed, ...untimed], untimedCount: untimed.length, bookName: inBook ? (node.title || node.name) : (state.lang === 'zh-CN' ? '全库' : 'All') };
+    const root = (node && node.children && node.children.length) ? node : ctx.tree;
+    const map = new Map();
+    const walk = (n) => { if (n.md) map.set(n.md, n.tags || []); for (const c of n.children) walk(c); };
+    walk(root);
+    flagSetCache = { key: top, map };
+    return map;
   }
 
-  /** 旗标/墙卡片元素工厂（跨 layout/模式复用；事件按 dataset.path 动态寻址）。 */
+  /** 旗标/卡片元素工厂（跨 layout 复用；事件按 dataset.path 动态寻址）。 */
   function ensureFlagEl(path) {
     let flag = flagEls.get(path);
     if (flag) return flag;
     flag = document.createElement('button');
     flag.dataset.path = path;
+    flag.dataset.fresh = '1';                // 新建 → 首次布局时淡入
     flagEls.set(path, flag);
     flag.addEventListener('click', () => {
       if (flag.__unpin) { flag.__unpin = false; return; }
@@ -1005,11 +995,15 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     });
   }
 
-  /** 显示旗标的条目：带 &f ∪ 正在打开的文档（关闭即消失）∪ 强调过（拖入时间轴，保留）。 */
+  /** 显示旗标的条目：带 &f ∪ 正在打开的 ∪ 强调 ∪（高模式）本书全部；无时刻条目不上轴。 */
   function displayFlagOf(it) {
     if (it.flag) return it.flag;
     if (it.path === ctx.currentPath) return state.lang === 'zh-CN' ? '当前' : 'NOW';
     if (ctx.pins.has(it.path)) return state.lang === 'zh-CN' ? '强调' : 'PIN';
+    if (tall) {
+      const tags = bookFlagMap().get(it.path);
+      if (tags) return tags[0] || (state.lang === 'zh-CN' ? '条目' : 'ENTRY');
+    }
     return '';
   }
 
@@ -1024,15 +1018,10 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   function layout() {
     const width = wrap.clientWidth;
     if (!width) return;
-    // §A 全景墙：高度目标 > 2/3 屏进入（退出阈 2/3 − 24px 滞回）；判定读 --chrono-h（拖动目标值，非过渡值）
+    // 高模式判定（§A）：高度目标 > 2/3 屏进入（退出阈 2/3 − 24px 滞回）；读 --chrono-h（拖动目标值，非过渡值）
     const hTarget = parseInt(getComputedStyle(worldViewEl).getPropertyValue('--chrono-h')) || 112;
     const t1 = window.innerHeight * 2 / 3;
-    isWall = isWall ? hTarget > t1 - 24 : hTarget > t1;
-    worldViewEl.classList.toggle('wall-mode', isWall);
-    wallBar.hidden = !isWall;
-    wallScrollHint.hidden = !isWall;
-    if (isWall) { layoutWall(width); lastTimelineView = { world: ctx.worldId, lo: view.lo, hi: view.hi }; return; }
-    wallHead.hidden = true;
+    tall = tall ? hTarget > t1 - 24 : hTarget > t1;
     ticks.innerHTML = '';
     // 打开文档的起止时刻：与标尺刻度同款——轴下方一个年份（墨色、加粗区分）；顺带避免与常规刻度标签重叠
     markers.innerHTML = '';
@@ -1135,6 +1124,11 @@ function initTimeline(ctx, wrap, canvas, ticks) {
       flag.style.setProperty('--lead-x', (it._trueX - it._left + 10) + 'px');   // 引线始终垂在真实开始时刻
       flag.style.setProperty('--flag-w', it._w + 'px');   // 基础宽 = 最多 4 字（内容自然宽，hover 不跳变）
       if (!flag.classList.contains('expand')) flag.style.zIndex = String(it._z);
+      if (flag.dataset.fresh === '1') {       // 新建卡片淡入（160ms；高分道展开/缩回时同样生效）
+        flag.dataset.fresh = '';
+        flag.classList.add('card-in');
+        flag.addEventListener('animationend', () => flag.classList.remove('card-in'), { once: true });
+      }
       paintFlag(flag, { eyebrow, title: it.title, date: it.start, fuzzy: it.fuzzy, pinned: ctx.pins.has(it.path) });
       shownFlags.add(it.path);
     }
@@ -1174,70 +1168,6 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     lastTimelineView = { world: ctx.worldId, lo: view.lo, hi: view.hi };
   }
 
-  /** 全景墙布局（§A.4）：行优先（左→右=时间序）、步长 75% + 确定性抖动、无引线不对轴；溢出画布内滚动。 */
-  function layoutWall(width) {
-    ticks.innerHTML = '';
-    markers.innerHTML = '';
-    eras.innerHTML = '';
-    for (const [p2, el2] of [...spanEls]) { el2.remove(); spanEls.delete(p2); }
-    const { list, untimedCount, bookName } = wallEntryList();
-    wallBar.textContent = `${state.lang === 'zh-CN' ? '全景' : 'WALL'} · ${bookName} · ${list.length} ${state.lang === 'zh-CN' ? '条目' : 'entries'} · ${state.lang === 'zh-CN' ? '拖回 2/3 以下返回时间轴' : 'drag back below 2/3'}`;
-    const pad = 16, HH = 64, STEPY = HH * 0.75;
-    const untimedStart = list.length - untimedCount;
-    let cx = pad, cy = pad;
-    const shown = new Set();
-    list.forEach((e2, idx) => {
-      if (untimedCount > 0 && idx === untimedStart) {            // 「未定时」分组标头（另起一整行，避开上行卡身）
-        cy += HH + 8;
-        cx = pad;
-        wallHead.hidden = false;
-        wallHead.style.left = pad + 'px';
-        wallHead.style.top = cy + 'px';
-        wallHead.style.width = (width - pad * 2) + 'px';
-        wallHead.textContent = state.lang === 'zh-CN' ? '未定时' : 'UNDATED';
-        cy += 24;
-        cx = pad;
-      }
-      const w = Math.min(240, Math.max(140, String(e2.title || '').length * 14 + 22));
-      if (cx > pad && cx + w * 1.05 > width - pad) { cx = pad; cy += STEPY; }   // 行优先换行（预留抖动余量）
-      const h2 = pathHash(e2.path);
-      const jx = ((h2 % 1000) / 1000) * 0.20 * w;                // 确定性抖动 ≤20% → 相邻重叠 ≤45% < 1/2
-      const jy = ((Math.floor(h2 / 1000) % 1000) / 1000) * 0.20 * HH;
-      const flag = ensureFlagEl(e2.path);
-      const isCur2 = e2.path === ctx.currentPath;
-      const eyebrow = e2.flag
-        || (isCur2 ? (state.lang === 'zh-CN' ? '当前' : 'NOW')
-          : ctx.pins.has(e2.path) ? (state.lang === 'zh-CN' ? '强调' : 'PIN')
-            : (state.lang === 'zh-CN' ? '未定时' : 'UNDATED'));
-      flag.className = `event-flag wall-card${isCur2 ? ' open expand' : ''}${ctx.pins.has(e2.path) ? ' pinned' : ''}`;
-      flag.dataset.z = String(10 + idx);
-      flag.style.left = Math.round(cx + jx) + 'px';
-      flag.style.top = Math.round(cy + jy) + 'px';
-      flag.style.bottom = 'auto';
-      flag.classList.remove('axis-anchored');
-      flag.style.setProperty('--lead-x', '0px');
-      flag.style.setProperty('--flag-w', w + 'px');
-      flag.style.zIndex = isCur2 ? '80' : String(10 + idx);    // 打开中的卡片图层最上（与普通模式同语言）
-      paintFlag(flag, { eyebrow, title: e2.title, date: e2.timed ? e2.start : '—', fuzzy: e2.fuzzy, pinned: ctx.pins.has(e2.path) });
-      shown.add(e2.path);
-      cx += w * 0.75;
-    });
-    if (untimedCount === 0) wallHead.hidden = true;
-    for (const [p2, el2] of [...flagEls]) if (!shown.has(p2)) { el2.remove(); flagEls.delete(p2); }
-    canvas.scrollTop = 0;
-    updateWallHint();
-  }
-
-  /** 墙画布滚动指示（design：原生滚动条隐藏）：宽=可视比例、左=滚动位置。 */
-  function updateWallHint() {
-    const sh = canvas.scrollHeight, ch = canvas.clientHeight;
-    if (!isWall || sh <= ch + 4) { wallScrollHint.hidden = true; return; }
-    wallScrollHint.hidden = false;
-    wallScrollHint.style.width = ((ch / sh) * 100).toFixed(2) + '%';
-    wallScrollHint.style.left = ((canvas.scrollTop / sh) * 100).toFixed(2) + '%';
-  }
-  canvas.addEventListener('scroll', () => { if (isWall) updateWallHint(); });
-
   /** 视野补间：300ms cubic-bezier(.22,1,.36,1)（≈easeOutCubic）；reduced-motion 瞬时。 */
   function animateTo(lo2, hi2, ms = 300) {
     if (anim) cancelAnimationFrame(anim);
@@ -1258,7 +1188,6 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   }
 
   wrap.addEventListener('wheel', (e) => {
-    if (isWall) return;                                   // 全景墙：滚轮交给画布内滚动（不缩放/平移）
     e.preventDefault();
     if (e.shiftKey) {
       const d = (e.deltaY / wrap.clientWidth) * (view.hi - view.lo);
@@ -1276,7 +1205,6 @@ function initTimeline(ctx, wrap, canvas, ticks) {
 
   let dragging = null;
   wrap.addEventListener('pointerdown', (e) => {
-    if (isWall) return;                                   // 全景墙：不拖拽平移
     if (e.target.closest('.event-flag')) return;
     dragging = { x: e.clientX, lo: view.lo, hi: view.hi };
     wrap.setPointerCapture(e.pointerId);
@@ -1292,9 +1220,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   wrap.addEventListener('pointerup', stop);
   wrap.addEventListener('pointercancel', stop);
 
-  /** 取景（打开文档）：&s 落在屏幕 1/3、&e 落在屏幕 2/3（瞬时事件置于 1/3）。300ms。全景墙下不取景。 */
+  /** 取景（打开文档）：&s 落在屏幕 1/3、&e 落在屏幕 2/3（瞬时事件置于 1/3）。300ms。 */
   function focusPath(path) {
-    if (isWall) return;
     const it = items.find((i) => i.path === path);
     if (!it) return;
     const s = it.s;
@@ -1323,14 +1250,8 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     if (from) emphasize(ctx, from);
   });
 
-  /** ⌘K 日期取景：以 ord 为中心、spanYears 为跨度。全景墙下先收高度回普通模式再取景。 */
+  /** ⌘K 日期取景：以 ord 为中心、spanYears 为跨度。 */
   function focusOrd(ord, spanYears = 100) {
-    if (isWall) {
-      const target = Math.min(320, Math.floor(window.innerHeight * 2 / 3) - 48);
-      worldViewEl.style.setProperty('--chrono-h', target + 'px');
-      sessionStorage.setItem('soliterra.chronoH', String(target));
-      layout();
-    }
     hoverBaseReset();
     const span = Math.max(spanYears * YEAR, YEAR);
     animateTo(ord - span / 2, ord + span / 2, 300);
@@ -1358,7 +1279,6 @@ function initTimeline(ctx, wrap, canvas, ticks) {
     }
     if (!inAxis) return;
     if (k === 'Escape') { wrap.blur(); wrap.classList.remove('chrono-kb'); return; }
-    if (isWall) return;                                   // 全景墙：无缩放/平移（T 会话禁用）
     if (k === 'ArrowLeft' || k === 'ArrowRight') {
       e.preventDefault();
       const d = (view.hi - view.lo) * (k === 'ArrowLeft' ? -0.1 : 0.1);
@@ -1375,7 +1295,7 @@ function initTimeline(ctx, wrap, canvas, ticks) {
   window.addEventListener('keydown', axisKeyHandler);
 
   window.addEventListener('resize', layout);
-  return { layout, focusPath, focusOrd, view };
+  return { layout, focusPath, focusOrd, isTall: () => tall, view };
 }
 
 // ============ 结构操作（§5.4 ②③④ + 重命名/删除）：右键菜单 ============

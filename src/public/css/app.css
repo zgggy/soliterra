@@ -253,7 +253,7 @@ img { display: block; max-width: 100%; }
 /* 时间轴高度把手：60×10 悬浮在时间轴下边界正中（世界视图层，浮于内容区之上不被裁剪）；距边界 ≤40px 才显示 */
 .chrono-resize {
   position: absolute; left: 50%; top: calc(var(--chrono-h, 112px) - 5px); transform: translateX(-50%);
-  width: 60px; height: 10px; z-index: 33;
+  width: 60px; height: 10px; z-index: 91;   /* 高于一切（卡片 hover 90/打开 80/fab 27）*/
   border: 1px solid var(--line); background: var(--bg-soft); cursor: row-resize;
   opacity: 0; pointer-events: none;
   transition: opacity var(--motion-quick), border-color var(--motion-quick);
@@ -1179,36 +1179,10 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 .am-custom { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .am-custom .text-input { flex: 1; }
 
-/* ---------- 全景墙（§A）：>2/3 屏高 → 本书条目自由排布 ---------- */
-.wall-bar {
-  position: absolute; top: 0; left: 0; right: 0; height: 16px; z-index: 15;
-  display: flex; align-items: center; padding: 0 12px; pointer-events: none;
-  background: var(--surface); border-bottom: 1px solid var(--line);
-  font-family: var(--font-ui); font-size: 0.58rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
-}
-.wall-bar[hidden] { display: none; }
-.world-view.wall-mode .chrono-canvas { top: 16px; bottom: 0; overflow-y: auto; scrollbar-width: none; }
-.world-view.wall-mode .chrono-canvas::-webkit-scrollbar { display: none; }
-.world-view.wall-mode .chrono-ticks,
-.world-view.wall-mode .chrono-eras,
-.world-view.wall-mode .chrono-markers { opacity: 0; pointer-events: none; transition: opacity var(--motion-state); }
-.world-view.wall-mode .span-bar { opacity: 0 !important; pointer-events: none; }
-.world-view.wall-mode .event-flag { height: 64px; width: var(--flag-w, 140px); }
-.world-view.wall-mode .event-flag.expand,
-.world-view.wall-mode .event-flag:hover { width: auto; max-width: 240px; }
-.world-view.wall-mode .event-flag::after { display: none; }         /* 墙内无引线 */
-.wall-group-head {
-  position: absolute; display: flex; align-items: center; gap: 10px;
-  font-family: var(--font-ui); font-size: 0.6rem; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
-  pointer-events: none;
-}
-.wall-group-head[hidden] { display: none; }
-.wall-group-head::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-.wall-scroll-hint {
-  position: absolute; top: 16px; height: 3px; z-index: 16; pointer-events: none;
-  background: var(--text-muted); opacity: .45;
-}
-.wall-scroll-hint[hidden] { display: none; }
+/* ---------- 高模式（§A 修正版）：>2/3 屏高 → 本书全部条目上轴；其余显示逻辑不变 ---------- */
+.chrono-bar.no-h-anim { transition: none; }        /* 拖动中：面板边缘 1:1 跟手（结束后恢复过渡） */
+.event-flag.card-in { animation: flag-in 160ms ease-out; }
+@keyframes flag-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---------- 交互动画系统：reduced-motion 全局兜底（v3，design.md「Motion」） ---------- */
 @media (prefers-reduced-motion: reduce) {
