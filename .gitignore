@@ -13,3 +13,5 @@ src/worlds/
 
 # 世界索引与备份（若世界库曾放在项目内）
 .soliterra/
+.server.pid
+server.log
