@@ -525,6 +525,9 @@ window.SoliterraEditor = {
       getValue: () => view.state.doc.toString(),
       setValue: (t) => view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: t } }),
       focus: () => view.focus(),
+      // 第 124 轮：进编辑焦点必落内容内（输入指示器可见）且光标置文末——
+      // & 元数据行在顶部，默认文末防「回车就打在 &n 行上」误改元数据
+      focusEnd: () => { view.focus(); view.dispatch({ selection: { anchor: view.state.doc.length }, scrollIntoView: true }); },
       requestMeasure: () => view.requestMeasure(),   // 分屏/容器宽度变化 → CM 重排（§B.3.4）
       h1: () => linePrefix(view, '# '),
       h2: () => linePrefix(view, '## '),

@@ -146,6 +146,23 @@ export async function renderWorld(root, worldId, entryPath) {
       e.preventDefault();
       enterEdit(ctx);
     }
+    // 第 124 轮：阅读态 ↑/← = 上一篇 · ↓/→ = 下一篇——与底部「上一篇/下一篇」按钮同一 prevEntry/nextEntry 序；
+    // 时间轴聚焦（T）时 ←→ 由 axisKeyHandler 先 preventDefault → 这里 defaultPrevented 让位；
+    // 打字上下文/对话框让位；到头到尾也吞键（阅读态方向键专属翻页，不触发原生滚动）。
+    // 基准取**哈希路径**而非 ctx.currentPath：navigate 同步改哈希、路由/开文是异步的——连按
+    //（← 后立刻 →/↓）时 currentPath 还停在旧条目，prev/next 会算出 null/错位（实测 ↓ 空按）。
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft' || e.key === 'ArrowDown' || e.key === 'ArrowRight')
+      && !e.metaKey && !e.ctrlKey && !e.altKey
+      && !ctx.editing && !e.defaultPrevented
+      && !e.target?.closest?.('.reader-modal, .cm-editor, input, textarea, select, [contenteditable="true"]')) {
+      const parts = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/');
+      const cur = parts[0] === 'w' && parts[1] ? parts.slice(2).join('/') : '';
+      if (!cur) return;
+      e.preventDefault();
+      const back = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
+      const sib = back ? prevEntry(ctx.tree, cur) : nextEntry(ctx.tree, cur);
+      if (sib) navigate(`#/w/${enc(ctx.worldId)}/${enc(sib.path)}`);
+    }
   }
 
   // 时间轴智能收拢：主区下滚 > 80px + 进度记忆（防抖 400ms 存 localStorage，跨会话）
@@ -188,6 +205,10 @@ export async function renderWorld(root, worldId, entryPath) {
     /** 世界内导航（同世界、仅换文档）：只重载正文 + 定向更新面板，不整页重渲染。 */
     update: async (path) => {
       if (!document.getElementById('shell') || !path) return false;
+      // 第 124 轮：编辑中重开**同条目** = 排队的滞后路由（连按方向键后立刻回车时 hashchange
+      // 任务晚于 enterEdit 落地）——吞掉，否则其阅读态渲染把刚建的编辑器整个盖掉；
+      // 换条目仍放行（openEntry 入口闸做原子存退）。
+      if (ctx.editing && path === ctx.currentPath) return true;
       await openEntry(ctx, path, chrono);
       return true;
     },
@@ -1216,6 +1237,7 @@ function loadEditor() {
 }
 
 async function enterEdit(ctx) {
+  openSeq++;   // 第 124 轮：作废在途 openEntry（导航后立刻回车时其过期渲染会把刚建的编辑器盖回阅读态）
   ctx.editing = true;
   const snapPath = ctx.currentPath;            // 归属快照：编辑器内容属于这个条目（防后续 currentPath 漂移）
   const entryTitle = document.querySelector('.entry-title')?.textContent || snapPath.split('/').pop().replace(/\.md$/i, '');
@@ -1246,6 +1268,7 @@ async function enterEdit(ctx) {
     };
     ta.addEventListener('input', () => { scheduleAutoSave(ctx); drawerD(); });
     ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);   // 第 124 轮：光标置文末（与标准档一致）
     setEditFab(ctx, true);
     renderMetaDrawer(ctx);
     return;
@@ -1322,6 +1345,9 @@ async function enterEdit(ctx) {
   setEditFab(ctx, true);
   mountEditStatus(entryTitle, initialSave);   // 顶缘状态条（第 86 轮）
   renderMetaDrawer(ctx);       // 抽屉初始渲染（§B.2）
+  // 第 124 轮：进编辑焦点必落内容内（有输入指示器）——光标置文末（放最后防被抽屉/状态条抢焦点）
+  if (ctx.editor?.focusEnd) ctx.editor.focusEnd();
+  else ctx.editor?.focus?.();
 }
 
 /** §B.3.4 实时预览分屏：工具栏 ◐ toggle → grid 两栏；输入 400ms 防抖 → POST /render（只读）回填。 */

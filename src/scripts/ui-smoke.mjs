@@ -237,18 +237,31 @@ test('快捷键：阅读态回车进编辑 · 编辑态 Esc 保存并退出（�
   assert.ok(!(await page.$('.cm-content')), '起始阅读态');
   await page.click('.entry-title');   // 焦点清到非打字上下文（h1 不可聚焦）
   await page.keyboard.press('Enter');
-  await page.waitForSelector('.cm-content', { timeout: 5000 });
-  await page.click('.cm-content');
-  await page.keyboard.press('ControlOrMeta+End');   // 光标锚到文末——否则点在 &m 元数据行中间插入会打烂封面路径
-  await page.keyboard.type('回车进编辑标记', { delay: 15 });
+  await page.waitForFunction(() => document.activeElement?.closest?.('.cm-editor'), null, { timeout: 5000 });
+  assert.ok(await page.evaluate(() => !!document.activeElement?.closest?.('.cm-editor')), '进编辑焦点在内容内（输入指示器）');
+  await page.keyboard.type('回车进编辑标记', { delay: 15 });   // 不点不快捷键——焦点/光标文末是产品行为
   await page.waitForFunction(() => (document.getElementById('edit-status')?.textContent || '').includes('Saved'), null, { timeout: 6000 });
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
   const raw = await api(`/api/w/${encodeURIComponent(W)}/raw?path=${encodeURIComponent('books/书B/稿.md')}`);
-  assert.ok(raw.body.text.includes('回车进编辑标记'), 'Esc = 保存并退出（落盘）');
-  // 回到阅读态后再回车 → 又进编辑（循环可用）
+  assert.ok(raw.body.text.endsWith('回车进编辑标记'), `Esc = 保存并退出 · 光标默认文末尾接（实际尾部 ${JSON.stringify(raw.body.text.slice(-20))}）`);
+  // 方向键翻页（第 124 轮）：←↑ 上一篇 · →↓ 下一篇 · 编辑态不导航
+  const h0 = await page.evaluate(() => location.hash);
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForFunction((h) => location.hash !== h, h0, { timeout: 5000 });
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction((h) => location.hash === h, h0, { timeout: 5000 });
+  await page.keyboard.press('ArrowUp');
+  await page.waitForFunction((h) => location.hash !== h, h0, { timeout: 5000 });
+  await page.keyboard.press('ArrowDown');
+  await page.waitForFunction((h) => location.hash === h, h0, { timeout: 5000 });
+  // 编辑态方向键 = 光标移动，不翻页
   await page.keyboard.press('Enter');
-  await page.waitForSelector('.cm-content', { timeout: 5000 });
+  await page.waitForFunction(() => document.activeElement?.closest?.('.cm-editor'), null, { timeout: 5000 });
+  const he = await page.evaluate(() => location.hash);
+  await page.keyboard.press('ArrowDown');
+  await sleep(400);
+  assert.equal(await page.evaluate(() => location.hash), he, '编辑态方向键不翻页');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
 });
