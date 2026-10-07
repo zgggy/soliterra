@@ -107,17 +107,22 @@ test('树拖拽中区移入：甲 → 乙（乙变配对父，甲入其下）', 
   assert.ok(yi.children?.some((c) => c.name === '甲'), '服务端：甲在乙子树（乙成配对书）');
 });
 
-test('行点击合并：点有子行 = 打开文档 + 同时收起；再点 = 展开（第 111 轮）', async () => {
+test('两段式点击（第 112 轮）：未选中点=打开保持展开 → 再点=收起 → 再点=展开', async () => {
   const before = await tocRows();
   const bl = before.map((r) => r.label);
   assert.ok(bl.includes('书A') && bl.includes('乙'), `前置树（实际 ${bl}）`);
+  // ① 未选中+已展开 → 只打开、保持展开（第一次点击 = 选中）
   await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
-  // 竞态序：hash → 文档真渲染（title=书A，此前打开的是乙）→ 收起生效
   await page.waitForFunction(() => decodeURIComponent(location.hash).includes('books/书A.md'), { timeout: 6000 });
   await page.waitForFunction(() => (document.querySelector('.entry-title')?.textContent || '').trim() === '书A', { timeout: 6000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length > 1, { timeout: 4000 });
+  // ② 已选中+已展开 → 收起（唯一收起时机；同文档不重载）
+  await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
   await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length === 1, { timeout: 4000 });
+  // ③ 已选中+已收起 → 展开
   await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
   await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length > 1, { timeout: 4000 });
+  assert.equal((await page.$eval('.entry-title', (e) => e.textContent)).trim(), '书A', '文档保持打开');
 });
 
 test('纯目录节点点击：自动补建配对 md 并打开（层级必须 md+文件夹，第 111 轮）', async () => {

@@ -222,15 +222,21 @@ export function renderToc(ctx) {
       arrow.textContent = '·';
       arrow.classList.add('leaf');
     }
-    // 第 111 轮：**点击行为合并**（用户：跳转与展开/收起不隔离）——
-    // ① 有 md 的条目（不论有无子条目）：打开其文档 + 同时切换子树展开/收起；
-    // ② 纯目录节点（层级无配对 md）：**自动补建配对 md**（所有层级必须 md+文件夹）→ 打开 + 切换。
-    // 只想收起不跳转 → 点箭头（arrow handler stopPropagation，与行行为互不影响）。
+    // 第 112 轮：**两段式点击**（用户定稿）——「进入」与「收起」解耦，收起只发生在已选中之后：
+    //   未选中+已展开 → 只打开（第一次点击 = 选中，保持展开，不误收起）
+    //   未选中+已收起 → 打开 + 展开（一次完成）
+    //   已选中+已展开 → 收起（唯一收起时机）
+    //   已选中+已收起 → 展开
+    // 纯目录节点（无配对 md）：自动补建其 md 后打开（树重建时 containsCurrent 自动展开该层）。
+    // 只想不打开地收/展 → 点箭头（stopPropagation 与行行为互不影响）。
     row.addEventListener('click', async () => {
       if (clickGuardActive()) return;
       if (isOpenable) {
+        const isCurrent = node.md === ctx.currentPath;
+        if (isCurrent && sub && !sub.hidden) { arrow.click(); return; }   // 已选中+已展开 → 收起（不再 navigate）
         navigate(`#/w/${enc(ctx.worldId)}/${enc(node.md)}`);
-        if (sub) arrow.click();   // 程序化 click 在 arrow 内 stopPropagation，不会二次触发本 handler
+        if (sub && sub.hidden) arrow.click();                             // 收起态 → 展开（首次选中即展开）
+        // 未选中+已展开 → 仅打开、保持展开（自然落此分支）
       } else if (node.dir) {
         try {
           const r = await pairDirNode(ctx, node.dir, node.name);
