@@ -478,7 +478,9 @@ app.get('/api/w/:id/graph', (req, reply) => {
 // ---------- 启动 ----------
 try {
   await app.listen({ host: '127.0.0.1', port: PORT });
-  console.log(`\n  SOLITERRA\n  ─────────\n  http://127.0.0.1:${PORT}\n  worlds: ${worldsDir}\n`);
+  // PORT=0（测试）→ 打印系统分配的实际端口（第 106 轮：冒烟测试解析 stdout 直接拿）
+  const actualPort = app.server.address()?.port || PORT;
+  console.log(`\n  SOLITERRA\n  ─────────\n  http://127.0.0.1:${actualPort}\n  worlds: ${worldsDir}\n`);
   if (!fs.existsSync(worldsDir)) {
     console.log(`  ⚠ 世界库目录不存在——复制 soliterra.config.example.json 为 soliterra.config.json 并设置 worldsDir（或 node server.js <worldsDir> / 环境变量 SOLITERRA_WORLDS）\n`);
   }
