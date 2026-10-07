@@ -247,6 +247,8 @@ app.get('/api/w/:id/entry', (req, reply) => {
     const e = idx.entry(rel);
     if (!e) return reply.code(404).send({ error: 'entry not found' });
     const raw = vault.readEntryRaw(req.params.id, rel);
+    // 第 120 轮：相对图片补 /w/<id>/ 前缀（阅读态可加载；发布站不走此参数）
+    const imgBase = `/w/${encodeURIComponent(req.params.id)}/`;
     // 方向 B（§8.4）：![[条目#锚]] 真嵌入（深度 1）
     const resolver = (target, anchor) => {
       const hit = idx.resolve(target);
@@ -259,9 +261,9 @@ app.get('/api/w/:id/entry', (req, reply) => {
         if (!sec) return null;
         text = sec;
       }
-      return renderFragment(text);
+      return renderFragment(text, imgBase);
     };
-    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, req.query.lang || "zh-CN", resolver);
+    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, req.query.lang || "zh-CN", resolver, imgBase);
     return { ...e, raw, html, topMetaHTML, rangeHTML, mtime: vault.entryMtime(req.params.id, rel) };
   } catch (err) { reply.code(400).send({ error: err.message }); }
 });
@@ -361,7 +363,8 @@ app.post('/api/w/:id/render', (req, reply) => {
     const { text } = req.body || {};
     if (typeof text !== 'string') return reply.code(400).send({ error: 'text required' });
     const e = parseEntry('preview.md', text);
-    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, 'zh-CN');
+    const imgBase = `/w/${encodeURIComponent(req.params.id)}/`;   // 分屏预览与阅读态同管线（第 120 轮）
+    const { html, topMetaHTML, rangeHTML } = renderEntry(e.body, e.meta, e.title, 'zh-CN', null, imgBase);
     return { html, topMetaHTML, rangeHTML, title: e.title };
   } catch (err) { reply.code(400).send({ error: err.message }); }
 });

@@ -241,6 +241,41 @@ test('首页卡片同构 9:16 信息入封面 + 世界卡拖动换位落盘', as
   assert.deepEqual(idsB.slice(0, 2), [id1, id0], '刷新后顺序保持（服务端落盘）');
 });
 
+test('书籍头合一 + filter 横滚（第 118/120 轮）', async () => {
+  await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+  await page.waitForSelector('.books-head', { timeout: 10000 });
+  const head = await page.$eval('.books-head', (h) => ({
+    titleGone: !h.textContent.includes('全部书籍'),
+    countGone: !document.getElementById('books-count'),
+    oneRow: !!h.querySelector('#books-filter') && !!h.querySelector('#books-add-book'),
+    fade: getComputedStyle(h, '::after').backgroundImage.includes('linear-gradient'),
+    fadePointer: getComputedStyle(h, '::after').pointerEvents,
+  }));
+  assert.ok(head.titleGone && head.countGone, '「全部书籍」「N 本」已删');
+  assert.ok(head.oneRow, 'filter 与 ＋ 合并在同一行');
+  assert.ok(head.fade && head.fadePointer === 'none', '右端渐变遮挡在且不挡指针');
+  // 注满 chips → 纵向滚轮应映射成横向滚动（第 120 轮）
+  await page.evaluate(() => {
+    const f = document.getElementById('books-filter');
+    for (let i = 0; i < 40; i++) {
+      const b = document.createElement('button');
+      b.className = 'bf-chip';
+      b.textContent = '很长的分类标签' + i;
+      f.appendChild(b);
+    }
+  });
+  const st = await page.$eval('#books-filter', (f) => {
+    const r = f.getBoundingClientRect();
+    return { sw: f.scrollWidth, cw: f.clientWidth, left: f.scrollLeft, x: Math.round(r.x + Math.min(r.width / 2, 120)), y: Math.round(r.y + r.height / 2) };
+  });
+  assert.ok(st.sw > st.cw, `chips 溢出可滚（${st.sw}/${st.cw}）`);
+  await page.mouse.move(st.x, st.y);
+  await page.mouse.wheel(0, 240);
+  await sleep(200);
+  const left2 = await page.$eval('#books-filter', (f) => f.scrollLeft);
+  assert.ok(left2 > st.left, `滚轮 → 横向滚动（${st.left} → ${left2}）`);
+});
+
 test('书卡拖动：幽灵带书名 + 中区前缀 + 三分区换位（第 117 轮：结构变更不丢名字）', async () => {
   await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
   await page.waitForSelector('.book-card[data-name="书A"]', { timeout: 10000 });

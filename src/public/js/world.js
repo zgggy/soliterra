@@ -29,6 +29,10 @@ hooks.renderBooksPanel = renderBooksPanel;
 hooks.setPanel = setPanel;   // ⌘K 动作行开关面板（第 105 轮）
 hooks.openEntry = openEntry;
 export async function renderWorld(root, worldId, entryPath) {
+  // 第 120 轮：整页重渲染开始即作废旧实例——否则「裸世界 hash 重进本世界」（#/w/<id> 无条目路径）
+  // 时 route 会短路进旧 ctx 的 update（旧 DOM 已被 root.innerHTML 替换），新 ctx 的 setPanel 永不
+  // 执行 → 面板全关、卡片全消失（实测复现）。置空后走完整渲染 → 打开根条目 → 行为与首页进入一致。
+  activeWorld = null;
   root.innerHTML = `
     <div class="world-view">
       <div class="chrono-bar" id="chrono">
@@ -377,6 +381,13 @@ function renderLeftPanel(ctx, name) {
       </div>
       <div class="panel-scroll"><div class="books-grid" id="books-grid"></div></div>`;
     renderBooksPanel(ctx);
+    // filter 横滚（第 120 轮）：chip 未来会很多——纵向滚轮映射成横向滚动（触控板横扫原生处理）；
+    // 内容没溢出时不拦截，事件照常冒泡给面板纵向滚动
+    document.getElementById('books-filter')?.addEventListener('wheel', (e) => {
+      const f = e.currentTarget;
+      const dy = Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : 0;
+      if (dy && f.scrollWidth > f.clientWidth) { f.scrollLeft += dy; e.preventDefault(); }
+    }, { passive: false });
     bindPanelResize(ctx, 'left', '--books-w', 'soliterra.booksW');
     document.getElementById('books-add-book')?.addEventListener('click', () => addBook(ctx));
   }

@@ -87,12 +87,24 @@ export function sectionOf(text, anchor) {
   return start >= 0 ? lines.slice(start).join('\n') : null;
 }
 
+/** 相对图片 → 应用内 URL（第 120 轮）：阅读态/分屏预览把 `assets/…` 补成 `/w/<id>/…`
+ *  （markdown-it 已对 src 做过百分号编码 → 原样拼接不二次编码）。绝对路径（/ · 协议 · data:）不动；
+ *  **发布站不传 base** → 保持裸相对路径，交由 publish.postProcess 按页面深度相对化（既有语义不变）。 */
+function rewriteImgSrcs(html, base) {
+  if (!base) return html;
+  return html.replace(/(<img\b[^>]*?\bsrc=")([^"]+)(")/g, (m, pre, src, post) => {
+    if (/^(https?:)?\/\//i.test(src) || src.startsWith('/') || /^data:/i.test(src)) return m;
+    return pre + base + src + post;
+  });
+}
+
 /** 嵌入片段渲染（深度 1：片段内 ![[ ]] 退回链接；callout 带视图分级；勘误态由 renderFences 继承）。 */
-export function renderFragment(text) {
+export function renderFragment(text, imgBase = null) {
   const prev = md.renderer.rules.wikilink;
   md.renderer.rules.wikilink = DEFAULT_WIKILINK;
   let html = md.render(text);
   md.renderer.rules.wikilink = prev;
+  html = rewriteImgSrcs(html, imgBase);
   html = renderCallouts(html);
   html = renderFences(html);
   return { html };
@@ -191,7 +203,7 @@ function renderFences(html) {
  * @param {string} body 已剥离元数据行的正文
  * @param {object} meta 元数据
  */
-export function renderEntry(body, meta, title, lang, resolver = null) {
+export function renderEntry(body, meta, title, lang, resolver = null, imgBase = null) {
   // 正文首个 H1 与条目标题相同时移除（避免与 entry-title 重复）
   let src = body;
   const h1 = src.match(/^#\s+(.+)\s*$/m);
@@ -202,6 +214,7 @@ export function renderEntry(body, meta, title, lang, resolver = null) {
   md.renderer.rules.wikilink = resolver ? makeWikilink(resolver) : DEFAULT_WIKILINK;
   let html = md.render(src);
   md.renderer.rules.wikilink = prevWiki;
+  html = rewriteImgSrcs(html, imgBase);   // 第 120 轮：相对图补 /w/<id>/（阅读态/预览态）
   html = renderCallouts(html);
   html = renderFences(html);
   const { topMetaHTML, rangeHTML } = entryMetaParts(meta || {}, lang);

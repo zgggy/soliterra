@@ -186,3 +186,19 @@ test('世界排序端点：POST /api/worlds/order → GET 全量按提交序；�
   const { body: l3 } = await api('/api/worlds');
   assert.equal(l3[l3.length - 1].id, '序丙', '未入序新世界按名排尾');
 });
+
+test('相对图片改写：阅读态 / 嵌入片段 / 分屏预览 → /w/<id>/assets/…（第 120 轮）', async () => {
+  const iw = encodeURIComponent('图文测');
+  await api('/api/worlds', { method: 'POST', body: { name: '图文测' } });
+  await api(`/api/w/${iw}/save`, { method: 'POST', body: { path: '带图.md', text: '&n 带图\n\n# 带图\n\n![](assets/pic.png)\n\n![](/abs/keep.png)\n', force: true } });
+  await api(`/api/w/${iw}/save`, { method: 'POST', body: { path: '嵌入方.md', text: '&n 嵌入方\n\n# 嵌入方\n\n![[带图]]\n', force: true } });
+  const e = await api(`/api/w/${iw}/entry?path=${encodeURIComponent('带图.md')}`);
+  assert.equal(e.status, 200, 'entry 可读');
+  assert.ok(e.body.html.includes(`src="/w/${iw}/assets/pic.png"`), `相对图补 /w/<id>/（实际 ${e.body.html.match(/<img[^>]*>/)?.[0]}）`);
+  assert.ok(e.body.html.includes('src="/abs/keep.png"'), '绝对路径不动');
+  const e2 = await api(`/api/w/${iw}/entry?path=${encodeURIComponent('嵌入方.md')}`);
+  assert.ok(e2.body.html.includes(`src="/w/${iw}/assets/pic.png"`), '嵌入片段内图片同改写');
+  const r = await api(`/api/w/${iw}/render`, { method: 'POST', body: { text: '![](assets/pic.png)' } });
+  assert.equal(r.status, 200);
+  assert.ok(r.body.html.includes(`src="/w/${iw}/assets/pic.png"`), '分屏预览同改写');
+});
