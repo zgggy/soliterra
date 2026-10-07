@@ -34,7 +34,7 @@ export async function renderWorld(root, worldId, entryPath) {
         <div class="chrono-canvas" id="chrono-canvas"></div>
         <div class="chrono-ticks" id="chrono-ticks"></div>
       </div>
-      <div class="chrono-resize" id="chrono-resize" title="${state.lang === 'zh-CN' ? '拖动调整高度' : 'Drag to resize'}"></div>
+      <div class="chrono-resize" id="chrono-resize" title="${t('tip.resizeH')}"></div>
       <div class="world-shell" id="shell">
         <aside class="push-panel" id="panel-left"></aside>
         <main class="reader-column" id="reader"><div class="loading">${t('world.loading')}</div></main>
@@ -196,7 +196,7 @@ function watchFsEvents(ctx) {
       // 当前条目被外部改动且非编辑态 → 原地重载（滚动位置先落 localStorage，openEntry 会恢复）
       if (paths.has(ctx.currentPath) && !ctx.editing && ctx.currentPath) {
         try { localStorage.setItem(`soliterra.scroll.${ctx.worldId}.${ctx.currentPath}`, String(document.getElementById('reader')?.scrollTop || 0)); } catch {}
-        showToast(zh ? '文件已被外部修改——已重新加载' : 'File changed externally — reloaded', 'info');
+        showToast(t('wp.externalReload'), 'info');
         openEntry(ctx, ctx.currentPath, ctx.chrono);
       }
     }, 800);
@@ -252,21 +252,21 @@ function addBook(ctx) {
     modal.className = 'reader-modal active';
     modal.innerHTML = `
       <div class="modal-dialog ask-dialog">
-        <div class="modal-header"><span class="eyebrow">${zh ? '新建书籍' : 'New book'}</span><button class="modal-close" data-close>×</button></div>
+        <div class="modal-header"><span class="eyebrow">${t('book.new')}</span><button class="modal-close" data-close>×</button></div>
         <div class="modal-scroll">
-          <label class="field"><span class="eyebrow">${zh ? '书名' : 'Book name'}</span>
+          <label class="field"><span class="eyebrow">${t('book.name')}</span>
             <input class="text-input ab-name" autofocus></label>
-          <label class="field"><span class="eyebrow">${zh ? '简介（写入 books/书名.md）' : 'Intro (written to books/name.md)'}</span>
+          <label class="field"><span class="eyebrow">${t('book.intro')}</span>
             <textarea class="text-input ab-intro" rows="3"></textarea></label>
-          <label class="field"><span class="eyebrow">${zh ? '封面（写入 &m）' : 'Cover (writes &m)'}</span>
+          <label class="field"><span class="eyebrow">${t('book.cover')}</span>
             <span class="wz-cover-row">
-              <button class="button-ghost ab-cover-local" type="button">${zh ? '从本机选择…' : 'From disk…'}</button>
-              <button class="button-ghost ab-cover-assets" type="button">${zh ? '从 assets 选择…' : 'From assets…'}</button>
-              <span class="wz-cover-preview ab-cover-prev" hidden><img class="ab-cover-thumb" alt=""><span class="wz-cover-name ab-cover-name"></span><button class="button-ghost ab-cover-clear" type="button">${zh ? '移除' : 'Remove'}</button></span>
+              <button class="button-ghost ab-cover-local" type="button">${t('book.fromDisk')}</button>
+              <button class="button-ghost ab-cover-assets" type="button">${t('book.fromAssets')}</button>
+              <span class="wz-cover-preview ab-cover-prev" hidden><img class="ab-cover-thumb" alt=""><span class="wz-cover-name ab-cover-name"></span><button class="button-ghost ab-cover-clear" type="button">${t('book.remove')}</button></span>
             </span></label>
           <div class="modal-actions">
-            <button class="button-ghost" data-close>${zh ? '取消' : 'Cancel'}</button>
-            <button class="button-primary ab-ok" disabled>${zh ? '创建并进入' : 'Create'}</button>
+            <button class="button-ghost" data-close>${t('ui.cancel')}</button>
+            <button class="button-primary ab-ok" disabled>${t('wz.create')}</button>
           </div>
           <p class="modal-error" hidden></p>
         </div>
@@ -321,7 +321,7 @@ function addBook(ctx) {
         close();
         await refreshTree(ctx);
         refreshGitStatus(ctx);
-        showToast(zh ? `已建书：books/${name}` : `Book created: books/${name}`, 'success');
+        showToast(t('book.created').replace('{n}', name), 'success');
         if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
         resolve(r.path);
       } catch (e2) { showErr(String(e2.message)); okBtn.disabled = false; }
@@ -332,22 +332,20 @@ function addBook(ctx) {
 
 /** 新建条目（第 81 轮：目录面板 ＋ 的语义 = **在当前书内加条目**；「新建书」归书籍面板 ＋）。 */
 async function addEntry(ctx) {
-  const name = await askText(state.lang === 'zh-CN' ? '新条目名' : 'Entry name');
+  const name = await askText(t('tree.nameNewEntry'));
   if (!name || !name.trim()) return;
   try {
     const book = currentBookOf(ctx);
     const dir = book?.dir || '';
     if (!dir) {
       // 第 89 轮规范：世界根只放 README.md 与 books/ ——散条目一律拒建，指路到书籍面板
-      showToast(state.lang === 'zh-CN'
-        ? '世界根只放 README 与 books/ —— 请先在「全部书籍」面板 ＋ 新建书，或打开某本书再加条目'
-        : 'World root only holds README and books/ — create a book first', 'warning');
+      showToast(t('tree.rootOnlyEntry'), 'warning');
       return;
     }
     const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir, name: name.trim(), pair: false } });
     await refreshTree(ctx);
     refreshGitStatus(ctx);
-    showToast(state.lang === 'zh-CN' ? `已新建：${name.trim()}` : `Created: ${name.trim()}`, 'success');
+    showToast(t('search.created').replace('{n}', name.trim()), 'success');
     if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
   } catch (e) { showToast(String(e.message), 'error'); }
 }
@@ -355,12 +353,12 @@ async function addEntry(ctx) {
 function renderLeftPanel(ctx, name) {
   const host = document.getElementById('panel-left');
   const resize = (cssVar, storeKey) =>
-    `<div class="panel-resize" id="panel-resize" title="${state.lang === 'zh-CN' ? '拖动调整宽度' : 'Drag to resize'}"></div>`;
+    `<div class="panel-resize" id="panel-resize" title="${t('tip.resizeW')}"></div>`;
   if (name === 'toc') {
     host.innerHTML = `
       ${resize()}
       <div class="panel-head"><span class="eyebrow">${t('tree.title')}</span>
-        <button class="panel-head-btn" id="toc-add-entry" title="${state.lang === 'zh-CN' ? '新条目（加在当前书内）' : 'New entry'}">＋</button>
+        <button class="panel-head-btn" id="toc-add-entry" title="${t('tree.addEntryInBook')}">＋</button>
       </div>
       <div class="panel-scroll"><div class="toc-body" id="toc-body"></div></div>`;
     renderToc(ctx);
@@ -373,7 +371,7 @@ function renderLeftPanel(ctx, name) {
     host.innerHTML = `
       ${resize()}
       <div class="panel-head"><span class="eyebrow">${lt('shelfAll')}</span><span class="panel-count" id="books-count"></span>
-        <button class="panel-head-btn" id="books-add-book" title="${state.lang === 'zh-CN' ? '加一本书' : 'New book'}">＋</button>
+        <button class="panel-head-btn" id="books-add-book" title="${t('book.new')}">＋</button>
       </div>
       <div class="books-filter" id="books-filter"></div>
       <div class="panel-scroll"><div class="books-grid" id="books-grid"></div></div>`;
@@ -388,7 +386,7 @@ function renderRightPanel(ctx, name) {
   if (name === 'rel') {
     if (!ctx.currentPath) { setPanel(ctx, ''); return; }
     host.innerHTML = `
-      <div class="panel-resize right-edge" id="panel-resize" title="${state.lang === 'zh-CN' ? '拖动调整宽度' : 'Drag to resize'}"></div>
+      <div class="panel-resize right-edge" id="panel-resize" title="${t('tip.resizeW')}"></div>
       <div class="rel-inner" id="rel"></div>`;
     ctx.graphMode = ctx.graphMode || 'neighbor';
     renderRel(ctx, ctx.graphMode);
@@ -497,7 +495,7 @@ function settingsRowsHTML() {
   const segs = [
     ['theme', lt('theme'), [['light', '☀'], ['dark', '☾'], ['auto', '◐']]],
     // 第 100 轮：字体两档（中英文一起切换；mono 档废除）——文本标签可辨识（原三个 Aa 无从区分）
-    ['font', lt('font'), [['serif', zh ? '衬线' : 'Serif'], ['sans', zh ? '无衬线' : 'Sans']]],
+    ['font', lt('font'), [['serif', t('set.serif')], ['sans', t('set.sans')]]],
     ['size', lt('size'), [['16', '16'], ['18', '18'], ['20', '20'], ['22', '22']]],
     ['leading', lt('leading'), [['1.65', '1.65'], ['1.8', '1.8'], ['1.95', '1.95']]],
     ['measure', lt('measure'), [['36', '36'], ['42', '42'], ['48', '48']]],
@@ -510,12 +508,12 @@ function settingsRowsHTML() {
       <div class="set-row"><span class="eyebrow">${lt('language')}</span>
         <div class="seg" data-lang></div>
       </div>
-      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '编辑器' : 'Editor'}</span>
-        <div class="seg" data-set="editor"><button data-val="std">${state.lang === 'zh-CN' ? '标准' : 'Std'}</button><button data-val="min">${state.lang === 'zh-CN' ? '极简' : 'Min'}</button></div></div>
-      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '时代带' : 'Era band'}</span>
-        <div class="seg" data-set="axisEra"><button data-val="on">${state.lang === 'zh-CN' ? '开' : 'On'}</button><button data-val="off">${state.lang === 'zh-CN' ? '关' : 'Off'}</button></div></div>
-      <div class="set-row"><span class="eyebrow">${state.lang === 'zh-CN' ? '保存间隔' : 'Autosave'}</span>
-        <div class="seg" data-set="saveDelay"><button data-val="500">0.5s</button><button data-val="1000">1s</button><button data-val="2000">2s</button><button data-val="0">${state.lang === 'zh-CN' ? '关闭' : 'Off'}</button></div></div>`;
+      <div class="set-row"><span class="eyebrow">${t('set.editor')}</span>
+        <div class="seg" data-set="editor"><button data-val="std">${t('set.std')}</button><button data-val="min">${t('set.min')}</button></div></div>
+      <div class="set-row"><span class="eyebrow">${t('set.eraBand')}</span>
+        <div class="seg" data-set="axisEra"><button data-val="on">${t('set.on')}</button><button data-val="off">${t('set.off')}</button></div></div>
+      <div class="set-row"><span class="eyebrow">${t('set.autosave')}</span>
+        <div class="seg" data-set="saveDelay"><button data-val="500">0.5s</button><button data-val="1000">1s</button><button data-val="2000">2s</button><button data-val="0">${t('set.autosaveOff')}</button></div></div>`;
 }
 
 /** 设置条目接线（即时生效 + 持久化）。 */
@@ -624,7 +622,7 @@ async function renderWorldPanel(ctx) {
       const r = await api(`/api/w/${enc(ctx.worldId)}/publish`, { method: 'POST', body: {} });
       localStorage.setItem('soliterra.site.' + ctx.worldId, r.rel);   // 供「上次站点 ↗」原生链接（永不被拦）
       renderWorldPanel(ctx);
-      showToast(`${lt('siteBuilt')}${r.rel}（${r.pages} ${state.lang === 'zh-CN' ? '页' : 'pages'}${r.hidden ? ` · ${state.lang === 'zh-CN' ? '隐藏' : 'hidden'} ${r.hidden}` : ''}${r.assets ? ` · ${state.lang === 'zh-CN' ? '图片' : 'assets'} ${r.assets}` : ''}）`, 'success', 6000);
+      showToast(`${lt('siteBuilt')}${r.rel}（${r.pages} ${t('ex.pages')}${r.hidden ? ` · ${t('ex.hidden')} ${r.hidden}` : ''}${r.assets ? ` · ${t('ex.assetsN')} ${r.assets}` : ''}）`, 'success', 6000);
       window.open(`/w/${enc(ctx.worldId)}/${enc(r.rel)}/index.html`, '_blank');   // 生成即所见（手势内打开不被拦）
     } catch (e) { showToast(String(e.message), 'error'); }
     btn.disabled = false;
@@ -640,14 +638,14 @@ async function exportDoc(ctx, fmt) {
     const name = (ctx.currentPath || 'entry').split('/').pop().replace(/\.md$/i, '');
     if (fmt === 'txt') download(`${name}.txt`, new Blob(['\ufeff' + mdToTxt(text)], { type: 'text/plain;charset=utf-8' }));
     else download(`${name}.md`, new Blob([text], { type: 'text/markdown;charset=utf-8' }));
-    showToast(state.lang === 'zh-CN' ? '已导出' : 'Exported', 'success');
+    showToast(t('ex.done'), 'success');
   } catch (e) { showToast(String(e.message), 'error'); }
 }
 
 async function exportBook(ctx, fmt, book) {
   if (!book) return;
   const paths = subtreePaths(book);
-  if (!paths.length) { showToast(state.lang === 'zh-CN' ? '本书无条目' : 'Empty book', 'warning'); return; }
+  if (!paths.length) { showToast(t('ex.emptyBook'), 'warning'); return; }
   const name = book.title || book.name;
   try {
     if (fmt === 'md' || fmt === 'docx') {
@@ -658,11 +656,11 @@ async function exportBook(ctx, fmt, book) {
       }
       if (fmt === 'docx') {
         download(`${name}.docx`, buildDocx({ title: name, chapters: parts }));
-        showToast(`${state.lang === 'zh-CN' ? '已导出' : 'Exported'} DOCX · ${parts.length} §`, 'success');
+        showToast(`${t('ex.done')} DOCX · ${parts.length} §`, 'success');
         return;
       }
       download(`${name}.md`, new Blob([parts.join('\n\n---\n\n')], { type: 'text/markdown;charset=utf-8' }));
-      showToast(`${state.lang === 'zh-CN' ? '已导出' : 'Exported'} · ${parts.length} §`, 'success');
+      showToast(`${t('ex.done')} · ${parts.length} §`, 'success');
       return;
     }
     const chapters = [];
@@ -683,7 +681,7 @@ async function exportBook(ctx, fmt, book) {
         } catch { /* 无封面文件 → 不嵌 */ }
       }
       download(`${name}.epub`, buildEpub({ title: name, chapters, cover }));
-      showToast(`${state.lang === 'zh-CN' ? '已导出' : 'Exported'} EPUB · ${chapters.length} §`, 'success');
+      showToast(`${t('ex.done')} EPUB · ${chapters.length} §`, 'success');
       return;
     }
     if (fmt === 'pdf') {
@@ -695,7 +693,7 @@ async function exportBook(ctx, fmt, book) {
         img{max-width:100%;border:1px solid #d8d8d8}
         @media print{body{padding:0}}
       </style></head><body>${chapters.map((c) => `<h1>${esc(c.title)}</h1>${c.html}`).join('')}</body></html>`;
-      const note = state.lang === 'zh-CN' ? '在打印对话框选「另存为 PDF」' : 'Choose "Save as PDF"';
+      const note = t('ex.printNote');
       const win = window.open(URL.createObjectURL(new Blob([html], { type: 'text/html' })), '_blank');
       if (win) {
         win.onload = () => { win.print(); };
@@ -719,16 +717,16 @@ async function exportBook(ctx, fmt, book) {
 
 // ============ Git 历史纸面（§15.6：提交列表 + 快照 + 回滚为新提交） ============
 async function openGitHistory(ctx) {
-  const { modal, close, body } = openPaperDialog2('Git · ' + (state.lang === 'zh-CN' ? '历史' : 'History'));
+  const { modal, close, body } = openPaperDialog2('Git · ' + t('git.history'));
   body.innerHTML = `
     <div class="git-layout">
       <div class="git-list" id="git-list"><div class="loading">…</div></div>
-      <div class="git-detail" id="git-detail"><div class="empty-state">${state.lang === 'zh-CN' ? '选择一个提交查看快照' : 'Select a commit'}</div></div>
+      <div class="git-detail" id="git-detail"><div class="empty-state">${t('git.selectCommit')}</div></div>
     </div>`;
   const list = body.querySelector('#git-list');
   const detail = body.querySelector('#git-detail');
   const showEmptyDetail = () => {
-    detail.innerHTML = `<div class="empty-state">${state.lang === 'zh-CN' ? '选择一个提交查看快照' : 'Select a commit'}</div>`;
+    detail.innerHTML = `<div class="empty-state">${t('git.selectCommit')}</div>`;
   };
   const loadLog = async () => {
     const zh = state.lang === 'zh-CN';
@@ -742,15 +740,15 @@ async function openGitHistory(ctx) {
     const uncommitted = st.dirty > 0 ? `
       <div class="git-commit git-uncommitted">
         <span class="git-hash">····</span>
-        <span class="git-subj">${esc(zh ? `未提交 · ${st.dirty} 个文件` : `Uncommitted · ${st.dirty} files`)}</span>
-        <span class="git-when"><button class="git-commit-now">${zh ? '提交' : 'Commit'}</button></span>
+        <span class="git-subj">${esc(t('git.uncommitted').replace('{n}', st.dirty))}</span>
+        <span class="git-when"><button class="git-commit-now">${t('git.commit')}</button></span>
       </div>` : '';
     list.innerHTML = uncommitted + (commits.length ? commits.map((c) => `
       <button class="git-commit" data-rev="${esc(c.hash)}">
         <span class="git-hash">${esc(c.hash)}</span>
         <span class="git-subj">${esc(c.subject)}</span>
         <span class="git-when">${esc(c.when)}</span>
-      </button>`).join('') : `<div class="empty-state">${zh ? '暂无提交' : 'No commits'}</div>`);
+      </button>`).join('') : `<div class="empty-state">${t('git.noCommits')}</div>`);
     // 第 96 轮：未提交行本身可点击 → 右侧 detail 列出变更文件（状态字母 + 路径；再点取消选中）
     list.querySelector('.git-uncommitted')?.addEventListener('click', () => {
       const un = list.querySelector('.git-uncommitted');
@@ -761,7 +759,7 @@ async function openGitHistory(ctx) {
       detail.innerHTML = `
         <div class="git-file-list">${(st.files || []).map((f) => `
           <div class="git-file is-static"><span class="git-fs ${f.status === 'D' ? 'del' : f.status === 'A' ? 'add' : ''}">${esc(f.status)}</span>${esc(f.path)}</div>`).join('')}</div>
-        <div class="empty-state">${zh ? `共 ${st.dirty} 个文件待提交——点上方行内的「提交」按钮直接提交` : `${st.dirty} files pending — use the Commit button on the row`}</div>`;
+        <div class="empty-state">${t('git.pending').replace('{n}', st.dirty)}</div>`;
     });
     list.querySelector('.git-commit-now')?.addEventListener('click', async (ev) => {
       ev.stopPropagation();
@@ -770,7 +768,7 @@ async function openGitHistory(ctx) {
       try {
         const ts = new Date().toISOString().slice(0, 16).replace('T', ' ');
         await api(`/api/w/${enc(ctx.worldId)}/commit`, { method: 'POST', body: { message: `update: ${ts}` } });
-        showToast(zh ? '已提交' : 'Committed', 'success');
+        showToast(t('git.committed'), 'success');
         await refreshGitStatus(ctx);
         showEmptyDetail();   // 未提交文件清单已过期 → 复位（第 96 轮）
         await loadLog();   // 未提交项消失，新提交置顶
@@ -806,7 +804,7 @@ async function openGitHistory(ctx) {
         try {
           await api(`/api/w/${enc(ctx.worldId)}/git/rollback`, { method: 'POST', body: { rev } });
           worldDataCache.delete(ctx.worldId);
-          showToast(state.lang === 'zh-CN' ? '已回滚（新提交）' : 'Rolled back (new commit)', 'success');
+          showToast(t('git.rolledBack'), 'success');
           close();
           refreshGitStatus(ctx);
         } catch (e) { showToast(String(e.message), 'error'); }
@@ -840,7 +838,7 @@ async function commitFlow(ctx) {
   const msg = await askText(lt('commitMsg'), `update: ${ts}`);
   if (msg === null) return;
   await api(`/api/w/${enc(ctx.worldId)}/commit`, { method: 'POST', body: { message: msg || `update: ${ts}` } });
-  showToast(state.lang === 'zh-CN' ? '已提交' : 'Committed', 'success');
+  showToast(t('git.committed'), 'success');
   await refreshGitStatus(ctx);
   // 刷新世界面板 git 行
   const g = await api(`/api/w/${enc(ctx.worldId)}/git`).catch(() => ({ ok: false }));
@@ -975,15 +973,15 @@ function renderBooksPanel(ctx) {
         <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="book">
           <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span></div>
           <div class="book-card-title">${esc(a.title)}</div>
-          <div class="book-card-tags eyebrow">${state.lang === 'zh-CN' ? '此书已归档 · 点击还原' : 'Archived book · click to restore'}</div>
+          <div class="book-card-tags eyebrow">${t('arc.book')}</div>
         </button>`),
         ...arch.entries.map((a) => `
         <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="entry">
           <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span></div>
           <div class="book-card-title">${esc(a.title)}</div>
-          <div class="book-card-tags eyebrow" title="${esc(a.orig)}">${state.lang === 'zh-CN' ? '条目已归档 · 点击还原' : 'Archived entry · click to restore'}</div>
+          <div class="book-card-tags eyebrow" title="${esc(a.orig)}">${t('arc.entry')}</div>
         </button>`),
-      ].join('') || `<div class="empty-state">${state.lang === 'zh-CN' ? '暂无归档' : 'No archives'}</div>`;
+      ].join('') || `<div class="empty-state">${t('arc.none')}</div>`;
       grid.querySelectorAll('.book-card.archived').forEach((card) => {
         attachTilt(card);
         card.addEventListener('click', async () => {
@@ -991,7 +989,7 @@ function renderBooksPanel(ctx) {
             const r = await api(`/api/w/${enc(ctx.worldId)}/fs/unarchive`, { method: 'POST', body: { rel: card.dataset.rel } });
             ctx.archives = null;
             await refreshTree(ctx);
-            showToast(state.lang === 'zh-CN' ? `已还原：${r.restored || r.archived || ''}` : 'Restored', 'success');
+            showToast(t('arc.restored').replace('{n}', r.restored || r.archived || ''), 'success');
           } catch (e) { showToast(String(e.message), 'error'); }
         });
       });
@@ -1007,9 +1005,9 @@ function renderBooksPanel(ctx) {
           ? `<img src="/w/${enc(ctx.worldId)}/${enc(b.cover)}" alt="" data-glyph="${esc((b.title || b.name).slice(0, 1))}" data-glyph-class="book-card-glyph">`
           : `<span class="book-card-glyph">${esc((b.title || b.name).slice(0, 1))}</span>`}</div>
         <div class="book-card-title">${esc(b.title || b.name)}</div>
-        ${(b.tags || []).length || !b.md ? `<div class="book-card-tags eyebrow"${b.md ? '' : ` title="${state.lang === 'zh-CN' ? '此节点还没有同名条目——右键「补建同名条目」即成为正式书籍（可设标签/封面）' : 'No paired entry yet'}"`}>${b.md
+        ${(b.tags || []).length || !b.md ? `<div class="book-card-tags eyebrow"${b.md ? '' : ` title="${t('book.noPairTip')}"`}>${b.md
           ? esc((b.tags || []).slice(0, 2).join(' · '))
-          : (state.lang === 'zh-CN' ? '未成书 · 右键补建' : 'No entry · right-click')}</div>` : ''}
+          : t('arc.noEntry')}</div>` : ''}
       </button>`).join('');
     grid.querySelectorAll('.book-card').forEach((card) => {
       attachTilt(card);
@@ -1040,7 +1038,7 @@ function renderBooksPanel(ctx) {
   }
   if (filter) {
     const zh2 = state.lang === 'zh-CN';
-    const chips = [['全部', zh2 ? '全部' : 'All'], ...cats.map((c) => [c, c]), ...(archN ? [['归档', `${zh2 ? '归档' : 'Archived'} ${archN}`]] : [])];
+    const chips = [[t('shelf.all'), t('shelf.all')], ...cats.map((c) => [c, c]), ...(archN ? [[t('shelf.archived'), `${t('shelf.archived')} ${archN}`]] : [])];
     filter.hidden = chips.length <= 1;
     filter.innerHTML = chips.map(([val, label]) => `<button class="bf-chip${val === ctx.booksCat ? ' on' : ''}" data-cat="${esc(val)}">${esc(label)}</button>`).join('');
     filter.querySelectorAll('.bf-chip').forEach((b) => b.addEventListener('click', () => {
@@ -1174,7 +1172,7 @@ async function createMissingEntry(ctx, target) {
     await refreshTree(ctx);
     refreshGitStatus(ctx);
     if (r2.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path)}`);
-    showToast(zh ? `已创建：${target}` : `Created: ${target}`, 'success');
+    showToast(t('search.created').replace('{n}', target), 'success');
     return r2.path;
   } catch (e) {
     showToast(String(e.message), 'error');
@@ -1198,15 +1196,15 @@ async function enterEdit(ctx) {
   ctx.editorPath = snapPath;
   const saveMs = Number(ctx.settings?.saveDelay ?? 500) || 0;   // 状态条初始保存态（§5 状态条）
   const initialSave = saveMs > 0
-    ? (state.lang === 'zh-CN' ? `自动保存 · ${(saveMs / 1000).toFixed(1).replace(/\.0$/, '')}s` : `Autosave · ${(saveMs / 1000).toFixed(1)}s`)
-    : (state.lang === 'zh-CN' ? '自动保存已关 · 退出时保存' : 'Autosave off · saved on exit');
+    ? t('edit.autosave').replace('{n}', (saveMs / 1000).toFixed(1).replace(/\.0$/, ''))
+    : t('edit.autosaveOff');
   const reader = document.getElementById('reader');
   // 极简编辑器（A 档降级，「更多设置 → 编辑器：极简」）：纯 textarea，无装饰层/工具栏
   if ((ctx.settings?.editor || 'std') === 'min') {
     reader.innerHTML = `
       <div class="editor-shell">
         <div class="meta-drawer" id="meta-drawer"></div>
-        <div class="editor-min-note eyebrow">${state.lang === 'zh-CN' ? '极简编辑器 · 纯文本（无装饰层）' : 'Minimal editor · plain markdown'}</div>
+        <div class="editor-min-note eyebrow">${t('edit.minNote')}</div>
         <textarea class="editor-min" id="editor-min" spellcheck="false"></textarea>
       </div>`;
     const ta = reader.querySelector('#editor-min');
@@ -1243,7 +1241,7 @@ async function enterEdit(ctx) {
         <button class="icon-button" data-cmd="meta">&amp;</button>
         <button class="icon-button" data-cmd="image">▣</button>
         <span class="tb-sep"></span>
-        <button class="icon-button" data-cmd="preview" title="${state.lang === 'zh-CN' ? '实时预览分屏（§B.3）' : 'Split preview'}">◐</button>
+        <button class="icon-button" data-cmd="preview" title="${t('edit.preview')}">◐</button>
       </div>
       <div class="editor-host" id="editor-host"></div>
     </div>`;
@@ -1341,7 +1339,7 @@ function mountEditStatus(title, initialSaveText) {
   const shell = document.querySelector('.editor-shell');
   if (!shell || document.getElementById('edit-status')) return;
   shell.insertAdjacentHTML('afterbegin',
-    `<div class="edit-status" id="edit-status"><span class="es-phase">${state.lang === 'zh-CN' ? '编辑中' : 'Editing'}</span><span class="es-title"></span><span class="es-save"></span></div>`);
+    `<div class="edit-status" id="edit-status"><span class="es-phase">${t('edit.editing')}</span><span class="es-title"></span><span class="es-save"></span></div>`);
   const t = shell.querySelector('.es-title');
   if (t) t.textContent = title ? `· ${title}` : '';
   setEditStatus(initialSaveText || '');
@@ -1362,19 +1360,19 @@ async function saveEntryText(ctx, rel, text, { prompt = false } = {}) {
     ctx.conflictAcked = false;
     return true;
   } catch (e) {
-    if (e.status !== 409) { showToast(String(e.message), 'error'); setEditStatus(zh ? '保存失败' : 'Save failed'); return false; }
-    setEditStatus(zh ? '外部修改冲突' : 'Conflict');
+    if (e.status !== 409) { showToast(String(e.message), 'error'); setEditStatus(t('edit.saveFailed')); return false; }
+    setEditStatus(t('edit.conflictState'));
     if (!prompt && ctx.conflictAcked) return false;
-    const cover = await confirmModal(zh ? '文件已被外部修改' : 'File changed externally',
+    const cover = await confirmModal(t('edit.conflictTitle'),
       zh ? `「${rel.split('/').pop()}」在磁盘上被外部程序（如 Obsidian）改写过。覆盖外部修改，还是放弃本次保存（外部版本保留在磁盘上）？`
          : `"${rel.split('/').pop()}" was rewritten on disk by an external program. Overwrite it, or discard this save (the external version stays)?`,
-      zh ? '覆盖外部修改' : 'Overwrite', zh ? '放弃本次保存' : 'Discard');
+      t('edit.overwrite'), t('edit.discard'));
     ctx.conflictAcked = true;
     if (!cover) return false;
     try {
       const r = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: rel, text, force: true } });
       ctx.currentMtime = r.mtime ?? ctx.currentMtime;
-      showToast(zh ? '已覆盖外部修改' : 'Overwrote external changes', 'warning');
+      showToast(t('edit.overwrote'), 'warning');
       return true;
     } catch (e2) { showToast(String(e2.message), 'error'); return false; }
   }
@@ -1386,7 +1384,7 @@ function scheduleAutoSave(ctx) {
   clearTimeout(saveTimer);
   const ms = Number(ctx.settings?.saveDelay ?? 500) || 0;
   if (ms <= 0) return;
-  setEditStatus(state.lang === 'zh-CN' ? '待保存…' : 'Unsaved…');
+  setEditStatus(t('edit.unsaved'));
   saveTimer = setTimeout(() => autoSave(ctx), ms);
 }
 
@@ -1398,7 +1396,7 @@ async function autoSave(ctx) {
     await refreshTimeline(ctx);
     const d = new Date();
     const ts = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-    setEditStatus(state.lang === 'zh-CN' ? `已保存 · ${ts}` : `Saved · ${ts}`);
+    setEditStatus(t('edit.saved').replace('{n}', ts));
   }
 }
 
@@ -1430,19 +1428,19 @@ async function uploadAsset(ctx, file) {
   });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || `上传失败（${r.status}）`);
-  showToast(state.lang === 'zh-CN' ? `已上传：${data.path}` : `Uploaded: ${data.path}`, 'success');
+  showToast(t('img.uploaded').replace('{n}', data.path), 'success');
   return data.path;
 }
 
 /** assets 图片选择纸面：缩略图网格 + 过滤 + 上传；点选返回 {path, alt}，关闭返回 null。 */
 function openAssetPicker(ctx) {
   return new Promise((resolve) => {
-    const { close, body } = openPaperDialog2('▣ ' + (state.lang === 'zh-CN' ? '插入图片' : 'Insert image'));
+    const { close, body } = openPaperDialog2('▣ ' + t('img.insert'));
     body.innerHTML = `
       <div class="asset-picker">
         <div class="asset-bar">
-          <input class="text-input" id="asset-filter" placeholder="${state.lang === 'zh-CN' ? '过滤文件名…' : 'Filter…'}">
-          <label class="button-ghost asset-upload" for="asset-file">${state.lang === 'zh-CN' ? '上传图片' : 'Upload'}</label>
+          <input class="text-input" id="asset-filter" placeholder="${t('img.filter')}">
+          <label class="button-ghost asset-upload" for="asset-file">${t('img.upload')}</label>
           <input type="file" id="asset-file" accept="image/*" hidden>
         </div>
         <div class="asset-grid" id="asset-grid"><div class="loading">…</div></div>
@@ -1458,7 +1456,7 @@ function openAssetPicker(ctx) {
         <button class="asset-cell" data-path="${esc(it.path)}" title="${esc(it.path)}">
           <img src="/w/${enc(ctx.worldId)}/${enc(it.path)}" alt="" loading="lazy">
           <span class="asset-name">${esc(it.path.split('/').pop())}</span>
-        </button>`).join('') : `<div class="empty-state">${state.lang === 'zh-CN' ? 'assets/ 里还没有图片——点「上传图片」' : 'No images yet — use Upload'}</div>`;
+        </button>`).join('') : `<div class="empty-state">${t('img.none')}</div>`;
       grid.querySelectorAll('.asset-cell').forEach((b) => b.addEventListener('click', () => {
         const p2 = b.dataset.path;
         finish({ path: p2, alt: p2.split('/').pop().replace(/\.[a-z0-9]+$/i, '') });
@@ -1486,7 +1484,7 @@ function openAssetPicker(ctx) {
 
 /** 大图纸面（§B.5）：编辑器缩略图 / 阅读态图片点击共用。 */
 function openImagePaper(url, label = '') {
-  const title = label || (state.lang === 'zh-CN' ? '图片' : 'Image');
+  const title = label || t('img.title');
   const { body } = openPaperDialog2('▣ ' + title);
   body.innerHTML = `<div class="img-paper"><img src="${esc(url)}" alt="${esc(label)}"></div>`;
 }

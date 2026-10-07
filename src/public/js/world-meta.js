@@ -1,5 +1,5 @@
 // Soliterra 元数据结构化编辑（§5.3 / §B.2 抽屉；第 92 轮拆分出独立模块）。
-import { api, state } from './app.js';
+import { api, state, t } from './app.js';
 import { enc, esc, showToast, openPaperDialog2 } from './ui.js';
 import { refreshGitStatus, refreshTimeline, topBookNodes, hooks } from './world-core.js';
 import { normalizeDateValue } from '../../shared/date.js';   // 第 95 轮：日期宽松输入 + 确认时规范化（补零）
@@ -94,7 +94,7 @@ export function renderMetaDrawer(ctx) {
     const known = META_ORDER.includes(k);
     return `<button class="md-chip${v ? '' : ' empty'}${known ? '' : ' custom'}" data-k="${esc(k)}" title="${esc(META_LABEL[k] || '自定义键')}">
       <span class="k">&${esc(k)}</span><span class="v">${v ? esc(v) : '—'}</span></button>`;
-  }).join('') + `<button class="md-add" id="md-add" title="${state.lang === 'zh-CN' ? '添加元数据' : 'Add metadata'}">＋</button>`;
+  }).join('') + `<button class="md-add" id="md-add" title="${t('meta.addTitle')}">＋</button>`;
   host.querySelectorAll('.md-chip').forEach((b) => b.addEventListener('click', async () => {
     const k = b.dataset.k;
     const val = await openMetaEditor(ctx, k, meta.get(k)?.value || '');
@@ -105,7 +105,7 @@ export function renderMetaDrawer(ctx) {
 }
 
 /** 「＋ 添加元数据」菜单：键表（名+解释+示例）；已存在 → 开其编辑卡，否则插入 `&k ` 光标值位。 */function openAddMeta(ctx) {
-  const { close, body } = openPaperDialog2('＋ ' + (state.lang === 'zh-CN' ? '添加元数据' : 'Add metadata'));
+  const { close, body } = openPaperDialog2('＋ ' + t('meta.addTitle'));
   const zh = state.lang !== 'en';
   let meta = new Map();
   try { meta = parseMetaFromDoc(ctx.editor?.getValue() || ''); } catch {}
@@ -117,18 +117,18 @@ export function renderMetaDrawer(ctx) {
       ${META_ORDER.map((k) => rowHTML(k, META_LABEL[k], META_KEY_DOC[k] ? META_KEY_DOC[k][zh ? 'zh' : 'en'] : '')).join('')}
     </div>
     <div class="am-custom">
-      <input class="text-input" id="am-key" maxlength="1" placeholder="${state.lang === 'zh-CN' ? '自定义键（单个小写字母）' : 'Custom key (one lowercase letter)'}">
-      <button class="button-ghost" id="am-ok">${state.lang === 'zh-CN' ? '插入' : 'Insert'}</button>
+      <input class="text-input" id="am-key" maxlength="1" placeholder="${t('meta.customKey')}">
+      <button class="button-ghost" id="am-ok">${t('meta.insert')}</button>
     </div>`;
   const addKey = async (k) => {
-    if (!/^[a-z]$/.test(k)) { showToast(state.lang === 'zh-CN' ? '键须为单个小写字母' : 'Single lowercase letter', 'warning'); return; }
+    if (!/^[a-z]$/.test(k)) { showToast(t('meta.oneLetter'), 'warning'); return; }
     close();
     if (meta.has(k)) {                                      // 已存在 → 开编辑卡
       const val = await openMetaEditor(ctx, k, meta.get(k).value || '');
       if (val !== null) await saveMetaFromEditor(ctx, k, val.trim());
       return;
     }
-    if (!ctx.editor?.insertMetaLine) { showToast(state.lang === 'zh-CN' ? '请在编辑态使用' : 'Editor only', 'warning'); return; }
+    if (!ctx.editor?.insertMetaLine) { showToast(t('meta.editorOnly'), 'warning'); return; }
     ctx.editor.insertMetaLine(k);                           // 插 `&k ` 到 & 行区并聚焦值位（一个事务可撤）
     renderMetaDrawer(ctx);
   };
@@ -170,7 +170,7 @@ export function openMetaEditor(ctx, key, current) {
             <datalist id="meta-tag-list">${bookTags.map((t2) => `<option value="${esc(t2)}">`).join('')}</datalist>` : ''}
           ${!isDate && !seg && !isTags ? `
             <input class="text-input meta-text" value="${esc(current)}" ${key === 'f' ? 'list="meta-flag-list"' : ''} placeholder="${key === 'm' ? 'assets/… 图片路径' : ''}">
-            ${key === 'm' ? `<button class="button-ghost" type="button" data-pick-cover>${state.lang === 'zh-CN' ? '从本机选图…' : 'Pick image…'}</button>` : ''}
+            ${key === 'm' ? `<button class="button-ghost" type="button" data-pick-cover>${t('meta.pickImage')}</button>` : ''}
             ${key === 'f' ? `<datalist id="meta-flag-list">${flagCats.map((f2) => `<option value="${esc(f2)}">`).join('')}</datalist>` : ''}` : ''}
           <div class="modal-actions">
             <button class="button-ghost meta-del" data-del-key>${state.lang === 'en' ? 'Delete key' : '删除该键'}</button>

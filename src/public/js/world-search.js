@@ -69,7 +69,7 @@ function renderActions(ctx, results, q, close) {
   }
   if (q && q.trim() && !parseDateQuery(q)) {
     acts.push(`<button class="entry-card action-row" data-act="newentry" data-q="${esc(q.trim())}">
-      <span class="entry-card-title">＋ ${state.lang === 'zh-CN' ? '新建条目' : 'New entry'} · ${esc(q.trim())}</span></button>`);
+      <span class="entry-card-title">＋ ${t('search.newEntry')} · ${esc(q.trim())}</span></button>`);
   }
   acts.push(`<button class="entry-card action-row" data-act="tools"><span class="entry-card-title">🧰 ${lt('dashTools')}</span></button>`);
   acts.push(`<button class="entry-card action-row" data-act="dash"><span class="entry-card-title">📊 ${lt('dashboard')}</span></button>`);
@@ -86,17 +86,17 @@ function renderActions(ctx, results, q, close) {
       const target = b.dataset.q;
       const r = await api(`/api/w/${enc(ctx.worldId)}/resolve?target=${enc(target)}`);
       if (r.path) { await addReadlater(ctx, r.path); }
-      else showToast(state.lang === 'zh-CN' ? `无此条目：${target}` : `Not found: ${target}`, 'warning');
+      else showToast(t('search.notFound').replace('{n}', target), 'warning');
     } else if (act === 'newentry') {
       const name = b.dataset.q;
       const book = currentBookOf(ctx);
-      if (!book?.dir) { showToast(state.lang === 'zh-CN' ? '世界根只放 README 与 books/——请先打开某本书' : 'Open a book first', 'warning'); return; }
+      if (!book?.dir) { showToast(t('search.openBookFirst'), 'warning'); return; }
       try {
         const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: book.dir, name, pair: false } });
         await refreshTree(ctx);
         refreshGitStatus(ctx);
         if (r2.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path)}`);
-        showToast(state.lang === 'zh-CN' ? `已新建：${name}` : `Created: ${name}`, 'success');
+        showToast(t('search.created').replace('{n}', name), 'success');
       } catch (e2) { showToast(String(e2.message), 'error'); }
     } else if (act === 'tools') {
       hooks.setPanel?.(ctx, ctx.panel === 'tools' ? '' : 'tools');
@@ -114,7 +114,7 @@ function openMapPlaceholder() {
   const { body } = openPaperDialog2('🗺 ' + lt('dashMap'));
   body.innerHTML = `
     <div class="empty-state">
-      <div class="eyebrow">${state.lang === 'zh-CN' ? '地图 · 敬请期待' : 'Map · Coming soon'}</div>
+      <div class="eyebrow">${t('map.soon')}</div>
       <p>${state.lang === 'zh-CN'
         ? '接入契约已备：外部编辑器导出 assets/maps/*.png + hotspots.json（热区 → 条目）；或以 iframe 嵌入（?world=&pin=）回传热区参数。'
         : 'Contract ready: external editor exports assets/maps/*.png + hotspots.json (hotspots → entries), or iframe embed (?world=&pin=).'}</p>
@@ -133,14 +133,14 @@ export async function openDashboard(ctx) {
       <div class="dash-grid">
         <div class="dash-card"><span class="eyebrow">${lt('entriesN')}</span><b>${d.entries}</b></div>
         <div class="dash-card"><span class="eyebrow">${lt('booksN')}</span><b>${d.books}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '双链' : 'Links'}</span><b>${d.links}</b><small>${d.entries ? (d.links / d.entries).toFixed(2) : '0'} ${state.lang === 'zh-CN' ? '条/条目' : '/entry'}</small></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '树深度' : 'Depth'}</span><b>${d.maxDepth}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '悬空' : 'Dangling'}</span><b class="${d.dangling ? 'warn' : ''}">${d.dangling}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '孤立' : 'Isolated'}</span><b class="${d.isolated ? 'warn' : ''}">${d.isolated}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '近7天提交' : 'Commits 7d'}</span><b>${d.commitsWeek}</b></div>
-        <div class="dash-card"><span class="eyebrow">${state.lang === 'zh-CN' ? '时间轴跨度' : 'Timeline'}</span><b class="dash-span">${esc(span)}</b></div>
+        <div class="dash-card"><span class="eyebrow">${t('dash.links')}</span><b>${d.links}</b><small>${d.entries ? (d.links / d.entries).toFixed(2) : '0'} ${t('dash.linksUnit')}</small></div>
+        <div class="dash-card"><span class="eyebrow">${t('dash.depth')}</span><b>${d.maxDepth}</b></div>
+        <div class="dash-card"><span class="eyebrow">${t('dash.dangling')}</span><b class="${d.dangling ? 'warn' : ''}">${d.dangling}</b></div>
+        <div class="dash-card"><span class="eyebrow">${t('dash.isolated')}</span><b class="${d.isolated ? 'warn' : ''}">${d.isolated}</b></div>
+        <div class="dash-card"><span class="eyebrow">${t('dash.commits7')}</span><b>${d.commitsWeek}</b></div>
+        <div class="dash-card"><span class="eyebrow">${t('dash.span')}</span><b class="dash-span">${esc(span)}</b></div>
       </div>
-      <div class="dash-tags"><span class="eyebrow">${state.lang === 'zh-CN' ? '标签覆盖 Top' : 'Tags Top'}</span>
+      <div class="dash-tags"><span class="eyebrow">${t('dash.tagsTop')}</span>
         ${d.tags.length ? d.tags.map((t2) => `<span class="dash-tag"><i style="width:${Math.round((t2.n / d.tags[0].n) * 100)}%"></i><em>${esc(t2.t)}</em><b>${t2.n}</b></span>`).join('') : '—'}
       </div>`;
   } catch (e) {

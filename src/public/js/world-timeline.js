@@ -1,6 +1,6 @@
 // Soliterra 时间轴（功能设计 §3；第 92 轮拆分出独立模块）：initTimeline + 强调（拖到时间轴）。
 // 布局规则全部收敛在 timeline-layout.js（纯函数引擎）；本模块只负责显示策略（displayFlagOf）与元素池。
-import { state, navigate } from './app.js';
+import { state, navigate, t } from './app.js';
 import { enc, esc, parseOrd, ICON, showToast } from './ui.js';
 import { computeLayout, flagBaseW, LAYOUT, YEAR } from './timeline-layout.js';
 import { DEV, currentBookOf, topOfPath, flattenTree } from './world-core.js';
@@ -169,7 +169,7 @@ export function initTimeline(ctx, wrap, canvas, ticks) {
     flag.innerHTML = `
       <span class="flag-eyebrow">${esc(eyebrow)}</span>
       <span class="flag-title">${esc(title)}</span>
-      <span class="flag-date">${fuzzy ? '≈' : ''}${esc(date)}</span>${pinned ? `<span class="flag-unpin" title="${state.lang === 'zh-CN' ? '取消强调' : 'Unpin'}">${ICON.close}</span>` : ''}`;
+      <span class="flag-date">${fuzzy ? '≈' : ''}${esc(date)}</span>${pinned ? `<span class="flag-unpin" title="${t('timeline.unpin')}">${ICON.close}</span>` : ''}`;
     flag.querySelector('.flag-unpin')?.addEventListener('click', (e) => {
       e.stopPropagation();
       flag.__unpin = true;
@@ -183,12 +183,12 @@ export function initTimeline(ctx, wrap, canvas, ticks) {
    *  ∪ 正在打开的 ∪ 强调 ∪（高模式）本书全部；无时刻条目不上轴。 */
   function displayFlagOf(it) {
     if (it.flag) return it.flag;
-    if (it.genesis) return state.lang === 'zh-CN' ? '创世' : 'GENESIS';
-    if (it.path === ctx.currentPath) return state.lang === 'zh-CN' ? '当前' : 'NOW';
-    if (ctx.pins.has(it.path)) return state.lang === 'zh-CN' ? '强调' : 'PIN';
+    if (it.genesis) return t('timeline.genesisFlag');
+    if (it.path === ctx.currentPath) return t('timeline.nowFlag');
+    if (ctx.pins.has(it.path)) return t('timeline.pinFlag');
     if (tall) {
       const tags = bookFlagMap().get(it.path);
-      if (tags) return tags[0] || (state.lang === 'zh-CN' ? '条目' : 'ENTRY');
+      if (tags) return tags[0] || t('timeline.entryFlag');
     }
     return '';
   }
@@ -302,8 +302,8 @@ export function initTimeline(ctx, wrap, canvas, ticks) {
       if (!el) { el = document.createElement('span'); markerEls.set(m.ord, el); markers.appendChild(el); }
       const cls = `tick chrono-marker-tick${m.edge ? ' edge' : ''}`;
       if (el.__cls !== cls) { el.__cls = cls; el.className = cls; }
-      const title = m.kind === 'start' ? (zh ? '范围起点（最早时间）' : 'Range start')
-        : m.kind === 'end' ? (zh ? '范围终点（最晚结束）' : 'Range end') : '';
+      const title = m.kind === 'start' ? t('timeline.rangeStart')
+        : m.kind === 'end' ? t('timeline.rangeEnd') : '';
       if (el.__title !== title) { el.__title = title; if (title) el.title = title; else el.removeAttribute('title'); }
       if (el.__px !== m.px) { el.__px = m.px; el.style.left = m.px + 'px'; }
       if (el.__txt !== m.text) { el.__txt = m.text; el.textContent = m.text; }
@@ -422,11 +422,11 @@ export function initTimeline(ctx, wrap, canvas, ticks) {
     hintL.hidden = frame.hints.offL === 0;
     hintL.__ord = frame.hints.ordL;
     hintL.querySelector('.hint-n').textContent = String(frame.hints.offL);
-    hintL.title = zh ? `还有 ${frame.hints.offL} 条在视野外 · 点击带回` : `${frame.hints.offL} off-screen · click to bring back`;
+    hintL.title = t('timeline.offscreen').replace('{n}', frame.hints.offL);
     hintR.hidden = frame.hints.offR === 0;
     hintR.__ord = frame.hints.ordR;
     hintR.querySelector('.hint-n').textContent = String(frame.hints.offR);
-    hintR.title = zh ? `还有 ${frame.hints.offR} 条在视野外 · 点击带回` : `${frame.hints.offR} off-screen · click to bring back`;
+    hintR.title = t('timeline.offscreen').replace('{n}', frame.hints.offR);
     // 创世向左渐隐箭头（跟组左缘；组左缘已出屏时隐藏——箭头只标"组的左端在哪"）
     genesisTail.hidden = frame.tail.hidden;
     genesisTail.style.left = frame.tail.left + 'px';
@@ -596,7 +596,7 @@ export function initTimeline(ctx, wrap, canvas, ticks) {
 export function emphasize(ctx, path) {
   const it = ctx.timeline.find((i) => i.path === path);
   if (!it) {
-    showToast(state.lang === 'zh-CN' ? '该条目暂无时间标记（&s/&e）' : 'No time markers (&s/&e) on this entry', 'warning');
+    showToast(t('timeline.noMarkers'), 'warning');
     return;
   }
   ctx.pins.add(path);
@@ -607,7 +607,7 @@ export function emphasize(ctx, path) {
     document.querySelectorAll('.pulse').forEach((n) => n.classList.remove('pulse'));
     const nodes = [...document.querySelectorAll('.chrono-canvas [data-path]')].filter((n) => n.dataset.path === path);
     nodes.forEach((n) => n.classList.add('pulse'));
-    showToast(state.lang === 'zh-CN' ? `已强调并保留在时间轴上：${it.title}` : `Pinned to timeline: ${it.title}`, 'success');
+    showToast(t('timeline.pinned').replace('{n}', it.title), 'success');
   });
 }
 

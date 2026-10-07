@@ -1,5 +1,5 @@
 // Soliterra 关系图（右 push：一跳邻里 + 拖动扯动 + 悬浮卡；「展开全图」= 全宽；第 92 轮拆分出独立模块）。
-import { api, state, navigate } from './app.js';
+import { api, state, navigate, t } from './app.js';
 import { enc, esc, showToast, lt, ICON, checkHTML, bindChecks } from './ui.js';
 import { topBookNodes, topOfPath } from './world-core.js';
 import { showLinkCard, hideCard, leaveAnchor } from './linkcard.js';
@@ -47,12 +47,12 @@ export async function renderRel(ctx, mode) {
   panel.innerHTML = `
     <div class="rel-toolbar">
       ${isFull ? `
-        <input class="text-input rel-search" id="rel-search" placeholder="${state.lang === 'zh-CN' ? '搜索…' : 'Search…'}">
+        <input class="text-input rel-search" id="rel-search" placeholder="${t('rel.search')}">
         <span class="rel-tags">${['全部', ...allTags].map((tg) => `<button class="rel-tag${(ctx.graphTag || '全部') === tg ? ' on' : ''}" data-tag="${esc(tg)}">${esc(tg)}</button>`).join('')}</span>
-        <button class="icon-button" id="rel-back-mode">← ${state.lang === 'zh-CN' ? '收起' : 'Collapse'}</button>` : `
+        <button class="icon-button" id="rel-back-mode">← ${t('rel.collapse')}</button>` : `
         ${checkHTML(!!ctx.relBack, lt('relBack'), 'id="rel-back-row"')}
         <button class="icon-button" id="rel-full">${lt('relFull')}</button>`}
-      <button class="icon-button${ctx.graphLayout && ctx.graphLayout !== 'force' ? ' active' : ''}" id="rel-layout" title="${state.lang === 'zh-CN' ? '布局：力导向 → 按时间 → 按树分组（循环）' : 'Layout cycle: force → time → tree'}">${ctx.graphLayout === 'time' ? '⏱' : ctx.graphLayout === 'tree' ? '⌸' : '⟳'}</button>
+      <button class="icon-button${ctx.graphLayout && ctx.graphLayout !== 'force' ? ' active' : ''}" id="rel-layout" title="${t('rel.layoutTip')}">${ctx.graphLayout === 'time' ? '⏱' : ctx.graphLayout === 'tree' ? '⌸' : '⟳'}</button>
       <span class="rel-count">${g.nodes.length} · ${g.edges.length}</span>
     </div>
     <div class="rel-canvas" id="rel-canvas">
@@ -81,7 +81,7 @@ export async function renderRel(ctx, mode) {
     return;
   }
   if (g.nodes.length === 0) {
-    panel.querySelector('#rel-canvas').innerHTML = `<div class="empty-state">${state.lang === 'zh-CN' ? '尚无任何双链' : 'No links yet'}</div>`;
+    panel.querySelector('#rel-canvas').innerHTML = `<div class="empty-state">${t('rel.emptyFull')}</div>`;
     return;
   }
 
@@ -167,7 +167,7 @@ export async function renderRel(ctx, mode) {
     const timed = g.nodes.filter((n) => typeof timeOf.get(n.path) === 'number');
     if (!timed.length) {
       ctx.graphLayout = 'force';
-      showToast(state.lang === 'zh-CN' ? '本图无带 &s 的条目，无法按时间排布' : 'No timestamped entries', 'warning');
+      showToast(t('rel.noTime'), 'warning');
     } else {
       const vals = timed.map((n) => timeOf.get(n.path));
       const minS = Math.min(...vals), maxS = Math.max(...vals);
@@ -366,10 +366,10 @@ export async function renderRel(ctx, mode) {
     const bar = document.createElement('div');
     bar.className = 'box-actions';
     bar.innerHTML = `
-      <span class="eyebrow">${state.lang === 'zh-CN' ? `已选 ${picked.length}` : `Picked ${picked.length}`}</span>
+      <span class="eyebrow">${t('rel.picked').replace('{n}', picked.length)}</span>
       <button class="button-ghost" data-a="later">✦ ${lt('dashLater')}</button>
-      <button class="button-ghost" data-a="only">${state.lang === 'zh-CN' ? '只看这些' : 'Only these'}</button>
-      <button class="button-ghost" data-a="export">${state.lang === 'zh-CN' ? '导出子图' : 'Export subgraph'}</button>
+      <button class="button-ghost" data-a="only">${t('rel.onlyThese')}</button>
+      <button class="button-ghost" data-a="export">${t('rel.exportSub')}</button>
       <button class="icon-button" data-a="clear">${ICON.close}</button>`;
     canvas.appendChild(bar);
     bar.addEventListener('click', async (ev) => {
@@ -383,7 +383,7 @@ export async function renderRel(ctx, mode) {
           await addReadlater(ctx, n.path);
           added++;
         }
-        showToast(`${added} ${state.lang === 'zh-CN' ? '条已加入稍后阅读' : 'added to read later'}`, 'success');
+        showToast(`${added} ${t('rel.addedLater')}`, 'success');
         return;
       }
       if (act === 'only') {
@@ -402,7 +402,7 @@ export async function renderRel(ctx, mode) {
           exportedAt: new Date().toISOString(),
         };
         download(`子图-${new Date().toISOString().slice(0, 10)}.json`, new Blob([JSON.stringify(sub, null, 2)], { type: 'application/json' }));
-        showToast(state.lang === 'zh-CN' ? `已导出子图 JSON（${sub.nodes.length} 节点 · ${sub.edges.length} 内部边）` : 'Subgraph JSON exported', 'success');
+        showToast(t('rel.exported').replace('{n}', sub.nodes.length).replace('{m}', sub.edges.length), 'success');
       }
     });
   }
@@ -418,7 +418,7 @@ export async function renderRel(ctx, mode) {
     n.x = n.fx; n.y = n.fy;
     alpha = 0.6;
     requestAnimationFrame(loop);
-    showToast(state.lang === 'zh-CN' ? `已中心化：${n.title}` : `Centered: ${n.title}`, 'success');
+    showToast(t('rel.centered').replace('{n}', n.title), 'success');
   }
   canvas.addEventListener('click', (e) => {
     if (e.target.closest('.graph-node') || e.target.closest('.box-actions')) return;   // 操作条点击不触发清除
@@ -508,7 +508,7 @@ export async function renderRel(ctx, mode) {
           pathA = n.path;
           for (const x2 of g.nodes) x2.el.classList.remove('on-path', 'dim');
           n.el.classList.add('on-path');
-          showToast(state.lang === 'zh-CN' ? '路径强调：再 Shift+单击第二个节点' : 'Path: shift-click a second node', 'info');
+          showToast(t('rel.pathHint'), 'info');
         } else {
           const pathSet = bfsPath(adj, pathA, n.path);
           for (const x2 of g.nodes) {

@@ -41,7 +41,7 @@ function coverBlock(worldId, coverRel, glyph, entryRel, onSet) {
 export async function openWorldDetail(w, onChanged) {
   const zh = state.lang === 'zh-CN';
   const rootRel = w.rootRel || 'README.md';
-  const { body } = openPaperDialog2(zh ? `世界详情 · ${w.name}` : `World · ${w.name}`);
+  const { body } = openPaperDialog2(t('detail.worldTitle').replace('{n}', w.name));
   const [git, meta] = await Promise.all([
     api(`/api/w/${enc(w.id)}/git`).catch(() => ({ ok: false })),
     api('/api/meta').catch(() => ({ home: '' })),
@@ -83,7 +83,7 @@ export async function openWorldDetail(w, onChanged) {
 export async function openBookDetail(ctx, node) {
   const zh = state.lang === 'zh-CN';
   if (!node?.md) { showToast(t('detail.pairFirst'), 'warning'); return; }
-  const { body, close } = openPaperDialog2(zh ? `书籍详情 · ${node.title || node.name}` : `Book · ${node.title || node.name}`);
+  const { body, close } = openPaperDialog2(t('detail.bookTitle').replace('{n}', node.title || node.name));
   let e;
   try { e = await api(`/api/w/${enc(ctx.worldId)}/entry?path=${enc(node.md)}`); }
   catch (err) { showToast(String(err.message), 'error'); close(); return; }

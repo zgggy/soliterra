@@ -136,7 +136,7 @@ export function renderTools(ctx) {
       ...fixRows.map((it, i) => it.kind === 'move' ? `
       <div class="diff-row diff-move">
         ${checkHTML(it.checked, '', `data-i="${i}"`)}
-        <span class="diff-path diff-move-tag">${state.lang === 'zh-CN' ? '移动' : 'move'}</span>
+        <span class="diff-path diff-move-tag">${t('tools.moveTag')}</span>
         <span class="diff-before">${esc2(it.before)}</span>
         <span class="diff-arrow">→</span>
         <span class="diff-after">${esc2(it.after)}</span>

@@ -118,8 +118,8 @@ export function askText(title, defaultValue = '') {
         <div class="modal-scroll">
           <input class="text-input ask-input" value="${esc(defaultValue)}">
           <div class="modal-actions">
-            <button class="button-ghost" data-close>${state.lang === 'zh-CN' ? '取消' : 'Cancel'}</button>
-            <button class="button-primary" data-ok>${state.lang === 'zh-CN' ? '确定' : 'OK'}</button>
+            <button class="button-ghost" data-close>${t('ui.cancel')}</button>
+            <button class="button-primary" data-ok>${t('ui.ok')}</button>
           </div>
         </div>
       </div>`;
@@ -149,7 +149,6 @@ export function showToast(text, kind = 'info') {
 
 /** 平台样式化确认弹层（第 92 轮：保存冲突等需要明确二选一的场合；替代原生 confirm）。 */
 export function confirmModal(title, bodyText, okLabel, cancelLabel) {
-  const zh = state.lang === 'zh-CN';
   return new Promise((resolve) => {
     const modal = document.createElement('div');
     modal.className = 'reader-modal active';
@@ -159,8 +158,8 @@ export function confirmModal(title, bodyText, okLabel, cancelLabel) {
         <div class="modal-scroll">
           <p class="meta-explain">${esc(bodyText)}</p>
           <div class="modal-actions">
-            <button class="button-ghost" data-close>${esc(cancelLabel || (zh ? '取消' : 'Cancel'))}</button>
-            <button class="button-primary" data-ok>${esc(okLabel || (zh ? '确定' : 'OK'))}</button>
+            <button class="button-ghost" data-close>${esc(cancelLabel || t('ui.cancel'))}</button>
+            <button class="button-primary" data-ok>${esc(okLabel || t('ui.ok'))}</button>
           </div>
         </div>
       </div>`;

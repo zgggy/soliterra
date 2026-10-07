@@ -17,7 +17,7 @@ export async function renderHome(root) {
           <span class="brandmark-sub">WORLD ARCHIVE</span>
         </span>
         <span class="masthead-actions">
-          <button class="icon-button" id="import-obsidian" title="${state.lang === 'zh-CN' ? '导入 Obsidian 库' : 'Import Obsidian vault'}">${state.lang === 'zh-CN' ? '导入 Obsidian' : 'Import Obsidian'}</button>
+          <button class="icon-button" id="import-obsidian" title="${t('imp.title')}">${t('imp.short')}</button>
           <button class="icon-button" data-lang-switch title="Language">${t('lang.switch')}</button>
         </span>
       </div>
@@ -46,7 +46,7 @@ export async function renderHome(root) {
       <div class="world-card-cover">${w.cover
         ? `<img src="/w/${encodeURIComponent(w.id)}/${encodeURIComponent(w.cover)}" alt="" data-glyph="${escapeHtml(w.name.slice(0, 1))}" data-glyph-class="world-card-glyph">`
         : `<span class="world-card-glyph">${escapeHtml(w.name.slice(0, 1))}</span>`}</div>
-      <button class="world-card-menu" title="${state.lang === 'zh-CN' ? '世界操作' : 'World actions'}">⋯</button>
+      <button class="world-card-menu" title="${t('home.worldActions')}">⋯</button>
       <div class="world-card-body">
         <h3 class="world-card-title">${escapeHtml(w.name)}</h3>
         <p class="world-card-sub">${escapeHtml(w.subtitle || '')}</p>
@@ -89,18 +89,18 @@ export async function renderHome(root) {
     modal.innerHTML = `
       <div class="modal-dialog settings-dialog">
         <div class="modal-header">
-          <span class="eyebrow">${state.lang === 'zh-CN' ? '导入 Obsidian 库' : 'Import Obsidian vault'}</span>
+          <span class="eyebrow">${t('imp.title')}</span>
           <button class="modal-close" data-close>×</button>
         </div>
         <div class="modal-scroll">
-          <label class="field"><span class="eyebrow">${state.lang === 'zh-CN' ? '库路径（本机绝对路径）' : 'Vault path (absolute)'}</span>
+          <label class="field"><span class="eyebrow">${t('imp.path')}</span>
             <input class="text-input" name="src" placeholder="/Users/me/Documents/MyVault" autofocus></label>
-          <label class="field"><span class="eyebrow">${state.lang === 'zh-CN' ? '新世界名' : 'New world name'}</span>
+          <label class="field"><span class="eyebrow">${t('home.new.name')}</span>
             <input class="text-input" name="name"></label>
-          <div class="field-note eyebrow" style="color:var(--text-muted)">${state.lang === 'zh-CN' ? 'frontmatter → & 元数据 · 双链原样 · 图片入 assets/images · 生成世界副本（不动原库）' : 'frontmatter → & metadata · wikilinks kept · images → assets/images'}</div>
+          <div class="field-note eyebrow" style="color:var(--text-muted)">${t('imp.note')}</div>
           <div class="modal-actions">
-            <button class="button-ghost" data-close>${state.lang === 'zh-CN' ? '取消' : 'Cancel'}</button>
-            <button class="button-primary" data-import>${state.lang === 'zh-CN' ? '导入' : 'Import'}</button>
+            <button class="button-ghost" data-close>${t('ui.cancel')}</button>
+            <button class="button-primary" data-import>${t('imp.do')}</button>
           </div>
           <p class="modal-error" hidden></p>
         </div>
@@ -145,14 +145,14 @@ async function showWorldMenu(e, w, refresh) {
   const menu = document.createElement('div');
   menu.className = 'tree-menu';
   menu.innerHTML = `
-    <button class="tree-menu-item" data-k="detail">${zh ? '详情（封面/统计）' : 'Details'}</button>
+    <button class="tree-menu-item" data-k="detail">${t('home.menuDetail')}</button>
     ${dirShow ? `<div class="tree-menu-note" title="${escapeHtml(dirFull)}">${escapeHtml(dirShow)}</div>
-    <button class="tree-menu-item" data-k="reveal">${zh ? '在 Finder 中显示' : 'Reveal in Finder'}</button>
-    <button class="tree-menu-item" data-k="copy">${zh ? '复制完整路径' : 'Copy full path'}</button>
+    <button class="tree-menu-item" data-k="reveal">${t('detail.reveal')}</button>
+    <button class="tree-menu-item" data-k="copy">${t('home.menuCopy')}</button>
     <div class="tree-menu-sep"></div>` : ''}
-    <button class="tree-menu-item" data-k="rename">${zh ? (w.linked ? '重命名世界（磁盘文件夹一并改名）' : '重命名世界') : 'Rename'}</button>
-    <button class="tree-menu-item" data-k="dup">${zh ? '复制世界' : 'Duplicate'}</button>
-    <button class="tree-menu-item" data-k="unmanage">${zh ? '取消管理（文件夹保留原位）' : 'Stop managing (folder stays)'}</button>`;
+    <button class="tree-menu-item" data-k="rename">${w.linked ? t('home.menuRenameLinked') : t('home.menuRename')}</button>
+    <button class="tree-menu-item" data-k="dup">${t('home.menuDup')}</button>
+    <button class="tree-menu-item" data-k="unmanage">${t('home.menuUnmanage')}</button>`;
   document.body.appendChild(menu);
   const r = menu.getBoundingClientRect();
   menu.style.left = Math.min(e.clientX, innerWidth - r.width - 8) + 'px';
@@ -169,14 +169,14 @@ async function showWorldMenu(e, w, refresh) {
         await api('/api/worlds/reveal', { method: 'POST', body: { id: w.id } });
       } else if (k === 'copy') {
         const ok = await copyText(dirFull);
-        showToast(ok ? (zh ? '已复制路径' : 'Path copied') : (zh ? '复制失败' : 'Copy failed'));
+        showToast(ok ? t('home.pathCopied') : t('home.copyFailed'));
       } else if (k === 'rename') {
-        const nn = await askText(state.lang === 'zh-CN' ? '新世界名' : 'New world name', w.name);
+        const nn = await askText(t('home.new.name'), w.name);
         if (!nn || !nn.trim() || nn.trim() === w.name) return;
         await api('/api/worlds/rename', { method: 'POST', body: { id: w.id, newName: nn.trim() } });
         location.reload();
       } else if (k === 'dup') {
-        const nn = await askText(state.lang === 'zh-CN' ? '副本名' : 'Copy name', `${w.name} 副本`);
+        const nn = await askText(t('home.copyName'), `${w.name} ${t('home.copySuffix')}`);
         if (!nn || !nn.trim()) return;
         await api('/api/worlds/duplicate', { method: 'POST', body: { id: w.id, newName: nn.trim() } });
         location.reload();
@@ -185,9 +185,9 @@ async function showWorldMenu(e, w, refresh) {
         const conf = await askText(zh
           ? `取消管理「${w.name}」？输入世界名完全一致以确认（本地文件夹原样保留，可随时重新选择该文件夹恢复管理）`
           : `Stop managing ${w.name}? Type the name to confirm (the folder stays untouched)`, '');
-        if (conf !== w.name) { if (conf !== null) showToast(zh ? '未确认，未取消' : 'Not confirmed'); return; }
+        if (conf !== w.name) { if (conf !== null) showToast(t('home.notCancelled')); return; }
         const r = await api('/api/worlds/unmanage', { method: 'POST', body: { id: w.id, confirm: w.name } });
-        showToast(zh ? `已取消管理：${w.name}（文件夹保留在原位${r.mode === 'unlinked' ? '；链接已摘除' : ''}）` : `Unmanaged: ${w.name}`);
+        showToast(t(r.mode === 'unlinked' ? 'home.unmanagedLinked' : 'home.unmanaged').replace('{n}', w.name));
         location.reload();
       }
     } catch (err) {
@@ -214,31 +214,31 @@ function openNewWorld(root) {
       </div>
       <div class="modal-scroll">
         <div class="wz-pick-row">
-          <button class="button-primary" id="wz-pick">${zh ? '选择文件夹…' : 'Choose folder…'}</button>
-          <span class="field-note eyebrow">${zh ? '文件夹名即世界名；可在对话框里新建文件夹' : 'Folder name = world name; create folders in the dialog'}</span>
+          <button class="button-primary" id="wz-pick">${t('wz.pick')}</button>
+          <span class="field-note eyebrow">${t('wz.pickNote')}</span>
         </div>
         <div class="wz-picked" id="wz-picked" hidden></div>
         <div id="wz-fields" hidden>
-          <label class="field"><span class="eyebrow">${zh ? '一句介绍（写入 README.md）' : 'Intro (written to README.md)'}</span>
+          <label class="field"><span class="eyebrow">${t('wz.intro')}</span>
             <textarea class="text-input" name="intro" rows="3"></textarea></label>
-          <div class="field-note eyebrow" id="wz-readme-note" hidden>${zh ? '文件夹已有 README.md —— 原文一字不动，只补 `&n`/`&m` 元数据行。' : 'README.md exists — original text untouched; only missing & lines are added.'}</div>
-          <label class="field"><span class="eyebrow">${zh ? '封面（图片将复制到 assets/）' : 'Cover (copied into assets/)'}</span>
+          <div class="field-note eyebrow" id="wz-readme-note" hidden>${t('wz.readmeNote')}</div>
+          <label class="field"><span class="eyebrow">${t('wz.cover')}</span>
             <span class="wz-cover-row">
-              <button class="button-ghost" id="wz-cover-pick">${zh ? '选择图片…' : 'Choose image…'}</button>
-              <span class="wz-cover-preview" id="wz-cover-preview" hidden><img id="wz-cover-thumb" alt=""><span class="wz-cover-name" id="wz-cover-name"></span><button class="button-ghost" id="wz-cover-clear">${zh ? '移除' : 'Remove'}</button></span>
-              <span class="field-note eyebrow" id="wz-cover-none">${zh ? '可留空' : 'Optional'}</span>
+              <button class="button-ghost" id="wz-cover-pick">${t('wz.pickImage')}</button>
+              <span class="wz-cover-preview" id="wz-cover-preview" hidden><img id="wz-cover-thumb" alt=""><span class="wz-cover-name" id="wz-cover-name"></span><button class="button-ghost" id="wz-cover-clear">${t('wz.remove')}</button></span>
+              <span class="field-note eyebrow" id="wz-cover-none">${t('wz.optional')}</span>
             </span></label>
           <details class="wz-adv">
-            <summary class="eyebrow">${zh ? '可选：历法与时间线初始化' : 'Optional: calendar & timeline'}</summary>
-            <label class="field"><span class="eyebrow">${zh ? '历法与纪元锚点（注释写入 README.md，可空）' : 'Calendar (README comment)'}</span>
+            <summary class="eyebrow">${t('wz.advanced')}</summary>
+            <label class="field"><span class="eyebrow">${t('wz.calendar')}</span>
               <input class="text-input" name="calendar" placeholder="CE 元年=0705"></label>
-            <label class="field"><span class="eyebrow">${zh ? '时间线（每行一个事件，可空；创建为「books/时间线/」子条目）' : 'Timeline (one event per line → books/时间线/)'}</span>
+            <label class="field"><span class="eyebrow">${t('wz.timeline')}</span>
               <textarea class="text-input wz-timeline" name="timeline" rows="5" placeholder="&s 0705.01.01 &e 0705.12.31 &f 纪元开启 黄金纪元&#10;&s 0874.*.* &e 0874.*.* &f 灾变 大崩坏"></textarea></label>
           </details>
         </div>
         <div class="modal-actions">
-          <button class="button-ghost" data-close>${zh ? '取消' : 'Cancel'}</button>
-          <button class="button-primary" id="wz-create" disabled>${zh ? '创建并进入' : 'Create'}</button>
+          <button class="button-ghost" data-close>${t('ui.cancel')}</button>
+          <button class="button-primary" id="wz-create" disabled>${t('wz.create')}</button>
         </div>
         <p class="modal-error" hidden></p>
       </div>
@@ -261,15 +261,15 @@ function openNewWorld(root) {
     if (!picked) { box.hidden = true; modal.querySelector('#wz-fields').hidden = true; createBtn.disabled = true; return; }
     const loc = abbrevPath(picked.path, homeMeta.home);
     const bits = [];
-    bits.push(picked.mdCount ? (zh ? `已有 ${picked.mdCount} 个条目 md` : `${picked.mdCount} md entries`) : (zh ? '空文件夹' : 'empty folder'));
-    if (picked.hasReadme) bits.push(zh ? '已有 README.md（保留原文）' : 'has README.md (kept)');
+    bits.push(picked.mdCount ? t('wz.mdCount').replace('{n}', picked.mdCount) : t('wz.emptyFolder'));
+    if (picked.hasReadme) bits.push(t('wz.hasReadme'));
     if (picked.hasGit) bits.push('git');
-    if (!picked.insideLibrary) bits.push(zh ? '库外 —— 将在世界库内登记链接' : 'outside library — will be linked');
+    if (!picked.insideLibrary) bits.push(t('wz.outside'));
     box.hidden = false;
     box.innerHTML = `
-      <div class="set-row"><span class="eyebrow">${zh ? '世界名（取自文件夹名）' : 'World name (from folder)'}</span><b>${escapeHtml(picked.name)}</b></div>
-      <div class="set-row"><span class="eyebrow">${zh ? '位置' : 'Location'}</span><span class="wz-path" title="${escapeHtml(picked.path)}">${escapeHtml(loc)}/</span></div>
-      <div class="set-row"><span class="eyebrow">${zh ? '文件夹' : 'Folder'}</span><span>${escapeHtml(bits.join(' · '))}</span></div>`;
+      <div class="set-row"><span class="eyebrow">${t('wz.nameFrom')}</span><b>${escapeHtml(picked.name)}</b></div>
+      <div class="set-row"><span class="eyebrow">${t('detail.location')}</span><span class="wz-path" title="${escapeHtml(picked.path)}">${escapeHtml(loc)}/</span></div>
+      <div class="set-row"><span class="eyebrow">${t('wz.folder')}</span><span>${escapeHtml(bits.join(' · '))}</span></div>`;
     // 选中文件夹 → 展开全部字段 + 允许创建（第 97 轮单页核心）
     modal.querySelector('#wz-fields').hidden = false;
     createBtn.disabled = false;
@@ -295,7 +295,7 @@ function openNewWorld(root) {
     clearErr();
     btn.disabled = true;
     const old = btn.textContent;
-    btn.textContent = zh ? '等待选择…' : 'Waiting…';
+    btn.textContent = t('wz.waiting');
     try {
       const r = await api('/api/pick/folder', { method: 'POST', body: {} });
       if (!r.ok) return;   // 已取消：静默（对话框自己就是反馈）
@@ -323,7 +323,7 @@ function openNewWorld(root) {
   // 创建（单页直达）
   createBtn.addEventListener('click', async () => {
     clearErr();
-    if (!picked) { showErr(zh ? '请先选择文件夹' : 'Choose a folder first'); return; }
+    if (!picked) { showErr(t('wz.chooseFirst')); return; }
     createBtn.disabled = true;
     try {
       const w = await api('/api/worlds/adopt', { method: 'POST', body: {

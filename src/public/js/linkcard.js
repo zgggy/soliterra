@@ -2,7 +2,7 @@
 // 360×336；封面 blur 遮罩；标题/简介/前100字；「稍后阅读」按钮条 = 卡高 1/8（42px）；
 // 默认在锚点上方，越界翻下；卡在上→按钮在下，卡在下→按钮在上（按钮永远贴锚点一侧）。
 
-import { api, state } from './app.js';
+import { api, state, t } from './app.js';
 import { esc } from './ui.js';
 
 const W = 360, H = 336, BTN = 42;
@@ -76,25 +76,25 @@ function paintMissing(ctx, target, rect) {
     <div class="lpc-scrim"></div>
     <div class="lpc-body">
       <div class="lpc-title">${esc(target)}</div>
-      <div class="lpc-sub">${zh ? '该条目尚未创建' : 'Entry not created yet'}</div>
+      <div class="lpc-sub">${t('lpc.notCreated')}</div>
       <div class="lpc-hairline"></div>
       <div class="lpc-excerpt">${zh
         ? '双链指向的条目还不存在——可在这里一键建立文件（生成在世界根目录），把考据缺口变成待写清单。'
         : 'This link points to an entry that does not exist yet — create it at the world root and turn the gap into a to-write list.'}</div>
     </div>
-    <button class="lpc-later lpc-create">＋ ${zh ? '创建文件' : 'Create entry'}</button>`;
+    <button class="lpc-later lpc-create">＋ ${t('lpc.create')}</button>`;
   card.querySelector('.lpc-create').addEventListener('click', async (e) => {
     e.stopPropagation();
     const btn = e.currentTarget;
     if (btn.disabled) return;
     btn.disabled = true;
-    btn.textContent = zh ? '创建中…' : 'Creating…';
+    btn.textContent = t('lpc.creating');
     try {
       await ctx.onCreateMissing?.(target);
       hideCard();
     } catch {
       btn.disabled = false;
-      btn.textContent = `＋ ${zh ? '创建文件' : 'Create entry'}`;
+      btn.textContent = `＋ ${t('lpc.create')}`;
     }
   });
   card.hidden = false;
@@ -129,7 +129,7 @@ export function showLinkCard(ctx, path, rect, delay = 220, opts = {}) {
       : 'none';
     if (!data.cover) card.classList.add('no-cover');
     const refutedBlock = opts.refuted
-      ? `<div class="lpc-refuted"><span class="lpc-refuted-tag">${state.lang === 'zh-CN' ? '已证伪' : 'REFUTED'}</span><div class="lpc-refuted-text">${state.lang === 'zh-CN' ? '此表述已被证伪——正确信息见本条目。' : 'This claim has been refuted — see this entry for the correct account.'}</div></div>`
+      ? `<div class="lpc-refuted"><span class="lpc-refuted-tag">${t('lpc.refuted')}</span><div class="lpc-refuted-text">${t('lpc.refutedText')}</div></div>`
       : '';
     const P_ZH = { canon: '正典', draft: '草稿', disputed: '存疑', deprecated: '废弃' };
     const qCls = data.q === '已证伪' ? 'q-err' : (data.q === '可靠' ? 'q-ok' : 'q-warn');
@@ -147,14 +147,14 @@ export function showLinkCard(ctx, path, rect, delay = 220, opts = {}) {
         <div class="lpc-hairline"></div>
         <div class="lpc-excerpt">${esc(data.excerpt)}…</div>
       </div>
-      <button class="lpc-later${already ? ' added' : ''}">${already ? (state.lang === 'zh-CN' ? '已加入 ✓' : 'Added ✓') : '⏱ ' + (state.lang === 'zh-CN' ? '稍后阅读' : 'Read later')}</button>`;
+      <button class="lpc-later${already ? ' added' : ''}">${already ? t('lpc.added') : '⏱ ' + t('lpc.readLater')}</button>`;
     const btn = card.querySelector('.lpc-later');
     btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       if (btn.classList.contains('added')) return;
       try { if (ctx.onAddLater) await ctx.onAddLater(path); } catch { return; }
       btn.classList.add('added');
-      btn.textContent = state.lang === 'zh-CN' ? '已加入 ✓' : 'Added ✓';
+      btn.textContent = t('lpc.added');
     });
     card.hidden = false;
     card.classList.remove('lpc-in');
