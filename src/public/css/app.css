@@ -765,9 +765,13 @@ img { display: block; max-width: 100%; }
 
 @media (max-width: 720px) {
   .world-shell.push-left, .world-shell.push-right { grid-template-columns: 0 0 minmax(0, 1fr); }
-  .world-shell.push-left .push-panel, .world-shell.push-right .push-panel { position: fixed; inset: 0; z-index: 70; }
+  /* 第 121 轮移动端走查两修：① 只有 .live（开着的）面板才升为全屏浮层——原选择器命中**空的**对侧
+     aside（opacity:0 但仍吃指针）→ 整屏被隐形层拦截（实测 fab 点不动）；② fab 簇提到 75（面板 70 之上），
+     否则全屏面板一开、面板开关被压在下面无从关闭。模态(80)/悬浮卡(60)层序保持。 */
+  .world-shell.push-left .push-panel.live, .world-shell.push-right .push-panel.live { position: fixed; inset: 0; z-index: 70; }
   .world-shell.push-left .reader-column, .world-shell.push-right .reader-column { grid-column: 3; }
   .world-shell.push-right .reader-column { grid-column: 2; }
+  .fab-cluster { z-index: 75; }
 }
 
 

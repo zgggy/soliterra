@@ -381,3 +381,66 @@ test('书卡拖动：幽灵带书名 + 中区前缀 + 三分区换位（第 117 
   const names = await page.$$eval('.book-card', (cs) => cs.map((c) => c.dataset.name));
   assert.deepEqual(names.slice(0, 2), ['书B', '书A'], `书A 插到书B 后（实际 ${names}）`);
 });
+
+// ---------- 第 121 轮移动端走查：≤720 全屏浮层 / fab 可达 / 无横向溢出 / 弹窗贴边 ----------
+test('移动端 375×667：面板全屏浮层 + fab 可点关面板 + 各态无横向溢出', async () => {
+  await page.setViewportSize({ width: 375, height: 667 });
+  try {
+    const noHOverflow = async (tag) => {
+      const o = await page.evaluate(() => ({
+        sw: document.documentElement.scrollWidth,
+        cw: document.documentElement.clientWidth,
+      }));
+      assert.ok(o.sw <= o.cw + 1, `${tag} 无横向溢出（${o.sw}/${o.cw}）`);
+    };
+    await page.goto(`${base}/#/`);
+    await page.waitForSelector('.world-card:not(.world-card-new)', { timeout: 8000 });
+    await noHOverflow('首页');
+    await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+    await page.waitForSelector('.books-head', { timeout: 8000 });
+    await sleep(500);
+    const panel = await page.evaluate(() => {
+      const p = document.querySelector('.push-panel.live');
+      const cs = p ? getComputedStyle(p) : null;
+      return { pos: cs?.position, z: cs?.zIndex, w: p ? Math.round(p.getBoundingClientRect().width) : 0 };
+    });
+    assert.equal(panel.pos, 'fixed', '开面板 = 全屏浮层');
+    assert.equal(panel.z, '70', '浮层层级 70');
+    assert.equal(panel.w, 375, '浮层占满视口宽');
+    await noHOverflow('面板态');
+    // fab 在浮层(70)之上 → 可点关面板（第 121 轮修复前被隐形 aside/层级压住）
+    await page.click('#fab-books', { timeout: 5000 });
+    await sleep(350);
+    assert.ok(!(await page.$('.push-panel.live')), 'fab 点击关闭全屏面板');
+    await page.click('#fab-books');
+    await sleep(350);
+    await page.click('.book-card');
+    await sleep(700);
+    await page.click('#fab-toc');
+    await sleep(300);
+    await noHOverflow('阅读态');
+    await page.click('#fab-edit');
+    await sleep(700);
+    const tb = await page.evaluate(() => {
+      const el = document.getElementById('editor-toolbar');
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { left: Math.round(r.left), right: Math.round(r.right) };
+    });
+    assert.ok(tb && tb.left >= 0 && tb.right <= 376, `编辑工具条在视口内（${JSON.stringify(tb)}）`);
+    await noHOverflow('编辑态');
+    await page.keyboard.press('ControlOrMeta+k');
+    await sleep(450);
+    const dlg = await page.evaluate(() => {
+      const d = document.querySelector('.search-dialog');
+      if (!d) return null;
+      const r = d.getBoundingClientRect();
+      return { left: Math.round(r.left), right: Math.round(r.right) };
+    });
+    assert.ok(dlg && dlg.left >= 0 && dlg.right <= 375, `⌘K 弹窗贴边不溢出（${JSON.stringify(dlg)}）`);
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => document.querySelectorAll('.reader-modal').forEach((m) => m.remove()));
+  } finally {
+    await page.setViewportSize({ width: 1280, height: 720 });
+  }
+});
