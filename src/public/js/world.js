@@ -11,7 +11,7 @@ import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModa
 import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, clickGuardActive } from './world-core.js';
 import { createCardDragger } from './card-drag.js';
 import { initTimeline } from './world-timeline.js';
-import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode, doMoveTo, pairDirNode } from './world-tree.js';
+import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode, doMoveTo, pairDirNode, appendLayer } from './world-tree.js';
 import { renderRel } from './world-rel.js';
 import { renderReadlater, addReadlater } from './world-readlater.js';
 import { renderMetaDrawer, openMetaEditor, editMetaValue, insertMetaIntoText } from './world-meta.js';
@@ -337,8 +337,10 @@ function addBook(ctx) {
 
 /** 新建条目（第 81 轮：目录面板 ＋ 的语义 = **在当前书内加条目**；「新建书」归书籍面板 ＋）。 */
 async function addEntry(ctx) {
-  const name = await askText(t('tree.nameNewEntry'));
-  if (!name || !name.trim()) return;
+  const input = await askText(t('tree.nameNewEntry'));
+  if (!input || !input.trim()) return;
+  // 第 121 轮：空格分隔 = 一次批量建多个（按输入顺序落层；重名等失败单列汇总）
+  const names = input.trim().split(/\s+/).filter(Boolean);
   try {
     const book = currentBookOf(ctx);
     const dir = book?.dir || '';
@@ -347,11 +349,23 @@ async function addEntry(ctx) {
       showToast(t('tree.rootOnlyEntry'), 'warning');
       return;
     }
-    const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir, name: name.trim(), pair: false } });
+    const made = [], failed = [];
+    for (const n of names) {
+      try {
+        const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir, name: n, pair: false } });
+        if (r.path) made.push(r.path);
+      } catch (e) { failed.push(`${n}（${e.message}）`); }
+    }
+    if (made.length) await appendLayer(ctx, currentBookOf(ctx), made);   // 层尾按输入顺序落位（第 121 轮）
     await refreshTree(ctx);
     refreshGitStatus(ctx);
-    showToast(t('search.created').replace('{n}', name.trim()), 'success');
-    if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
+    if (made.length) {
+      showToast(made.length > 1
+        ? t('tree.createdMulti').replace('{n}', made.length)
+        : t('search.created').replace('{n}', made[0].split('/').pop().replace(/\.md$/, '')), 'success');
+      navigate(`#/w/${enc(ctx.worldId)}/${enc(made[0])}`);
+    }
+    if (failed.length) showToast(t('tree.batchFailed').replace('{n}', failed.join('、')), 'error');
   } catch (e) { showToast(String(e.message), 'error'); }
 }
 

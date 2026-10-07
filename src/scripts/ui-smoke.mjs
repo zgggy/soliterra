@@ -141,6 +141,21 @@ test('纯目录节点点击：自动补建配对 md 并打开（层级必须 md+
   assert.ok(wl?.children?.some((c) => c.name === '子'), '原子目录内容保留');
 });
 
+test('批量建条目：空格分隔一次建多个（第 121 轮）', async () => {
+  // 前序测试停在 书A/外来.md（目录面板）→ 面板头 ＋ 批量建三个
+  await page.waitForSelector('#toc-add-entry', { timeout: 6000 });
+  await page.click('#toc-add-entry');
+  await page.waitForSelector('.ask-input', { timeout: 4000 });
+  await page.fill('.ask-input', '批甲 批乙 批丙');
+  await page.press('.ask-input', 'Enter');
+  await page.waitForFunction(() => [...document.querySelectorAll('.toc-label')].some((e) => e.textContent === '批丙' && e.offsetParent !== null), { timeout: 6000 });
+  const rows = await tocRows();
+  const labels = rows.map((r) => r.label);
+  for (const n of ['批甲', '批乙', '批丙']) assert.ok(labels.includes(n), `树含 ${n}（实际 ${JSON.stringify(rows)}）`);
+  assert.ok(labels.indexOf('批甲') < labels.indexOf('批乙') && labels.indexOf('批乙') < labels.indexOf('批丙'),
+    `按输入顺序落层（实际 ${JSON.stringify(rows)}）`);
+});
+
 test('编辑自动保存：打字 → 状态条 Saved → 磁盘落盘', async () => {
   await page.goto(`${base}/#/w/${encodeURIComponent(W)}/${encodeURIComponent('books/书B/稿.md')}`);
   await page.waitForSelector('.entry-title', { timeout: 8000 });

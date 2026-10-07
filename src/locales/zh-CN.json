@@ -123,8 +123,8 @@
   "tree.rename": "重命名",
   "tree.archive": "归档（从平台隐藏，文件保留）",
   "tree.delete": "删除（移入回收站）",
-  "tree.nameNew": "新条目名（插到下方）",
-  "tree.nameChild": "子条目名",
+  "tree.nameNew": "新条目名（插到下方；空格分隔可多个）",
+  "tree.nameChild": "子条目名（空格分隔可多个）",
   "tree.renameTo": "重命名为",
   "tree.renamed": "已重命名",
   "tree.notArchived": "未确认，未归档",
@@ -228,7 +228,7 @@
   "book.fromAssets": "从 assets 选择…",
   "book.remove": "移除",
   "book.created": "已建书：books/{n}",
-  "tree.nameNewEntry": "新条目名",
+  "tree.nameNewEntry": "新条目名（空格分隔可一次建多个）",
   "tree.rootOnlyEntry": "世界根只放 README 与 books/ —— 请先在「全部书籍」面板 ＋ 新建书，或打开某本书再加条目",
   "tree.addEntryInBook": "新条目（加在当前书内）",
   "set.serif": "衬线",
@@ -288,5 +288,7 @@
   "ex.groupBook": "当前书",
   "ex.groupSite": "只读站点",
   "tree.pairedAuto": "已补建同名条目：{n}",
-  "tools.coverName": "封面规范（重命名/孤儿）"
+  "tools.coverName": "封面规范（重命名/孤儿）",
+  "tree.createdMulti": "已新建 {n} 个条目",
+  "tree.batchFailed": "未新建：{n}"
 }

@@ -123,8 +123,8 @@
   "tree.rename": "Rename",
   "tree.archive": "Archive (hidden, files kept)",
   "tree.delete": "Delete (trash)",
-  "tree.nameNew": "New entry name (below)",
-  "tree.nameChild": "Child name",
+  "tree.nameNew": "New entry name(s) below, space-separated",
+  "tree.nameChild": "Child name(s), space-separated",
   "tree.renameTo": "Rename to",
   "tree.renamed": "Renamed",
   "tree.notArchived": "Not confirmed",
@@ -228,7 +228,7 @@
   "book.fromAssets": "From assets…",
   "book.remove": "Remove",
   "book.created": "Book created: books/{n}",
-  "tree.nameNewEntry": "Entry name",
+  "tree.nameNewEntry": "Entry name(s), space-separated for batch",
   "tree.rootOnlyEntry": "World root only holds README and books/ — create a book first",
   "tree.addEntryInBook": "New entry",
   "set.serif": "Serif",
@@ -288,5 +288,7 @@
   "ex.groupBook": "Current book",
   "ex.groupSite": "Read-only site",
   "tree.pairedAuto": "Paired entry created: {n}",
-  "tools.coverName": "Covers (rename/orphans)"
+  "tools.coverName": "Covers (rename/orphans)",
+  "tree.createdMulti": "Created {n} entries",
+  "tree.batchFailed": "Not created: {n}"
 }

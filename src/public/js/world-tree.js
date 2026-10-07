@@ -73,21 +73,36 @@ export function showTreeMenu(e, ctx, node) {
         const label = k === 'add'
           ? (t('tree.nameNew'))
           : (t('tree.nameChild'));
-        const name = await askText(label);
-        if (!name || !name.trim()) return;
+        const input = await askText(label);
+        if (!input || !input.trim()) return;
+        // 第 121 轮：空格分隔 = 一次批量建多个（按输入顺序；失败单列汇总）
+        const names = input.trim().split(/\s+/).filter(Boolean);
         // 第 94 轮语义：add = **同级**（父目录）插到选中项下方并整层 &r 重排；child = **下一级**（node.dir）
         const targetDir = k === 'add' ? parentDirOf(node.dir) : inDir;
         if (k === 'add' && !targetDir) {
           showToast(t('tree.rootOnly'), 'warning');
           return;
         }
-        const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: targetDir, name: name.trim(), pair: k === 'child' } });
-        if (k === 'add' && r2.path) {
-          await refreshTree(ctx);                       // 新条目进树后才能定位同层
-          await insertBelow(ctx, node, r2.path);        // 插到选中项下方（整层 &r 连续化）
+        const made = [], failed = [];
+        for (const n of names) {
+          try {
+            const r2 = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: targetDir, name: n, pair: k === 'child' } });
+            if (r2.path) made.push(r2.path);
+          } catch (e) { failed.push(`${n}（${e.message}）`); }
         }
-        await after(t('tree.created').replace('{n}', name.trim()));
-        if (r2.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r2.path)}`);
+        if (k === 'add' && made.length) {
+          await refreshTree(ctx);                       // 新条目进树后才能定位同层
+          await insertBelow(ctx, node, made);           // 整块插到选中项下方（输入顺序，整层 &r 连续化）
+        } else if (k === 'child' && made.length) {
+          await appendLayer(ctx, node, made);           // 落层尾（输入顺序可见，第 121 轮）
+        }
+        if (made.length) {
+          await after(made.length > 1
+            ? t('tree.createdMulti').replace('{n}', made.length)
+            : t('tree.created').replace('{n}', made[0].split('/').pop().replace(/\.md$/, '')));
+          navigate(`#/w/${enc(ctx.worldId)}/${enc(made[0])}`);
+        }
+        if (failed.length) showToast(t('tree.batchFailed').replace('{n}', failed.join('、')), 'error');
       } else if (k === 'pair') {
         // 纯目录节点 → 补建同名条目（成为书：获得元数据位，菜单随即与其它书一致）
         const parent = inDir.includes('/') ? inDir.slice(0, inDir.lastIndexOf('/')) : '';
@@ -456,18 +471,38 @@ function tocNodeByMd(root, md) {
 
 /** 新条目插到选中项下方：同层 children 重排 → 整层 &r 连续化（纯目录节点服务端自动跳过）。
  *  refreshTree 后旧 node 引用过期 → 按 md 路径在新树中重查。 */
-async function insertBelow(ctx, selNode, newMdPath) {
+/** 新建条目落层尾（第 121 轮批量建）：以**当前展示顺序**为基底（陈旧 children 恰是建前顺序）、
+ *  新路径按输入顺序追加，写回 fs/order——否则 &r 不含新条目 → 落层退化成名序，输入顺序不可见。
+ *  纯目录子节点无 &r 位仍按名排尾 = 既有拖拽语义。 */
+export async function appendLayer(ctx, node, newMdPaths) {
+  const paths = (Array.isArray(newMdPaths) ? newMdPaths : [newMdPaths]).filter(Boolean);
+  if (!paths.length || !node) return;
+  const set = new Set(paths);
+  const order = (node.children || []).map((c) => c.md || c.dir).filter((q) => q && !set.has(q));
+  order.push(...paths);
+  try {
+    await api(`/api/w/${enc(ctx.worldId)}/fs/order`, { method: 'POST', body: { dir: node.dir || '', order } });
+  } catch (e) { showToast(String(e.message), 'error'); }
+}
+
+async function insertBelow(ctx, selNode, newMdPaths) {
+  // 第 121 轮：接受单路径或路径数组（批量建条目整块插到选中项下方，保持输入顺序）
+  const paths = (Array.isArray(newMdPaths) ? newMdPaths : [newMdPaths]).filter(Boolean);
   const selMd = selNode?.md;
-  if (!selMd) return;
+  if (!selMd || !paths.length) return;
   const sel = tocNodeByMd(ctx.tree, selMd);
   const parent = sel ? tocParentOf(ctx.tree, sel) : null;
   if (!parent) return;
   const kids = parent.children;
-  const selIdx = kids.findIndex((c) => c === sel || (c.md && c.md === selMd));
-  const newNode = kids.find((c) => c.md === newMdPath);
-  if (selIdx < 0 || !newNode) return;
-  kids.splice(kids.indexOf(newNode), 1);
-  kids.splice(selIdx + 1, 0, newNode);
+  const moved = [];
+  for (const p of paths) {
+    const n = kids.find((c) => c.md === p);
+    if (n) { kids.splice(kids.indexOf(n), 1); moved.push(n); }
+  }
+  if (!moved.length) return;
+  const selIdx = kids.findIndex((c) => c === sel || (c.md && c.md === selMd));   // 挪走新节点后重找
+  if (selIdx < 0) return;
+  kids.splice(selIdx + 1, 0, ...moved);
   try {
     await api(`/api/w/${enc(ctx.worldId)}/fs/order`, { method: 'POST', body: { dir: parent.dir || '', order: kids.map((c) => c.md || c.dir) } });
   } catch (e) { showToast(String(e.message), 'error'); return; }
