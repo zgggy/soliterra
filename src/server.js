@@ -199,6 +199,16 @@ app.post('/api/worlds/adopt', async (req, reply) => {
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
+// 世界/书籍详情保存（第 115 轮）：字段原子落盘（改名/介绍段/历法/时间线追加/封面设或移除）
+app.post('/api/w/:id/worldinfo', (req, reply) => {
+  try { return vault.applyWorldInfo(req.params.id, req.body || {}); }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+app.post('/api/w/:id/bookinfo', (req, reply) => {
+  try { return vault.applyBookInfo(req.params.id, req.body || {}); }
+  catch (e) { reply.code(400).send({ error: e.message }); }
+});
+
 // 封面设置（第 92 轮）：世界 = README.md 的 &m；书/条目 = 各自 md 的 &m——图形化详情面板与元数据抽屉共用。
 // writeMeta=false → 只收图进 assets/covers/（编辑态由编辑器文本写 &m，防 mtime 互踩）。
 app.post('/api/w/:id/cover', async (req, reply) => {

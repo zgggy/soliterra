@@ -7,7 +7,7 @@ import { api, t, state, navigate, bindCoverFallbacks, abbrevPath, applyGlobalFon
 import { showLinkCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporter.js';
-import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators } from './ui.js';
+import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators, uploadAsset, openAssetPicker } from './ui.js';
 import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, armClickGuard, clickGuardActive } from './world-core.js';
 import { initTimeline } from './world-timeline.js';
 import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode, doMoveTo, pairDirNode } from './world-tree.js';
@@ -1502,70 +1502,6 @@ async function exitEdit(ctx) {
   ctx.editorPath = null;
   setEditFab(ctx, false);
   await openEntry(ctx, ctx.currentPath, ctx.chrono);
-}
-
-// ============ 图片管线（§B.5）：上传 / 选择器 / 大图纸面 ============
-/** 上传图片文件 → assets/imported/（重名加序号）；返回相对路径。 */
-async function uploadAsset(ctx, file) {
-  const r = await fetch(`/api/w/${enc(ctx.worldId)}/asset?name=${enc(file.name || 'image.png')}`, {
-    method: 'POST',
-    headers: { 'content-type': file.type || 'application/octet-stream' },
-    body: file,
-  });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(data.error || `上传失败（${r.status}）`);
-  showToast(t('img.uploaded').replace('{n}', data.path), 'success');
-  return data.path;
-}
-
-/** assets 图片选择纸面：缩略图网格 + 过滤 + 上传；点选返回 {path, alt}，关闭返回 null。 */
-function openAssetPicker(ctx) {
-  return new Promise((resolve) => {
-    const { close, body } = openPaperDialog2('▣ ' + t('img.insert'));
-    body.innerHTML = `
-      <div class="asset-picker">
-        <div class="asset-bar">
-          <input class="text-input" id="asset-filter" placeholder="${t('img.filter')}">
-          <label class="button-ghost asset-upload" for="asset-file">${t('img.upload')}</label>
-          <input type="file" id="asset-file" accept="image/*" hidden>
-        </div>
-        <div class="asset-grid" id="asset-grid"><div class="loading">…</div></div>
-      </div>`;
-    let items = [];
-    let done = false;
-    const finish = (v) => { if (!done) { done = true; resolve(v); } };
-    const grid = body.querySelector('#asset-grid');
-    const paint = () => {
-      const q = (body.querySelector('#asset-filter').value || '').toLowerCase();
-      const shown = items.filter((it) => it.path.toLowerCase().includes(q));
-      grid.innerHTML = shown.length ? shown.map((it) => `
-        <button class="asset-cell" data-path="${esc(it.path)}" title="${esc(it.path)}">
-          <img src="/w/${enc(ctx.worldId)}/${enc(it.path)}" alt="" loading="lazy">
-          <span class="asset-name">${esc(it.path.split('/').pop())}</span>
-        </button>`).join('') : `<div class="empty-state">${t('img.none')}</div>`;
-      grid.querySelectorAll('.asset-cell').forEach((b) => b.addEventListener('click', () => {
-        const p2 = b.dataset.path;
-        finish({ path: p2, alt: p2.split('/').pop().replace(/\.[a-z0-9]+$/i, '') });
-        close();
-      }));
-    };
-    api(`/api/w/${enc(ctx.worldId)}/assets`).then((r) => { items = r.items || []; paint(); }).catch(() => paint());
-    body.querySelector('#asset-filter').addEventListener('input', paint);
-    body.querySelector('#asset-file').addEventListener('change', async (e2) => {
-      const f = e2.target.files?.[0];
-      if (!f) return;
-      try {
-        const p2 = await uploadAsset(ctx, f);
-        finish({ path: p2, alt: (f.name || '').replace(/\.[a-z0-9]+$/i, '') });
-        close();
-      } catch (err) { showToast(String(err.message), 'error'); }
-    });
-    const modal = body.closest('.reader-modal');
-    const obs = new MutationObserver(() => {
-      if (!document.body.contains(modal)) { obs.disconnect(); finish(null); }
-    });
-    obs.observe(document.body, { childList: true });
-  });
 }
 
 /** 大图纸面（§B.5）：编辑器缩略图 / 阅读态图片点击共用。 */

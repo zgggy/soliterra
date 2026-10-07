@@ -1376,3 +1376,16 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 .entry-aside { display: inline-flex; align-items: baseline; gap: 14px; }
 .entry-author, .ea-item { font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-muted); white-space: nowrap; }
 .entry-hero .entry-aside, .entry-hero .ea-item, .entry-hero .entry-author { color: rgba(255, 255, 255, .92); }   /* 封面内白字 */
+
+/* ---------- 详情面板可编辑表单（第 115 轮重设计）：统一布局 · 双入口封面 · 取消/保存 ---------- */
+.detail-head { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.detail-info .field { display: block; margin-bottom: 12px; }
+.detail-info .field .eyebrow { display: block; margin-bottom: 5px; }
+.detail-info .field .text-input { width: 100%; }
+.detail-info .field .field-note { display: block; margin-top: 4px; }
+.detail-readonly { margin-top: 6px; border-top: 1px solid var(--line); }
+.detail-readonly .set-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; }
+.cover-field .detail-cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
+.cover-field .detail-cover.is-empty { border-style: dashed; }
+.cover-field .cover-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.cover-field .cover-actions .button-ghost { font-size: 0.72rem; padding: 4px 8px; }

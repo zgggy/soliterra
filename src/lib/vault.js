@@ -304,22 +304,7 @@ export class Vault {
       const body = [`# ${name}`, '', intro || '', calLine && ['', calLine], '', plainLines.join('\n')].flat().filter((x) => x !== undefined).join('\n');
       fs.writeFileSync(readmeAbs, `${meta}\n\n${body}\n`, 'utf8');
     }
-    if (eventLines.length) {
-      // 时间线书（第 89 轮：books/时间线/ + 配对 `时间线.md`——书籍一律成对住 books/ 下）
-      const tlDir = path.join(dir, 'books', '时间线');
-      fs.mkdirSync(tlDir, { recursive: true });
-      const tlMd = path.join(dir, 'books', '时间线.md');
-      if (!fs.existsSync(tlMd)) fs.writeFileSync(tlMd, `&n 时间线\n\n# 时间线\n\n世界大事记（自动生成，可自由整理）。\n`, 'utf8');
-      eventLines.forEach((line, i) => {
-        // 标题 = 行内元数据段之外的裸文本；无裸文本则取 &f 首词
-        const fval = (line.match(/&f\s+([^&]*)/) || [])[1]?.trim() || '';
-        const rest = line.replace(/&[a-z]\s+[^&]*/g, '').replace(/&[a-z]\b/g, '').trim();
-        const title = (rest || fval.split(/\s+/)[0] || `事件${i + 1}`).replace(/\s+/g, '');
-        const safeTitle = String(title).replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || `事件${i + 1}`;
-        const idx2 = String(i + 1).padStart(2, '0');
-        fs.writeFileSync(path.join(tlDir, `${idx2}-${safeTitle}.md`), `${line}\n\n# ${safeTitle}\n`, 'utf8');
-      });
-    }
+    if (eventLines.length) this._writeTimelineEvents(dir, eventLines);
     // .gitignore：无则写；已有则缺 .soliterra 时补一行（附加操作，不动原内容）
     const gi = path.join(dir, '.gitignore');
     if (!fs.existsSync(gi)) fs.writeFileSync(gi, '.soliterra/\n', 'utf8');
@@ -329,6 +314,94 @@ export class Vault {
     }
     // git：仅当目录还不是仓库时 init（**main 分支**）+ 唯一自动提交（已是仓库 → 一切不动，由用户手动提交）
     await this._gitInitCommit(dir, `init: 创建世界 ${name}`);
+  }
+
+  /** 时间线事件写入（第 115 轮自 _initWorldFolder 抽出，创建与详情面板追加共用）：
+   *  `books/时间线/NN-标题.md`（编号按现有文件顺延）；**同名事件已存在 → 跳过**（重复追加幂等）。 */
+  _writeTimelineEvents(dir, lines) {
+    if (!lines || !lines.length) return 0;
+    const tlDir = path.join(dir, 'books', '时间线');
+    fs.mkdirSync(tlDir, { recursive: true });
+    const tlMd = path.join(dir, 'books', '时间线.md');
+    if (!fs.existsSync(tlMd)) fs.writeFileSync(tlMd, `&n 时间线\n\n# 时间线\n\n世界大事记（自动生成，可自由整理）。\n`, 'utf8');
+    let seq = fs.readdirSync(tlDir).filter((n) => n.endsWith('.md')).length;
+    let written = 0;
+    for (const line of lines) {
+      const fval = (line.match(/&f\s+([^&]*)/) || [])[1]?.trim() || '';
+      const rest = line.replace(/&[a-z]\s+[^&]*/g, '').replace(/&[a-z]\b/g, '').trim();
+      const title = (rest || fval.split(/\s+/)[0] || '事件').replace(/\s+/g, '');
+      const safeTitle = String(title).replace(/[\\/:*?"<>|]/g, '').slice(0, 40) || '事件';
+      // 幂等按**标题**判（编号顺延会让同名事件拿到不同文件名 → 绝对路径判重会漏）
+      const dup = fs.readdirSync(tlDir).some((n) => n.endsWith(`-${safeTitle}.md`));
+      if (dup) continue;
+      const file = path.join(tlDir, `${String(++seq).padStart(2, '0')}-${safeTitle}.md`);
+      fs.writeFileSync(file, `${line}\n\n# ${safeTitle}\n`, 'utf8');
+      written++;
+    }
+    return written;
+  }
+
+  /** 世界详情保存（第 115 轮）：&n 显示名 / 介绍首段 / 历法注释 / 时间线追加 / 封面（设或移除）——README 原子落盘。
+   *  name 只改显示名（不动文件夹与世界 id）；cover: undefined=不动、''=移除、其余=设置（本机绝对或 assets 相对）。 */
+  applyWorldInfo(id, { name, intro, calendar, timeline, cover } = {}) {
+    const dir = this.worldDir(id);
+    const readmeAbs = path.join(dir, 'README.md');
+    if (!fs.existsSync(readmeAbs)) throw new Error('README.md 不存在');
+    const before = fs.readFileSync(readmeAbs, 'utf8');
+    let text = before;
+    if (name != null && String(name).trim()) text = setMetaLine(text, 'n', String(name).trim());
+    if (intro != null) text = replaceIntro(text, intro);
+    if (calendar != null) text = upsertCalendar(text, calendar);
+    if (text !== before) fs.writeFileSync(readmeAbs, text, 'utf8');
+    let events = 0;
+    if (timeline != null && String(timeline).trim()) {
+      const tlEventLines = String(timeline).split('\n').map((x) => x.trim()).filter(Boolean).filter((x) => /&s\s/.test(x));
+      events = this._writeTimelineEvents(dir, tlEventLines);
+    }
+    if (cover !== undefined) {
+      if (cover === '') {
+        const cur = fs.readFileSync(readmeAbs, 'utf8');
+        fs.writeFileSync(readmeAbs, setMetaLine(cur, 'm', ''), 'utf8');
+      } else {
+        this.setCover(id, 'README.md', cover);
+      }
+    }
+    this.index(id).indexFile('README.md');
+    return { ok: true, events };
+  }
+
+  /** 书籍详情保存（第 115 轮）：书名（**成对重命名** md+目录）/ 介绍首段 / 标签 &t / 封面。
+   *  顺序：内容按旧 path 改写（含正文首 H1 同步新名）→ 改名 → 封面按**新名**落库。返回新 path。 */
+  applyBookInfo(id, { path: rel, name, intro, tags, cover } = {}) {
+    const dir = this.worldDir(id);
+    const mdAbs = this._safe(dir, String(rel || ''));
+    if (!fs.existsSync(mdAbs)) throw new Error('条目不存在: ' + rel);
+    const before = fs.readFileSync(mdAbs, 'utf8');
+    let text = before;
+    if (intro != null) text = replaceIntro(text, intro);
+    if (tags != null) text = setMetaLine(text, 't', String(tags).trim());
+    const base = path.basename(String(rel)).replace(/\.md$/i, '');
+    const newName = name != null && String(name).trim() ? String(name).trim() : base;
+    let newRel = rel;
+    if (newName !== base) {
+      // 正文首 H1 与旧名相同 → 同步新名（否则阅读页 &n 新名 与正文 # 旧名 双标题并存）
+      const escOld = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      text = text.replace(new RegExp(`^#\\s+${escOld}\\s*$`, 'm'), `# ${newName}`);
+    }
+    if (text !== before) fs.writeFileSync(mdAbs, text, 'utf8');
+    if (newName !== base) newRel = this.renameEntry(id, rel, newName).path;
+    if (cover !== undefined && cover !== '') {
+      // 先删旧 &m 再 setCover：封面按**新名**落库（否则第 114 轮「沿用旧名」规则会钉在旧书名上）
+      const cur = fs.readFileSync(this._safe(dir, newRel), 'utf8');
+      fs.writeFileSync(this._safe(dir, newRel), setMetaLine(cur, 'm', ''), 'utf8');
+      this.setCover(id, newRel, cover);
+    } else if (cover === '') {
+      const cur = fs.readFileSync(this._safe(dir, newRel), 'utf8');
+      fs.writeFileSync(this._safe(dir, newRel), setMetaLine(cur, 'm', ''), 'utf8');
+      this.index(id).indexFile(newRel);
+    }
+    if (text !== before && newName === base) this.index(id).indexFile(newRel);
+    return { ok: true, path: newRel };
   }
 
   /** 创建世界（库里新建文件夹）：目录 + README.md 根条目 + assets + .gitignore + git init。 */
@@ -894,6 +967,7 @@ export class Vault {
           let text = fs.readFileSync(this._safe(dir, mdToRel), 'utf8');
           if (/^&n\s/m.test(text)) text = text.replace(/^&n\s.*$/m, `&n ${newName}`);
           else text = `&n ${newName}\n` + text;
+          text = syncH1(text, newName);   // 正文首 H1 同步（第 115 轮）
           fs.writeFileSync(this._safe(dir, mdToRel), text, 'utf8');
         } catch { /* 内容改写失败不影响改名本身 */ }
         idx.removeFile(mdFromRel);
@@ -922,6 +996,7 @@ export class Vault {
       let text = fs.readFileSync(to, 'utf8');
       if (/^&n\s/m.test(text)) text = text.replace(/^&n\s.*$/m, `&n ${newName}`);
       else text = `&n ${newName}\n` + text;
+      text = syncH1(text, newName);   // 正文首 H1 同步（第 115 轮：防 &n 新名/正文 # 旧名 双标题）
       fs.writeFileSync(to, text, 'utf8');
     } catch { /* 内容改写失败不影响改名本身 */ }
     this.index(id).removeFile(rel);
@@ -1204,6 +1279,62 @@ export class Vault {
     for (const w of this.watchers.values()) w.close();
     for (const i of this.indexes.values()) i.close();
   }
+}
+
+/** 正文首 H1 与旧名相同 → 同步新名（第 115 轮：改名后 &n 新名与正文 # 旧名双标题并存的根治）。 */
+function syncH1(text, newName) {
+  if (!newName) return text;
+  return text.replace(/^#\s+.+$/m, `# ${newName}`);   // 正文**首个** H1 一律跟随新名（H1 本职=标题）
+}
+
+// ---------- 详情面板编辑 helpers（第 115 轮）：README/书.md 通用 ----------
+
+/** & 行键值 upsert/删除（与前端 applyMetaToText 同语义：行内改值、无键前置、空值删键删行）。 */
+function setMetaLine(text, key, val) {
+  if (val == null || String(val).trim() === '') {
+    const re = new RegExp(`(^|\\s)&${key}(?=\\s|$)`);
+    const out = [];
+    for (const line of text.split('\n')) {
+      if (!re.test(line)) { out.push(line); continue; }
+      const nl = line
+        .replace(new RegExp(`(^|\\s)&${key}\\s*[^&]*`), '$1')
+        .replace(/[ \t]{2,}/g, ' ')
+        .replace(/\s+$/, '');
+      if (nl.trim() === '' || nl.trim() === '&') continue;
+      out.push(nl);
+    }
+    return out.join('\n');
+  }
+  const kv = new RegExp(`&${key}\\s+[^&\\n]*`);
+  if (kv.test(text)) return text.replace(kv, `&${key} ${String(val).trim()} `);
+  return `&${key} ${String(val).trim()}\n` + text;
+}
+
+/** 替换首段（保留其余段与分隔；首段不存在且新值非空 → 追加；新值空 → 删除该段）。 */
+function replaceIntro(body, intro) {
+  const parts = String(body || '').split(/(\n{2,})/);
+  let replaced = false;
+  for (let i = 0; i < parts.length; i += 2) {
+    const s = (parts[i] || '').trim();
+    if (!s || /^#/.test(s) || /^&/.test(s) || /^<!--/.test(s)) continue;
+    if (replaced) break;
+    replaced = true;
+    parts[i] = String(intro || '').trim();
+  }
+  let out = parts.join('');
+  if (!replaced && String(intro || '').trim()) out += (out.endsWith('\n') ? '' : '\n') + '\n' + intro.trim();
+  return out.replace(/\n{3,}/g, '\n\n');
+}
+
+/** 历法注释 upsert：`<!-- calendar: X -->`（空值 = 删除注释块）。 */
+function upsertCalendar(text, cal) {
+  const re = /<!--\s*calendar:[^>]*-->\n?/g;
+  const has = re.test(text);
+  re.lastIndex = 0;
+  const val = String(cal || '').trim();
+  if (!val) return text.replace(re, '');
+  if (has) return text.replace(/<!--\s*calendar:[^>]*-->/, `<!-- calendar: ${val} -->`);
+  return text.replace(/\s*$/, `\n\n<!-- calendar: ${val} -->\n`);
 }
 
 function firstLine(body) {

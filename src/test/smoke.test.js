@@ -153,3 +153,20 @@ test('静态资源：css/js/shared 可达、穿越拒绝', async () => {
   const evil = await fetch(`${base}/w/${W}/..%2F..%2Fetc%2Fpasswd`);
   assert.equal(evil.status, 404, '目录穿越拒绝');
 });
+
+test('详情保存端点：worldinfo 改名介绍 → entry 反映；bookinfo 成对改名 → tree 反映', async () => {
+  const wid = encodeURIComponent('冒烟世界');
+  const w1 = await api(`/api/w/${wid}/worldinfo`, { method: 'POST', body: { name: '冒烟显示名', intro: '详情面板写入的介绍。', calendar: 'CE=0705' } });
+  assert.equal(w1.status, 200, 'worldinfo 保存');
+  const e = await api(`/api/w/${wid}/entry?path=README.md`);
+  assert.equal(e.body.meta.n?.[0], '冒烟显示名', '&n 反映');
+  assert.ok(e.body.body.includes('详情面板写入的介绍'), '介绍落正文');
+  assert.ok(e.body.body.includes('<!-- calendar: CE=0705 -->'), '历法注释落正文');
+  const b1 = await api(`/api/w/${wid}/bookinfo`, { method: 'POST', body: { path: 'books/书一.md', name: '书一改', tags: '测试' } });
+  assert.equal(b1.status, 200, 'bookinfo 保存');
+  const t = await api(`/api/w/${wid}/tree`);
+  const books = t.body.children.find((c) => c.name === 'books');
+  assert.ok(books.children.some((c) => c.name === '书一改'), '树反映改名（成对）');
+  const e2 = await api(`/api/w/${wid}/entry?path=${encodeURIComponent('books/书一改.md')}`);
+  assert.deepEqual(e2.body.meta.t, ['测试'], '标签落 meta');
+});

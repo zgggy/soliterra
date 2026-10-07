@@ -263,3 +263,50 @@ test('moveEntry：散条目移进叶子 → 目标叶子 mkdir 成为配对书�
   assert.ok(idx.entry('黄金时代/北伐/散入.md'), '新路径已入索引');
   assert.ok(!idx.entry('散入.md'), '旧路径已清');
 }));
+
+test('applyWorldInfo：&n/介绍首段/历法/时间线追加/封面设与移除（第 115 轮）', () => withWorld(async (v, w, root) => {
+  writeFileSync(join(w, 'README.md'), '&n 旧名\n\n# 旧名\n\n第一段介绍。\n\n第二段保留。\n', 'utf8');
+  const img = join(root, 'cv.png'); writeFileSync(img, 'PNG', 'utf8');
+  const r = await v.applyWorldInfo('测试世界', {
+    name: '新显示名',
+    intro: '新介绍一句话。',
+    calendar: 'CE 元年=0705',
+    timeline: '&s 0705.01.01 &e 0705.12.31 &f 纪元开启 黄金纪元',
+    cover: img,
+  });
+  const readme = readFileSync(join(w, 'README.md'), 'utf8');
+  assert.match(readme, /^&n 新显示名\s*$/m, '显示名改（行内 upsert 允许尾空格；文件夹不动）');
+  assert.ok(readme.includes('新介绍一句话。'), '首段替换');
+  assert.ok(!readme.includes('第一段介绍'), '旧首段移除');
+  assert.ok(readme.includes('第二段保留'), '第二段原样保留');
+  assert.ok(readme.includes('<!-- calendar: CE 元年=0705 -->'), '历法注释写入');
+  assert.match(readme, /^&m assets\/covers\//m, '封面设置（按世界名命名）');
+  assert.equal(r.events, 1, '时间线 1 事件');
+  assert.ok(existsSync(join(w, 'books', '时间线')), '时间线书建立');
+  const r2 = await v.applyWorldInfo('测试世界', { timeline: '&s 0705.01.01 &e 0705.12.31 &f 纪元开启 黄金纪元' });
+  assert.equal(r2.events, 0, '同名事件幂等跳过');
+  await v.applyWorldInfo('测试世界', { intro: '', calendar: '', cover: '' });
+  const readme2 = readFileSync(join(w, 'README.md'), 'utf8');
+  assert.ok(!/calendar/.test(readme2), '历法注释删除');
+  assert.ok(!readme2.includes('新介绍一句话'), '介绍段删除');
+  assert.ok(!/^&m\s/m.test(readme2), '&m 移除');
+  assert.ok(readme2.includes('第二段保留'), '其余正文不动');
+}));
+
+test('applyBookInfo：书名成对重命名 + 介绍/标签写入（第 115 轮）', () => withWorld(async (v, w) => {
+  // 两段正文：首段替换、尾段保留（原 mk 内容整篇重写成可控结构）
+  writeFileSync(join(w, '银湾.md'), '&n 银湾\n\n# 银湾\n\n首段会被替换。\n\n原有正文尾段。\n', 'utf8');
+  const r = await v.applyBookInfo('测试世界', {
+    path: '银湾.md', name: '银湾港', intro: '银湾港的介绍。', tags: '设定 地理',
+  });
+  assert.equal(r.path, '银湾港.md', '返回新 path');
+  assert.ok(existsSync(join(w, '银湾港.md')), 'md 已重命名');
+  assert.ok(existsSync(join(w, '银湾港')), '配对目录联动改名');
+  const txt = readFileSync(join(w, '银湾港.md'), 'utf8');
+  assert.ok(txt.includes('银湾港的介绍'), '首段替换');
+  assert.ok(txt.includes('原有正文尾段'), '尾段保留');
+  assert.match(txt, /^&t 设定 地理$/m, '标签写入');
+  const idx = v.index('测试世界');
+  assert.ok(idx.entry('银湾港.md'), '新路径入索引');
+  assert.ok(!idx.entry('银湾.md'), '旧路径清');
+}));
