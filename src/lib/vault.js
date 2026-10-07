@@ -90,7 +90,13 @@ export class Vault {
         out.push(this.worldInfo(it.name));
       } catch { /* 跳过不可读目录 */ }
     }
-    return out.sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+    // 第 117 轮：首页卡片拖动排序 → worldsDir/.order.json 有秩者按秩在前；未入序（含新世界）按名排尾
+    const ord = this._orderMap();
+    return out.sort((a, b) => {
+      const ia = ord.has(a.id) ? ord.get(a.id) : Infinity;
+      const ib = ord.has(b.id) ? ord.get(b.id) : Infinity;
+      return ia - ib || a.name.localeCompare(b.name, 'zh');
+    });
   }
 
   /** 第一个标题行之外的首段文字（简介兜底）。 */
@@ -579,6 +585,7 @@ export class Vault {
       this.indexes.delete(id);
       const w = this.watchers.get(id);
       if (w) { try { w.close(); } catch {} this.watchers.delete(id); }
+      this._remapOrder(id, newName);
       return this.worldInfo(newName);
     }
     const to = this._worldNameCheck(newName);
@@ -589,6 +596,7 @@ export class Vault {
     this.indexes.delete(id);
     const w = this.watchers.get(id);
     if (w) { try { w.close(); } catch {} this.watchers.delete(id); }
+    this._remapOrder(id, newName);
     return this.worldInfo(newName);
   }
 
@@ -600,6 +608,33 @@ export class Vault {
     this._syncRootName(to, id, newName);
     this._renameLegacyRoot(to, id, newName);
     return this.worldInfo(newName);
+  }
+
+  /** 首页世界自定义顺序（第 117 轮）：`worldsDir/.order.json` {order:[id…]}——非目录文件自动不入 list()。 */
+  _orderPath() { return path.join(this.worldsDir, '.order.json'); }
+  _orderMap() {
+    if (!this._order) {
+      try {
+        this._order = new Map((JSON.parse(fs.readFileSync(this._orderPath(), 'utf8')).order || [])
+          .map((n, i) => [n, i]).filter(([n]) => typeof n === 'string'));
+      } catch { this._order = new Map(); }
+    }
+    return this._order;
+  }
+  setWorldOrder(order) {
+    fs.writeFileSync(this._orderPath(), JSON.stringify({ order }, null, 2), 'utf8');
+    this._order = null;
+  }
+  /** 世界改名 → 顺序表内 id 同步改名（否则改名世界掉到序尾）。 */
+  _remapOrder(from, to) {
+    try {
+      const arr = JSON.parse(fs.readFileSync(this._orderPath(), 'utf8')).order || [];
+      const i = arr.indexOf(from);
+      if (i < 0) return;
+      arr[i] = to;
+      fs.writeFileSync(this._orderPath(), JSON.stringify({ order: arr }, null, 2), 'utf8');
+      this._order = null;
+    } catch { /* 无顺序文件 = 无需同步 */ }
   }
 
   /** 库内忽略表（第 90 轮「取消管理」）：`worldsDir/.unmanaged.json`——仅记录不管理的名字，

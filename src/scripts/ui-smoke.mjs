@@ -1,7 +1,7 @@
 // 第 109 轮（优化计划 P3-9 · UI 层）：playwright 关键流冒烟——headless chromium 自起服务（PORT=0），
 // 与 API 层冒烟（test/smoke.test.js）互补。运行：npm run test:ui（需先 npx playwright install chromium）。
 // 覆盖：进入流（默认面板→点书→目录）· 树拖拽中区移入（叶子配对）· 编辑自动保存落盘 ·
-//       导出分组弹窗 · 条目封面头 hero · ⌘K 搜索。
+//       导出分组弹窗 · 条目封面头 hero · ⌘K 搜索 · 首页卡同构/世界卡换位 · 书卡拖动幽灵。
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -35,7 +35,8 @@ before(async () => {
   });
   // 播种：书A(甲乙=拖拽) · 书B(稿=编辑+封面+搜索) —— 互不干扰
   const wid = encodeURIComponent(W);
-  await api('/api/worlds', { method: 'POST', body: { name: W } });
+  await api('/api/worlds', { method: 'POST', body: { name: W, subtitle: 'UI 测的世界简介首段，第 117 轮卡片同构断言用。' } });
+  await api('/api/worlds', { method: 'POST', body: { name: '乙世界', subtitle: '乙世界的简介首段。' } });   // 首页拖动换位需 ≥2 卡
   await api(`/api/w/${wid}/fs/create`, { method: 'POST', body: { dir: 'books', name: '书A', pair: true } });
   await api(`/api/w/${wid}/fs/create`, { method: 'POST', body: { dir: 'books', name: '书B', pair: true } });
   for (const n of ['甲', '乙']) await api(`/api/w/${wid}/fs/create`, { method: 'POST', body: { dir: 'books/书A', name: n, pair: false } });
@@ -192,4 +193,86 @@ test('⌘K 搜索：快捷键 → 面板 → 中文查询出结果', async () =>
   await page.waitForFunction(() => document.querySelectorAll('.search-row').length > 0, { timeout: 5000 });
   const hits = await page.$$eval('.search-row .entry-card-title', (els) => els.map((e) => e.textContent.trim()));
   assert.ok(hits.includes('稿'), '搜索命中（trigram LIKE 通道）');
+  // 搜索面板无关闭按钮（Esc 亦不收）→ 手动移除，否则 reader-modal 遮罩拦截后续测试的指针事件
+  await page.evaluate(() => document.querySelectorAll('.reader-modal').forEach((m) => m.remove()));
+});
+
+// ---------- 第 117 轮：卡片统一——9:16 同构、信息入封面、title padding 归零、世界卡拖动换位 ----------
+test('首页卡片同构 9:16 信息入封面 + 世界卡拖动换位落盘', async () => {
+  await page.goto(`${base}/#/`);
+  await page.evaluate(() => document.querySelectorAll('.reader-modal').forEach((m) => m.remove()));   // 防上游残留遮罩
+  await page.waitForSelector('.world-card:not(.world-card-new)', { timeout: 10000 });
+  const info = await page.$eval('.world-card:not(.world-card-new)', (c) => {
+    const cover = c.querySelector('.card-cover');
+    const title = cover?.querySelector('.card-title'), tag = cover?.querySelector('.card-tag');
+    const r = cover.getBoundingClientRect();
+    return {
+      ratio: r.width / r.height,
+      hasTitle: !!title, hasTag: !!tag,
+      oldPath: !!c.querySelector('.world-card-path'), oldMeta: !!c.querySelector('.world-card-meta'),
+      cardH: Math.round(c.getBoundingClientRect().height), coverH: Math.round(r.height),
+      titlePad: title ? getComputedStyle(title).padding : null,
+      titleEllipsis: title ? getComputedStyle(title).textOverflow : null,
+    };
+  });
+  assert.ok(Math.abs(info.ratio - 9 / 16) < 0.005, `封面 9:16（实际 ${info.ratio.toFixed(3)}）`);
+  assert.ok(info.hasTitle && info.hasTag, '标题 + 两行简介都在卡内');
+  assert.ok(!info.oldPath && !info.oldMeta, '路径/统计行已按第 117 轮移除');
+  assert.ok(Math.abs(info.cardH - info.coverH) <= 2, `卡高 ≈ 封面高（信息不外挂；${info.cardH} vs ${info.coverH}）`);
+  assert.equal(info.titlePad, '0px', 'card-title padding 归零');
+  // 拖动换位：卡0 → 卡1 右半（插后）→ DOM 换位 · 不跳转 · 刷新后保持（.order.json）
+  const cards = await page.$$('.world-card:not(.world-card-new)');
+  assert.ok(cards.length >= 2, `至少两张世界卡（实际 ${cards.length}）`);
+  const id0 = await cards[0].getAttribute('data-id');
+  const id1 = await cards[1].getAttribute('data-id');
+  const b1 = await cards[1].boundingBox();
+  await cards[0].hover();
+  await page.mouse.down();
+  await page.mouse.move(b1.x + b1.width * 0.9, b1.y + b1.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await sleep(600);
+  assert.equal(await page.evaluate(() => location.hash), '#/', '拖完不进世界（点击守卫）');
+  const idsA = await page.$$eval('.world-card:not(.world-card-new)', (cs) => cs.map((c) => c.dataset.id));
+  assert.deepEqual(idsA.slice(0, 2), [id1, id0], 'DOM 换位（卡0 插到卡1 后）');
+  await page.reload();
+  await page.waitForSelector('.book-card, .world-card:not(.world-card-new)', { timeout: 10000 });
+  await page.waitForSelector('.world-card:not(.world-card-new)', { timeout: 10000 });
+  const idsB = await page.$$eval('.world-card:not(.world-card-new)', (cs) => cs.map((c) => c.dataset.id));
+  assert.deepEqual(idsB.slice(0, 2), [id1, id0], '刷新后顺序保持（服务端落盘）');
+});
+
+test('书卡拖动：幽灵带书名 + 中区前缀 + 三分区换位（第 117 轮：结构变更不丢名字）', async () => {
+  await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+  await page.waitForSelector('.book-card[data-name="书A"]', { timeout: 10000 });
+  // 面板展开有宽度动画（过渡期仅 1 列 186px）——等全宽 2 列就位再量几何
+  await page.waitForFunction(() => (document.getElementById('books-grid')?.parentElement?.getBoundingClientRect().width || 0) > 400, { timeout: 6000 });
+  await sleep(300);
+  const rect = (sel) => page.$eval(sel, (c) => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  const bA = await rect('.book-card[data-name="书A"]');
+  const bB = await rect('.book-card[data-name="书B"]');
+  assert.ok(bB.x > bA.x, '书B 在书A 右侧（两列网格）');
+  const bk = await page.$eval('.book-card[data-name="书A"]', (c) => ({
+    pad: getComputedStyle(c.querySelector('.card-title')).padding,
+    border: getComputedStyle(c.querySelector('.card-cover')).borderBottomWidth,
+    titleInCover: c.querySelector('.card-cover').contains(c.querySelector('.card-title')),
+  }));
+  assert.equal(bk.pad, '0px', '书卡 title padding 归零');
+  assert.equal(bk.border, '0px', 'cover 无 border-bottom');
+  assert.ok(bk.titleInCover, '标题在封面内');
+  await page.mouse.move(bA.x + bA.w / 2, bA.y + bA.h / 2);
+  await page.mouse.down();
+  await page.mouse.move(bB.x + bB.w / 2, bB.y + bB.h / 2, { steps: 6 });   // 中区 = 移入
+  await sleep(120);
+  const g1 = await page.$eval('.toc-drag-ghost', (g) => g.textContent).catch(() => '');
+  assert.equal(g1, '书B/书A', `中区幽灵 = 目标/原名（实际 ${g1}）`);
+  await page.mouse.move(bB.x + bB.w * 0.9, bB.y + bB.h / 2, { steps: 4 });   // 右区 = 插后
+  await sleep(120);
+  const g2 = await page.$eval('.toc-drag-ghost', (g) => g.textContent).catch(() => '');
+  assert.equal(g2, '书A', `离开中区还原原名（实际 ${g2}）`);
+  const lineOn = await page.$eval('.card-drop-line', (l) => l.style.display === 'block').catch(() => false);
+  assert.ok(lineOn, '插后间隙线显示');
+  await page.mouse.up();
+  await sleep(900);   // &r 重排 + 面板重绘
+  const names = await page.$$eval('.book-card', (cs) => cs.map((c) => c.dataset.name));
+  assert.deepEqual(names.slice(0, 2), ['书B', '书A'], `书A 插到书B 后（实际 ${names}）`);
 });

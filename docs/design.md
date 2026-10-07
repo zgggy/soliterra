@@ -24,7 +24,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
   - **readlater-fan**（底部卡片集）：稍后阅读 = 屏幕底部中央的**扇形卡片集**——rest 聚拢成扇（±9° / 间距 26px / 只露上半 70px），hover 整集转**横排展开**（gap 8、尽量不重叠、总宽距两侧钮群 ≥40px），单卡 hover 上升 + 右上 `×` 移除。
 - **首页 = 世界列表**：横排竖卡 + 「+ 新建」卡，滚轮左右滚动，卡片 hover 3D 倾斜（±6deg，不加影不加圆角）；不是 banner 三栏、不是全屏大图。
 - footer 是**一行居中的灰字题记**，无链接列、无图标——与你的「卷旨/题记」习惯完全同构。
-- **书**：书卡 = **9:16 封面竖矩形** + 书名/标签行**叠入封面内底部**（全部书籍面板内，第 116 轮）；书架 Dock / 书脊 / 底座方案**已整体废弃**。**书卡管理入口（第 80 轮定稿）**：**卡内右键**（键盘等价 = 「菜单键」/ Shift+F10）→ `tree-menu`（重命名 / 删除 / 补建同名条目 / 在书内加条目）；面板头 `＋`（`panel-head-btn` 同款）与目录面板一致。**不做卡上悬浮按钮**（第 79 轮曾试 `⋯`，用户判定多余已移除——右键为正式入口）。
+- **书**：书卡 = **9:16 封面竖矩形** + 书名/标签行**叠入封面内底部**（全部书籍面板内；第 117 轮与世界卡同构，共享 `card-*` 族 + `card-drag` 拖拽）；书架 Dock / 书脊 / 底座方案**已整体废弃**。**书卡管理入口（第 80 轮定稿）**：**卡内右键**（键盘等价 = 「菜单键」/ Shift+F10）→ `tree-menu`（重命名 / 删除 / 补建同名条目 / 在书内加条目）；面板头 `＋`（`panel-head-btn` 同款）与目录面板一致。**不做卡上悬浮按钮**（第 79 轮曾试 `⋯`，用户判定多余已移除——右键为正式入口）。
 
 ## Colors
 
@@ -268,6 +268,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 | 域 | 组件 | 章节 |
 |----|------|------|
 | 首页 | `world-card` · `new-world-card` · `world-row` | Layout |
+| 卡片族 | `card-cover` · `card-overlay` · `card-title` · `card-tag`（世界/书同构，第 117 轮） · `card-drag`（共享拖拽原语） | Layout |
 | 时间轴 | `chrono-bar` · `event-flag` · `span-bar` · `chrono-marker` · `era-band` | Timeline & Interaction |
 | push 面板 | `toc-panel` · `world-panel`（世界+设置合并） · `books-panel`（书格） · `rel-panel` · `tools-panel` | Layout & Panels / 关系图 |
 | fab 簇 | `fab-left`（+/格/☰） · `fab-right`（✎/⛶/工） · `panel-resize`（10×60 把手） | Layout & Panels |
@@ -368,10 +369,11 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 **`world-row`** — 首页世界列表横排容器。
 - flex、gap 20px、`padding: 0 8vw`、`overflow-x: auto`；滚轮 deltaY 映射 `scrollLeft`；整行屏幕垂直居中。
 
-**`world-card`** — 首页世界竖卡（约 203×361，**9:16 封面比例，第 116 轮**）。
-- card-surface 配方；**整卡 = 9:16 封面**，信息（世界名 display-md + 简介 2 行省略 + `world-card-path` 位置行 + 等宽元数据）以 `world-card-body` **absolute 叠入封面内底部**——有封面：底部向上墨色渐变 + 白字；无封面：浅底墨字 + 首字大衬线 glyph（`has-cover` class 区分）；右上角线条 icon-button 菜单（盖在封面右上，第 116 轮）。
-- **`world-card-path`**：`~/<世界库>/<名>/` 等宽 0.62rem `{colors.text-muted}`，单行 `text-overflow: ellipsis`，`title` = 完整绝对路径（数据 = `/api/worlds` 的 `dir` + `/api/meta.home` 缩写）。
-- **hover 倾斜**：`hover-tilt` 原语（±6deg / 200ms）+ 边框 `line-strong`。
+**`world-card`** — 首页世界竖卡（200 宽 × ≈356 高 = 9:16 封面派生，**第 117 轮与书卡同构**）。
+- **共享卡片族**：`card-cover`(9:16, position:relative) > `card-overlay`（absolute 底部渐变 14·16·12）> `card-title`（衬线 1.02rem nowrap 省略、**padding 0**）+ `card-tag.two-line`（两行简介 clamp）。卡面**只显示标题 + 简介**——路径/统计行不再上卡（在 ⋯菜单「位置」注记与右键详情面板）。
+- 有封面：底部向上墨色渐变 + 白字；无封面：浅底墨字 + 首字衬线 glyph 48px（`has-cover` 区分）；右上角线条 icon-button 菜单（`draggable=false`，起手不进拖拽）。
+- **hover 倾斜**：`hover-tilt` 原语（±6deg / 200ms，拖动中冻结）+ 边框 `line-strong`。
+- **拖动换位（第 117 轮）**：`card-drag` 二分区（左半插前 / 右半插后；无「移入」语义）→ `POST /api/worlds/order` 落盘 `worldsDir/.order.json`，`vault.list()` 有秩者在前、未入序新世界按名排尾、改名同步秩；松手 400ms 点击守卫（拖完不进世界）。
 
 **`archived-card`（归档态书卡，第 90 轮）** — 书籍面板「归档 N」视图中的卡片。
 - 降饱和（`opacity .72` + 封面 `grayscale(.7)`）+ 虚线边缘；标签行写「此书已归档 · 点击还原」/「条目已归档 · 点击还原」（条目卡 `title` 显示归档前路径）；**点击 = 还原**（无二次确认——归档可逆）。
@@ -474,8 +476,11 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 - 书卡 `book-card`（9:16 封面，书名+标签 `book-card-overlay` 叠入封面内底部，第 116 轮）+ **hover 倾斜**（`hover-tilt` 原语，容器 `perspective: 1200px`）；
 - 点击书卡 → 打开该书首条目并**切换为目录面板**。
 
-**`book-card`** — 全部书籍面板网格项（功能设计 §8.3）。
-- **9:16 封面竖矩形**（bg-soft + 边框 + 衬线首字；有图 `object-fit: cover`）+ 书名（衬线 700）+ 标签行（eyebrow）**以 `book-card-overlay` absolute 叠入封面内底部**（有图：底部渐变白字；无图：墨字回退，`has-cover` 区分）；**hover 倾斜**（`hover-tilt`）；点击 → 打开该书首条目并切换为目录面板。
+**`book-card`** — 全部书籍面板网格项（功能设计 §8.3；**第 117 轮与世界卡同构**）。
+- **共享卡片族**：`card-cover`(9:16，**无 border-bottom**，bg-soft + 衬线首字；有图 `object-fit: cover`) > `card-overlay`（底部渐变白字 / 无封面墨字回退）> `card-title`（**padding 0** nowrap 省略）+ `card-tag.eyebrow` 标签行（无标签不渲染）；**hover 倾斜**（`hover-tilt`）；点击 → 打开该书首条目并切换为目录面板。
+- **拖动（`card-drag` 三分区）**：横向左 1/3 插前 / 中 1/3 移入目标书 / 右 1/3 插后；幽灵 = 独立名字条（`目标/原名` 前缀），间隙线 = 网格上 2px 竖线悬于两卡间隙正中。
+
+**`card-drag`（卡片拖拽统一原语，第 117 轮）** — `public/js/card-drag.js`，世界卡/书卡各建一个实例共用机制：pointerdown（排除卡上菜单）→ 5px 阈值激活（源卡 `dragging-src` 淡出 + `body.toc-dragging` + 名字幽灵）→ 分区判定（`zones` 含 into = 三分区，否则二分）→ `card-drop-line` 间隙线（gap/2 居中，含容器滚动偏移）→ 松手 `armClickGuard()` 400ms + `onDrop` 提交；`pointercancel` 只清场不提交。
 
 **`annotation-row`** — 勘误行（书籍错误 → 正确段落的链接）。
 - alert-row 同构：3px `{colors.alert}` 前缘 + `{colors.bg-soft}` 底 + 正文 + 指向 `[[词条#锚]]` 的超链；`disputed`（存疑）态 = 虚线 warning 左缘、不判死。行内配 `已证伪/存疑` 徽章（status-badge）。

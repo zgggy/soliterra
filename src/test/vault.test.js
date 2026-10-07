@@ -310,3 +310,25 @@ test('applyBookInfo：书名成对重命名 + 介绍/标签写入（第 115 轮�
   assert.ok(idx.entry('银湾港.md'), '新路径入索引');
   assert.ok(!idx.entry('银湾.md'), '旧路径清');
 }));
+
+test('list 顺序：.order.json 自定义序在前、未入序排尾；改名保持秩（第 117 轮）', () => withWorld(async (v, w, root) => {
+  for (const n of ['甲世界', '乙世界']) {
+    mkdirSync(join(root, n), { recursive: true });
+    writeFileSync(join(root, n, '读我.md'), '# 读我\n', 'utf8');
+  }
+  try {
+    v.setWorldOrder(['乙世界', '测试世界']);
+    assert.deepEqual(v.list().map((x) => x.id), ['乙世界', '测试世界', '甲世界'],
+      '有秩者按秩在前；未入序的甲按名排尾');
+    assert.ok(existsSync(join(root, '.order.json')), '顺序落盘 worldsDir/.order.json');
+    // 新世界（未入序）同样排尾
+    mkdirSync(join(root, '新世界'), { recursive: true });
+    writeFileSync(join(root, '新世界', '读我.md'), '# 读我\n', 'utf8');
+    assert.equal(v.list().at(-1).id, '新世界', '新世界在序尾');
+    // 改名 → 顺序表内 id 同步（否则改名世界掉回名序）
+    v.renameWorld('测试世界', '测改世界');
+    assert.deepEqual(v.list().map((x) => x.id), ['乙世界', '测改世界', '甲世界', '新世界'], '改名保持秩');
+  } finally {
+    v.close('测改世界'); v.close('甲世界'); v.close('乙世界'); v.close('新世界');
+  }
+}));

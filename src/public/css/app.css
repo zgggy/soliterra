@@ -156,7 +156,7 @@ img { display: block; max-width: 100%; }
 
 .world-card {
   position: relative;
-  flex: 0 0 240px; height: 340px;
+  flex: 0 0 200px;   /* 第 117 轮：信息全在 9:16 封面内 → 高度由封面派生（原 340 定高会裁掉封面底） */
   display: flex; flex-direction: column;
   border: 1px solid var(--line); background: var(--surface); border-radius: 0;
   transition: transform var(--motion-state) var(--ease-out-quick), border-color var(--motion-state), box-shadow var(--motion-state);
@@ -164,38 +164,43 @@ img { display: block; max-width: 100%; }
   text-align: left;
 }
 .world-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-1); }
-.world-card-cover {
-  /* 第 116 轮：统一 9:16 竖版封面（宽9高16）——信息叠入封面内部（body 变 overlay） */
+/* ---------- 卡片封面族（第 117 轮统一）：世界卡 = 书卡同构 ----------
+   结构：.card-cover(9:16) > .card-overlay > .card-title + .card-tag —— 信息全在封面矩形内；
+   有封面 = 底部向上渐变 + 白字；无封面 = 浅底墨字 + 衬线首字 glyph；两卡只在容器语境与标签内容上不同
+   （书卡标签行 · 世界卡两行简介），title/tag 的 padding 一律归零（内边距只来自 overlay）。 */
+.card-cover {
   aspect-ratio: 9 / 16; position: relative; flex: none;
   background: var(--bg-soft);
   display: flex; align-items: center; justify-content: center;
-  border-bottom: 1px solid var(--line);
   overflow: hidden;
 }
-.world-card-cover img { width: 100%; height: 100%; object-fit: cover; }
-.world-card-glyph { font-family: var(--font-serif); font-size: 64px; color: var(--text-muted); }
-.world-card-body {
+.card-cover img {
+  width: 100%; height: 100%; object-fit: cover;
+  -webkit-user-drag: none; user-select: none; pointer-events: none;   /* 原生图片拖拽会截断 pointer 流 */
+}
+.card-glyph { font-family: var(--font-serif); font-size: 48px; color: var(--text-muted); }
+.card-overlay {
   position: absolute; left: 0; right: 0; bottom: 0;
   padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 5px;
-  background: linear-gradient(to top, rgba(8, 8, 8, .82), rgba(8, 8, 8, 0)); color: #fff;   /* 信息区自底渐变 */
+  background: linear-gradient(to top, rgba(8, 8, 8, .82), rgba(8, 8, 8, 0)); color: #fff;
 }
-.world-card-cover:not(.has-cover) .world-card-body { background: none; color: var(--text); }   /* 无封面 = 浅底墨字 */
-.world-card-title { margin: 0; font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; line-height: 1.2; }
-.world-card-sub {
-  margin: 0; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-}
-.world-card-meta {
-  margin-top: auto; padding-top: 8px; border-top: 1px solid var(--line);
-  font-family: var(--font-mono); font-size: 0.64rem; color: var(--text-muted);
-}
-/* 本地存储位置（第 87 轮）：卡片一行 muted 路径，悬停 title 见完整路径 */
-.world-card-path {
-  margin: 2px 0 0; color: var(--text-muted);
-  font-family: var(--font-mono); font-size: 0.62rem; line-height: 1.4;
+.card-cover:not(.has-cover) .card-overlay { background: none; color: var(--text); }   /* 无封面 = 浅底墨字 */
+.card-title {
+  margin: 0; padding: 0;   /* 第 117 轮：title padding 全归零 */
+  font-family: var(--font-serif); font-size: 1.02rem; font-weight: 700;
+  line-height: 1.25; color: inherit;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.card-tag {
+  margin: 0; padding: 0; color: inherit; opacity: .88;
+  font-size: 0.78rem; line-height: 1.5;
+}
+.card-cover:not(.has-cover) .card-tag { opacity: 1; }
+.card-tag.two-line {   /* 世界卡两行简介（书卡标签行不夹断） */
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
 .world-card-new {
+  aspect-ratio: 9 / 16;   /* 无封面子元素：自身按 9:16 撑起，与真实卡等高 */
   border-style: dashed;
   align-items: center; justify-content: center; gap: 12px;
   background: transparent;
@@ -1126,25 +1131,10 @@ details.callout-spoiler-fold .callout-body { margin-top: 6px; }
   border: 1px solid var(--line); background: var(--surface); border-radius: 0; padding: 0;
   overflow: hidden;
 }
-.book-card-title { padding: 8px 10px 2px; }
-/* 第 99 轮：无标签不渲染 .book-card-tags 时，标题须补回标签区的等高留白——
-   否则标题贴住卡片底框，视觉上"标题行高度变了"（实测差 42px）。:last-child 精准命中无标签卡。 */
-.book-card > .book-card-title:last-child { padding-bottom: 44px; }
-.book-card-tags { padding: 2px 10px 10px; border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
 .book-card:hover { background: var(--bg-soft); border-color: var(--line-strong); }
 /* 归档态书卡（第 90 轮）：降饱和 + 虚线边缘提示「点击还原」 */
 .book-card.archived { opacity: .72; border-style: dashed; }
-.book-card.archived .book-card-cover { filter: grayscale(.7); }
-.book-card-cover {
-  aspect-ratio: 9 / 16; background: var(--bg-soft);   /* 第 116 轮：统一 9:16 竖版（与世界卡/文档封面同族） */
-  border: 0; border-bottom: 1px solid var(--line);   /* 卡内分块用分割线，不套小 box */
-  display: flex; align-items: center; justify-content: center; overflow: hidden;
-  margin: 0;
-}
-.book-card-cover img { width: 100%; height: 100%; object-fit: cover; }
-.book-card-glyph { font-family: var(--font-serif); font-size: 30px; color: var(--text-muted); }
-.book-card-title { font-family: var(--font-serif); font-size: 0.9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.book-card-tags { letter-spacing: .06em; }
+.book-card.archived .card-cover { filter: grayscale(.7); }   /* cover 同族规则见卡片封面族 */
 
 
 /* 样式化输入弹层（替代原生 prompt） */
@@ -1340,15 +1330,13 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 .git-uncommitted.on { border-left-color: var(--on-accent); }
 div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 
-/* ---------- 书籍卡片拖拽排序（第 101 轮；103 轮修：线 = 网格上的独立元素，**悬在两卡间隙正中**——
-   box-shadow 可见部分永远贴元素边缘（overflow:hidden 也裁掉外扩），做不出离边悬线） ---------- */
-.book-drop-line {
+/* ---------- 卡片拖拽（第 101 轮书卡；第 117 轮统一两卡）：间隙线 = 挂在容器上的独立 2px 竖线，
+   **悬在两卡间隙正中**——box-shadow 可见部分永远贴元素边缘（overflow:hidden 也裁掉外扩），做不出离边悬线 ---------- */
+.card-drop-line {
   position: absolute; width: 2px; background: var(--line-strong);
   display: none; pointer-events: none; z-index: 5;
 }
-.book-card.dragging-src { opacity: .4; }
-/* 封面图：禁原生图片拖拽 + 事件穿透到卡片——否则在图上起手会被浏览器 DnD 接管，pointer 流断掉 */
-.book-card-cover img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
+.dragging-src { opacity: .4; }   /* 源卡原地淡出（占位保持网格/行不跳） */
 
 /* ---------- 条目封面头（第 108 轮）：封面置顶 · 标题叠封面内底部 · 底部渐变（标题行高×1.5） ---------- */
 .entry-hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--bg-soft); margin: 0 0 14px; aspect-ratio: 9 / 16; }   /* 第 116 轮：文档封面同 9:16 竖版 */
@@ -1397,19 +1385,4 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 .cover-field .cover-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .cover-field .cover-actions .button-ghost { font-size: 0.72rem; padding: 4px 8px; }
 
-.world-card-cover.has-cover .world-card-sub,
-.world-card-cover.has-cover .world-card-path,
-.world-card-cover.has-cover .world-card-meta { color: rgba(255, 255, 255, .82); }
-.world-card-cover.has-cover .world-card-title { color: #fff; }
 
-/* 书卡信息叠入封面内部（第 116 轮）：底部渐变白字；无封面 = 浅底墨字 */
-.book-card-overlay {
-  position: absolute; left: 0; right: 0; bottom: 0;
-  padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 4px;
-  background: linear-gradient(to top, rgba(8, 8, 8, .82), rgba(8, 8, 8, 0)); color: #fff;
-}
-.book-card-cover { position: relative; overflow: hidden; }
-.book-card-cover:not(.has-cover) .book-card-overlay { background: none; color: var(--text); }
-.book-card-overlay .book-card-title { color: inherit; }
-.book-card-overlay .book-card-tags { border-top: 0; margin-top: 0; padding: 2px 0 0; color: inherit; opacity: .88; }
-.book-card-cover:not(.has-cover) .book-card-overlay .book-card-tags { opacity: 1; }

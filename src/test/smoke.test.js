@@ -170,3 +170,19 @@ test('详情保存端点：worldinfo 改名介绍 → entry 反映；bookinfo �
   const e2 = await api(`/api/w/${wid}/entry?path=${encodeURIComponent('books/书一改.md')}`);
   assert.deepEqual(e2.body.meta.t, ['测试'], '标签落 meta');
 });
+
+test('世界排序端点：POST /api/worlds/order → GET 全量按提交序；非法 400；新世界排尾（第 117 轮）', async () => {
+  await api('/api/worlds', { method: 'POST', body: { name: '序甲' } });
+  await api('/api/worlds', { method: 'POST', body: { name: '序乙' } });
+  const { body: l1 } = await api('/api/worlds');
+  const rev = l1.map((w) => w.id).reverse();
+  const r = await api('/api/worlds/order', { method: 'POST', body: { order: rev } });
+  assert.equal(r.status, 200, 'order 保存');
+  const { body: l2 } = await api('/api/worlds');
+  assert.deepEqual(l2.map((w) => w.id), rev, 'GET 完全按提交序');
+  const bad = await api('/api/worlds/order', { method: 'POST', body: { order: 'x' } });
+  assert.equal(bad.status, 400, '非法载荷 400');
+  await api('/api/worlds', { method: 'POST', body: { name: '序丙' } });
+  const { body: l3 } = await api('/api/worlds');
+  assert.equal(l3[l3.length - 1].id, '序丙', '未入序新世界按名排尾');
+});

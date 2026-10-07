@@ -129,6 +129,16 @@ app.post('/api/worlds/unmanage', (req, reply) => {
   } catch (e) { reply.code(400).send({ error: e.message }); }
 });
 
+// 首页世界卡拖动排序（第 117 轮）：全量 id 序 → worldsDir/.order.json；未入序的新世界按名排尾
+app.post('/api/worlds/order', (req, reply) => {
+  const order = req.body?.order;
+  if (!Array.isArray(order) || order.length === 0 || order.some((x) => typeof x !== 'string')) {
+    return reply.code(400).send({ error: 'order 须为非空 string[]' });
+  }
+  vault.setWorldOrder(order);
+  return { ok: true };
+});
+
 // 在系统文件管理器中定位世界目录（第 87 轮；仅本机 UI 用——服务只监听 127.0.0.1）
 app.post('/api/worlds/reveal', (req, reply) => {
   try {

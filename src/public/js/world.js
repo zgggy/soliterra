@@ -8,7 +8,8 @@ import { showLinkCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporter.js';
 import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators, uploadAsset, openAssetPicker } from './ui.js';
-import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, armClickGuard, clickGuardActive } from './world-core.js';
+import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, clickGuardActive } from './world-core.js';
+import { createCardDragger } from './card-drag.js';
 import { initTimeline } from './world-timeline.js';
 import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode, doMoveTo, pairDirNode } from './world-tree.js';
 import { renderRel } from './world-rel.js';
@@ -865,138 +866,26 @@ async function commitFlow(ctx) {
 // ============ 书籍面板拖拽排序（第 101 轮）：卡片间 pointer 拖动 =同层插入前/后 ============
 // 指示线与目录树同语义：落点目标卡**左半 = 插到它前面**（左缘线）、**右半 = 插到它后面**（右缘线）；
 // 跨父（旧形态散文件 vs books/ 子卡混排）由 reorderNode 拒绝 → 无指示线不落。
-let bookDrag = null;
-let bookDragBound = false;
-
-/** 间隙线（第 103 轮）：挂在网格上的独立 2px 竖线，绝对定位于两卡 14px 间隙**正中**
- *  （左线占 [目标左缘−8, −6]、右线占 [右缘+6, +8]——中点即间隙 7px 处）。 */
-let bookDropLine = null;
-function ensureBookDropLine() {
-  if (bookDropLine && bookDropLine.isConnected) return bookDropLine;
-  const grid = document.getElementById('books-grid');
-  if (!grid) return null;
-  if (getComputedStyle(grid).position === 'static') grid.style.position = 'relative';
-  bookDropLine = document.createElement('div');
-  bookDropLine.className = 'book-drop-line';
-  grid.appendChild(bookDropLine);
-  return bookDropLine;
-}
-function showBookDropLine(target, after) {
-  const line = ensureBookDropLine();
-  if (!line) return;
-  const grid = document.getElementById('books-grid');
-  const r = target.getBoundingClientRect(), gr = grid.getBoundingClientRect();
-  line.style.display = 'block';
-  line.style.top = (r.top - gr.top) + 'px';
-  line.style.height = r.height + 'px';
-  // 间隙 = 卡间 14px：左线中点距目标左缘 7px → left = 左缘 −8（线占 −8..−6，中点 −7）
-  line.style.left = (after ? (r.right - gr.left + 6) : (r.left - gr.left - 8)) + 'px';
-}
-function hideBookDropLine() { if (bookDropLine) bookDropLine.style.display = 'none'; }
-
-function bindBookDrag(card, ctx, node) {
-  card.style.cursor = 'grab';
-  card.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    bookDrag = { ctx, node, sx: e.clientX, sy: e.clientY, active: false, card };
-  });
-}
-
-function ensureBookDragGlobal() {
-  if (bookDragBound) return;
-  bookDragBound = true;
-  const clearMarks = () => document.querySelectorAll('.book-card.drop-sibling, .book-card.drop-after').forEach((n) => n.classList.remove('drop-sibling', 'drop-after'));
-  document.addEventListener('pointermove', (e) => {
-    if (!bookDrag) return;
-    if (!bookDrag.active) {
-      if (Math.hypot(e.clientX - bookDrag.sx, e.clientY - bookDrag.sy) < 5) return;
-      bookDrag.active = true;
-      document.body.classList.add('toc-dragging');
-      bookDrag.card.style.transform = '';   // 冻结 hover 倾斜，防 ghost/源卡歪着拖
-      bookDrag.card.classList.add('dragging-src');   // 源卡原地淡出（占位保持网格不跳）
-      const ghost = bookDrag.card.cloneNode(true);
-      ghost.className = 'toc-drag-ghost';
-      ghost.style.transform = '';
-      // 第 109 轮：幽灵只留紧凑名字条——cover 大块与标签行删掉（否则名字被大图推到卡底 = 名字前大片空白）
-      ghost.querySelector('.book-card-cover')?.remove();
-      ghost.querySelector('.book-card-tags')?.remove();
-      ghost.style.width = '';
-      ghost.style.paddingLeft = '10px';
-      document.body.appendChild(ghost);
-      bookDrag.ghost = ghost;
-      // 第 103 轮：抑制标志**在松手时**才起算（原按下起算 → 拖 >400ms 松手后 click 漏拦 = 拖完进入书籍）
-    }
-    bookDrag.ghost.style.left = (e.clientX + 10) + 'px';
-    bookDrag.ghost.style.top = (e.clientY + 6) + 'px';
-    clearMarks();
-    hideBookDropLine();
-    bookDrag.mode = null; bookDrag.target = null;
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    const target = el?.closest?.('.book-card');
-    // 第 109 轮：幽灵卡隶属前缀（判定前先按上一帧 mode 还原/刷新，判定后在块尾再刷一次）
-    const syncGhost = () => {
-      const gt = bookDrag.ghost?.querySelector('.book-card-title');
-      if (!gt) return;
-      const self = bookDrag.node.title || bookDrag.node.name;
-      if (bookDrag.mode === 'into' && bookDrag.target) {
-        const parent = bookDrag.target.querySelector('.book-card-title')?.textContent?.trim() || bookDrag.target.dataset.name || '';
-        gt.innerHTML = `<span class="ghost-parent">${esc(parent)}/</span>${esc(self)}`;
-      } else if (gt.querySelector('.ghost-parent')) {
-        gt.textContent = self;
-      }
-    };
-    if (target && target !== bookDrag.card && !target.classList.contains('archived') && target.dataset.name) {
-      const r = target.getBoundingClientRect();
-      // 第 108 轮：横向三分区（左 1/3=插前 · 中 1/3=**移入目标书** · 右 1/3=插后）——
-      // 中区松手 = 拖动的书变成目标书的条目（fs/move 成对联动；目标为叶子书时 mkdir 自动成配对书）
-      const frac = (e.clientX - r.left) / r.width;
-      target.classList.remove('drop-sibling', 'drop-after', 'drop-into');
-      if (frac < 0.34) {
-        target.classList.add('drop-sibling');
-        showBookDropLine(target, false);
-        bookDrag.mode = 'before';
-      } else if (frac > 0.66) {
-        target.classList.add('drop-after');
-        showBookDropLine(target, true);
-        bookDrag.mode = 'after';
-      } else {
-        target.classList.add('drop-into');
-        hideBookDropLine();
-        bookDrag.mode = 'into';
-      }
-      bookDrag.target = target;
-      syncGhost();   // 第 109 轮：判定完成 → 幽灵卡刷新「目标/原名」前缀
-    } else {
-      bookDrag.target = null;
-      bookDrag.mode = null;
-      syncGhost();   // 无落点 → 还原原名
-    }
-  });
-  document.addEventListener('pointerup', async () => {
-    if (!bookDrag) return;
-    const d = bookDrag;
-    bookDrag = null;
-    d.card?.classList.remove('dragging-src');
-    if (!d.active) return;
-    d.ghost?.remove();
-    document.body.classList.remove('toc-dragging');
-    clearMarks();
-    hideBookDropLine();
-    // 第 103 轮：抑制从**松手**起算 400ms——click 在 up 后同帧派发必拦；拖多久都不影响
-    armClickGuard();   // 松手起算 400ms（第 105 轮：core 模块级守卫）
-    if (!d.target || !d.mode) return;
-    const targetName = d.target.dataset.name;
-    const targetNode = topBookNodes(d.ctx).find((b) => b.name === targetName);
-    if (!targetNode || targetNode === d.node) return;
-    if (d.mode === 'into') {
-      // 第 108 轮：移入目标书 = 成为其条目（配对书走目录+md 成对移动；叶子书 mkdir 自动配对）
-      const fromPath = d.node.children.length ? d.node.dir : (d.node.md || d.node.dir);
-      await doMoveTo(d.ctx, fromPath, targetNode.dir);
+// ============ 书卡拖拽（第 117 轮：统一到 card-drag 原语——三分区 · 名字幽灵 · 间隙线 · 松手守卫） ============
+const bookDragger = createCardDragger({
+  cardSel: '.book-card',
+  zones: ['before', 'into', 'after'],
+  gapLineParent: () => document.getElementById('books-grid'),
+  validTarget: (src, t) => !!t.dataset.name && !t.classList.contains('archived'),
+  onDrop: async ({ mode, meta, target }) => {
+    const { ctx, node } = meta;
+    const targetNode = topBookNodes(ctx).find((b) => b.name === target.dataset.name);
+    if (!targetNode || targetNode === node) return;
+    if (mode === 'into') {
+      // 移入目标书 = 成为其条目（配对书走目录+md 成对移动；叶子书 mkdir 自动配对）
+      const fromPath = node.children.length ? node.dir : (node.md || node.dir);
+      await doMoveTo(ctx, fromPath, targetNode.dir);
       return;
     }
-    await reorderNode(d.ctx, d.node, targetNode, d.mode);   // 同父校验 + 整层 &r 重排 + 重绘（world-tree 导出）
-  });
-}
+    await reorderNode(ctx, node, targetNode, mode);   // 同父校验 + 整层 &r 重排 + 重绘（world-tree 导出）
+  },
+});
+const bindBookDrag = (card, ctx, node) => bookDragger.bind(card, { ctx, node });
 
 // ============ 全部书籍面板（左 push：竖排网格滚动 · 双列起 · hover 倾斜 · 宽可变列数） ============
 function renderBooksPanel(ctx) {
@@ -1027,18 +916,18 @@ function renderBooksPanel(ctx) {
       grid.innerHTML = [
         ...arch.books.map((a) => `
         <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="book">
-          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span>
-            <div class="book-card-overlay">
-              <div class="book-card-title">${esc(a.title)}</div>
-              <div class="book-card-tags eyebrow">${t('arc.book')}</div>
+          <div class="card-cover"><span class="card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span>
+            <div class="card-overlay">
+              <div class="card-title">${esc(a.title)}</div>
+              <div class="card-tag eyebrow">${t('arc.book')}</div>
             </div></div>
         </button>`),
         ...arch.entries.map((a) => `
         <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="entry">
-          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span>
-            <div class="book-card-overlay">
-              <div class="book-card-title">${esc(a.title)}</div>
-              <div class="book-card-tags eyebrow" title="${esc(a.orig)}">${t('arc.entry')}</div>
+          <div class="card-cover"><span class="card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span>
+            <div class="card-overlay">
+              <div class="card-title">${esc(a.title)}</div>
+              <div class="card-tag eyebrow" title="${esc(a.orig)}">${t('arc.entry')}</div>
             </div></div>
         </button>`),
       ].join('') || `<div class="empty-state">${t('arc.none')}</div>`;
@@ -1059,15 +948,15 @@ function renderBooksPanel(ctx) {
     if (count) count.textContent = ctx.booksCat === '全部'
       ? `${books.length} ${lt('shelfBooks')}`
       : `${shown.length} / ${books.length} ${lt('shelfBooks')}`;
-    // 第 116 轮：信息层（标题+标签行）移入 9:16 封面内部（有封面白字+渐变 / 无封面墨字）
+    // 第 117 轮：与世界卡同构——card-cover(9:16) > card-overlay(标题 + 标签)，信息全在封面内
     grid.innerHTML = shown.map((b) => `
       <button class="book-card" data-name="${esc(b.name)}">
-        <div class="book-card-cover${b.cover ? ' has-cover' : ''}">${b.cover
-          ? `<img src="/w/${enc(ctx.worldId)}/${enc(b.cover)}" alt="" data-glyph="${esc((b.title || b.name).slice(0, 1))}" data-glyph-class="book-card-glyph">`
-          : `<span class="book-card-glyph">${esc((b.title || b.name).slice(0, 1))}</span>`}
-          <div class="book-card-overlay">
-            <div class="book-card-title">${esc(b.title || b.name)}</div>
-            ${(b.tags || []).length || !b.md ? `<div class="book-card-tags eyebrow"${b.md ? '' : ` title="${t('book.noPairTip')}"`}>${b.md
+        <div class="card-cover${b.cover ? ' has-cover' : ''}">${b.cover
+          ? `<img src="/w/${enc(ctx.worldId)}/${enc(b.cover)}" alt="" data-glyph="${esc((b.title || b.name).slice(0, 1))}" data-glyph-class="card-glyph">`
+          : `<span class="card-glyph">${esc((b.title || b.name).slice(0, 1))}</span>`}
+          <div class="card-overlay">
+            <div class="card-title">${esc(b.title || b.name)}</div>
+            ${(b.tags || []).length || !b.md ? `<div class="card-tag eyebrow"${b.md ? '' : ` title="${t('book.noPairTip')}"`}>${b.md
               ? esc((b.tags || []).slice(0, 2).join(' · '))
               : t('arc.noEntry')}</div>` : ''}
           </div>
@@ -1107,7 +996,6 @@ function renderBooksPanel(ctx) {
       });
     });
     bindCoverFallbacks(grid);
-    ensureBookDragGlobal();
   }
   if (filter) {
     const zh2 = state.lang === 'zh-CN';

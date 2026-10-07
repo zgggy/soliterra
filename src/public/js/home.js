@@ -3,10 +3,41 @@
 
 import { api, t, state, bindCoverFallbacks, abbrevPath, copyText } from './app.js';
 import { esc as escapeHtml, showToast, askText } from './ui.js';
-import { hooks } from './world-core.js';
+import { hooks, clickGuardActive } from './world-core.js';
+import { createCardDragger } from './card-drag.js';
 
 // 平台元信息（世界库根 + 家目录）：卡片「位置」行与新建向导目标预览共用（renderHome 时拉取）
 let homeMeta = { worldsDir: '', home: '' };
+
+// 首页世界卡拖动（第 117 轮：与书卡共用 card-drag 原语——二分区换位 + 幽灵名字 + 间隙线 + 松手守卫）
+let homeWorlds = [];
+let worldDragger = null;
+function getWorldDragger() {
+  if (worldDragger) return worldDragger;
+  worldDragger = createCardDragger({
+    cardSel: '.world-card',
+    zones: ['before', 'after'],   // 世界没有「移入」语义 → 左右两半 = 插前 / 插后
+    gapLineParent: () => document.getElementById('world-row'),
+    validTarget: (src, t) => !t.classList.contains('world-card-new'),
+    onDrop: async ({ mode, src, target }) => {
+      const ids = homeWorlds.map((w) => w.id);
+      const from = src.dataset.id, to = target.dataset.id;
+      const i = ids.indexOf(from);
+      const j = ids.indexOf(to);
+      if (i < 0 || j < 0 || i === j) return;
+      ids.splice(i, 1);
+      ids.splice(mode === 'before' ? ids.indexOf(to) : ids.indexOf(to) + 1, 0, from);
+      await api('/api/worlds/order', { method: 'POST', body: { order: ids } });   // 落盘 worldsDir/.order.json
+      // 本地顺序同步 + DOM 就地换位（不整页重绘，保住行滚动与倾斜绑定）
+      const wi = homeWorlds.findIndex((w) => w.id === from);
+      const [w] = homeWorlds.splice(wi, 1);
+      const wj = homeWorlds.findIndex((x) => x.id === to);
+      homeWorlds.splice(mode === 'before' ? wj : wj + 1, 0, w);
+      src.parentElement.insertBefore(src, mode === 'before' ? target : target.nextSibling);
+    },
+  });
+  return worldDragger;
+}
 
 export async function renderHome(root) {
   root.innerHTML = `
@@ -32,6 +63,7 @@ export async function renderHome(root) {
   try { worlds = await api('/api/worlds'); } catch (e) { console.error(e); }
   try { homeMeta = await api('/api/meta'); } catch { /* 老服务无此端点：位置显示降级隐藏 */ }
 
+  homeWorlds = worlds;   // 拖动换位时同步此数组（服务端 .order.json 为准）
   if (worlds.length === 0) {
     row.innerHTML = `<div class="empty-state">${t('home.empty')}</div>`;
   }
@@ -40,24 +72,27 @@ export async function renderHome(root) {
     const card = document.createElement('a');
     card.className = 'world-card';
     card.href = `#/w/${encodeURIComponent(w.id)}`;
-    const dirFull = w.dir || '';
-    const dirShow = dirFull ? abbrevPath(dirFull, homeMeta.home) + '/' : '';
-    // 第 116 轮：信息层移入 9:16 封面内部（body=absolute overlay，有封面白字+渐变 / 无封面墨字）
+    // 第 117 轮：与书卡同构——card-cover(9:16) > card-overlay(标题 + 两行简介)；
+    // 路径/统计行移出卡面（详情面板与悬停信息仍在）。原生链接拖拽禁用，pointer 拖动才可控。
+    card.draggable = false;
+    card.dataset.id = w.id;
     card.innerHTML = `
-      <div class="world-card-cover${w.cover ? ' has-cover' : ''}">${w.cover
-        ? `<img src="/w/${encodeURIComponent(w.id)}/${encodeURIComponent(w.cover)}" alt="" data-glyph="${escapeHtml(w.name.slice(0, 1))}" data-glyph-class="world-card-glyph">`
-        : `<span class="world-card-glyph">${escapeHtml(w.name.slice(0, 1))}</span>`}
-        <div class="world-card-body">
-        <h3 class="world-card-title">${escapeHtml(w.name)}</h3>
-        <p class="world-card-sub">${escapeHtml(w.subtitle || '')}</p>
-        ${dirShow ? `<div class="world-card-path" title="${escapeHtml(dirFull)}">${escapeHtml(dirShow)}</div>` : ''}
-        <div class="world-card-meta">${w.stats.entries} ${t('world.entries')} · ${w.stats.events} ${t('world.events')}</div>
+      <div class="card-cover${w.cover ? ' has-cover' : ''}">${w.cover
+        ? `<img src="/w/${encodeURIComponent(w.id)}/${encodeURIComponent(w.cover)}" alt="" data-glyph="${escapeHtml(w.name.slice(0, 1))}" data-glyph-class="card-glyph">`
+        : `<span class="card-glyph">${escapeHtml(w.name.slice(0, 1))}</span>`}
+        <div class="card-overlay">
+          <h3 class="card-title">${escapeHtml(w.name)}</h3>
+          ${w.subtitle ? `<p class="card-tag two-line">${escapeHtml(w.subtitle)}</p>` : ''}
         </div>
       </div>
       <button class="world-card-menu" title="${t('home.worldActions')}">⋯</button>`;
     row.appendChild(card);
     attachTilt(card);
     bindCoverFallbacks(card);
+    getWorldDragger().bind(card, { id: w.id });   // 拖动换位（第 117 轮）
+    card.addEventListener('click', (e) => {   // 拖完的同帧 click 不进世界
+      if (clickGuardActive()) { e.preventDefault(); e.stopPropagation(); }
+    });
     card.querySelector('.world-card-menu')?.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -130,6 +165,7 @@ export async function renderHome(root) {
 // 卡片 hover 倾斜（hover-tilt 原语：perspective 1200 / ±6deg / 200ms）
 export function attachTilt(card) {
   card.addEventListener('mousemove', (e) => {
+    if (document.body.classList.contains('toc-dragging')) return;   // 拖动中冻结倾斜
     const r = card.getBoundingClientRect();
     const dx = (e.clientX - r.left) / r.width - 0.5;
     const dy = (e.clientY - r.top) / r.height - 0.5;
