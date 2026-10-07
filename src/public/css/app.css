@@ -50,6 +50,7 @@
   --accent: #e8e8e8; --on-accent: #141414;
   --accent-hover: #c9c9c9;   /* 暗色模式下略深一档 */
   --link: #6aabff;
+  --err: #e0716b; --warn: #d9b45a; --ok: #74c49a;   /* 第 121 轮：暗底提亮——lint/徽章语义色可读 */
   --shadow-1: 0 18px 36px rgba(0, 0, 0, .2);
   --shadow-15: 0 4px 12px rgba(0, 0, 0, .3), 0 24px 48px rgba(0, 0, 0, .3);
   --shadow-2: 0 22px 60px rgba(0, 0, 0, .4);

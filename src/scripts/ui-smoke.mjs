@@ -382,6 +382,42 @@ test('书卡拖动：幽灵带书名 + 中区前缀 + 三分区换位（第 117 
   assert.deepEqual(names.slice(0, 2), ['书B', '书A'], `书A 插到书B 后（实际 ${names}）`);
 });
 
+test('暗色主题平台化：首页循环切换 → 刷新保持 → 世界内一致（第 121 轮）', async () => {
+  await page.goto(`${base}/#/`);
+  await page.waitForSelector('.world-card:not(.world-card-new)', { timeout: 8000 });
+  // 循环最多 3 次必然经过 dark（light→dark→auto→light）
+  for (let i = 0; i < 3; i++) {
+    const th = await page.evaluate(() => localStorage.getItem('soliterra.theme'));
+    if (th === 'dark') break;
+    await page.click('#theme-switch');
+    await sleep(120);
+  }
+  const on = await page.evaluate(() => ({
+    theme: localStorage.getItem('soliterra.theme'),
+    cls: document.body.classList.contains('dark-mode'),
+    bg: getComputedStyle(document.body).backgroundColor,
+  }));
+  assert.equal(on.theme, 'dark', '平台档存 dark');
+  assert.ok(on.cls, 'body.dark-mode 挂上');
+  assert.equal(on.bg, 'rgb(20, 20, 20)', `暗色底生效（实际 ${on.bg}）`);
+  // 刷新 → 启动即应用（首页保持暗色）
+  await page.reload();
+  await page.waitForSelector('.world-card:not(.world-card-new)', { timeout: 8000 });
+  const afterReload = await page.evaluate(() => document.body.classList.contains('dark-mode'));
+  assert.ok(afterReload, '刷新后首页仍暗色');
+  // 进世界 → 一致（主题不再按世界分裂）
+  await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+  await page.waitForSelector('.books-head', { timeout: 8000 });
+  const inWorld = await page.evaluate(() => ({
+    cls: document.body.classList.contains('dark-mode'),
+    editorVar: getComputedStyle(document.body).getPropertyValue('--surface').trim(),
+  }));
+  assert.ok(inWorld.cls, '世界内仍暗色');
+  assert.equal(inWorld.editorVar, '#1a1a1a', 'token 覆写到位（编辑器/阅读同源）');
+  // 复位 light（不依赖环境）
+  await page.evaluate(() => { localStorage.setItem('soliterra.theme', 'light'); document.body.classList.remove('dark-mode'); });
+});
+
 // ---------- 第 121 轮移动端走查：≤720 全屏浮层 / fab 可达 / 无横向溢出 / 弹窗贴边 ----------
 test('移动端 375×667：面板全屏浮层 + fab 可点关面板 + 各态无横向溢出', async () => {
   await page.setViewportSize({ width: 375, height: 667 });

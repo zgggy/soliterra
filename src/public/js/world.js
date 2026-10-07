@@ -3,7 +3,7 @@
 //   元数据抽屉 → world-meta.js · 稍后阅读 → world-readlater.js · 共享原语 → ui.js · 缓存与树辅助 → world-core.js。
 // 本文件保留：renderWorld 装配 / 面板原语 / 世界与书籍面板 / 设置 / 导出 / git 历史纸面 / ⌘K / 编辑器 / 阅读。
 
-import { api, t, state, navigate, bindCoverFallbacks, abbrevPath, applyGlobalFont, currentFont } from './app.js';
+import { api, t, state, navigate, bindCoverFallbacks, abbrevPath, applyGlobalFont, currentFont, applyGlobalTheme, currentTheme } from './app.js';
 import { showLinkCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporter.js';
@@ -503,12 +503,9 @@ function applySettings(ctx) {
   const s = ctx.settings || {};
   const view = document.querySelector('.world-view');
   if (!view) return;
-  // 主题：light / dark / auto
-  if (s.theme === 'dark' || (s.theme === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) {
-    document.body.classList.add('dark-mode');
-  } else {
-    document.body.classList.remove('dark-mode');
-  }
+  // 主题（第 121 轮平台化）：三态移交 app.js applyGlobalTheme（localStorage，首页/世界一致）；
+  // 世界 settings.json 的旧 theme 只做一次性迁移——平台档从未设过时才采纳
+  if (s.theme && !localStorage.getItem('soliterra.theme')) applyGlobalTheme(s.theme);
   // 字体档（第 100 轮）：平台级 localStorage + 根级 token 覆写——由 app.js applyGlobalFont 统一应用，此处不再设。
   view.style.setProperty('--reading-size', (s.size || 18) / 16 + 'rem');
   view.style.setProperty('--reading-leading', s.leading || (state.lang === 'en' ? '1.65' : '1.8'));
@@ -547,7 +544,9 @@ function bindSettings(ctx, scope) {
   scope.querySelectorAll('.seg[data-set]').forEach((seg) => {
     const key = seg.dataset.set;
     // 第 100 轮：字体 = 平台级（localStorage + 根级 token，首页/世界/中英文一致）；其余仍存每世界 settings.json
-    const cur = key === 'font' ? currentFont() : (ctx.settings[key] ?? seg.querySelector('button')?.dataset.val);
+    const cur = key === 'font' ? currentFont()
+      : key === 'theme' ? currentTheme()
+      : (ctx.settings[key] ?? seg.querySelector('button')?.dataset.val);
     seg.querySelectorAll('button').forEach((b) => {
       b.classList.toggle('on', b.dataset.val === String(cur));
       b.addEventListener('click', async () => {
@@ -558,6 +557,7 @@ function bindSettings(ctx, scope) {
           applyGlobalFont(b.dataset.val);   // 立即全站生效（中英文一起切）
           return;
         }
+        if (key === 'theme') { applyGlobalTheme(b.dataset.val); return; }   // 第 121 轮：平台档
         ctx.settings[key] = b.dataset.val;
         applySettings(ctx);
         await api(`/api/w/${enc(ctx.worldId)}/settings`, { method: 'POST', body: { [key]: b.dataset.val } }).catch(() => {});

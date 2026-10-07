@@ -1,7 +1,7 @@
 // 首页 · 世界列表（功能设计 §1）
 // 横排竖卡 + hover 倾斜 + 滚轮左右滚动 + 「+」新建卡 + 新建向导。
 
-import { api, t, state, bindCoverFallbacks, abbrevPath, copyText } from './app.js';
+import { api, t, state, bindCoverFallbacks, abbrevPath, copyText, applyGlobalTheme, currentTheme } from './app.js';
 import { esc as escapeHtml, showToast, askText } from './ui.js';
 import { hooks, clickGuardActive } from './world-core.js';
 import { createCardDragger } from './card-drag.js';
@@ -49,6 +49,7 @@ export async function renderHome(root) {
         </span>
         <span class="masthead-actions">
           <button class="icon-button" id="import-obsidian" title="${t('imp.title')}">${t('imp.short')}</button>
+          <button class="icon-button" id="theme-switch" title="${t('theme')}">${{ light: '☀', dark: '☾', auto: '◐' }[currentTheme()]}</button>
           <button class="icon-button" data-lang-switch title="Language">${t('lang.switch')}</button>
         </span>
       </div>
@@ -57,6 +58,13 @@ export async function renderHome(root) {
       <div class="world-row" id="world-row"></div>
       <p class="home-tagline">${t('app.tagline')}</p>
     </main>`;
+
+  // 平台主题循环（第 121 轮）：☀ light → ☾ dark → ◐ auto → ☀；图标即当前态
+  root.querySelector('#theme-switch')?.addEventListener('click', (e) => {
+    const next = { light: 'dark', dark: 'auto', auto: 'light' }[currentTheme()];
+    applyGlobalTheme(next);
+    e.currentTarget.textContent = { light: '☀', dark: '☾', auto: '◐' }[next];
+  });
 
   const row = root.querySelector('#world-row');
   let worlds = [];

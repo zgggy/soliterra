@@ -77,6 +77,26 @@ export function applyGlobalFont(font) {
 }
 export function currentFont() { return localStorage.getItem('soliterra.font') === 'sans' ? 'sans' : 'serif'; }
 
+/** 平台主题三态（第 121 轮平台化，与字体档同模式）：light / dark / auto。
+ *  localStorage 级（首页/世界一致）；auto 跟随系统并实时响应偏好变化；
+ *  body.dark-mode 类驱动全站 token 覆写（含编辑器——CM 主题全走 CSS 变量）。 */
+export function applyGlobalTheme(theme) {
+  localStorage.setItem('soliterra.theme', theme === 'light' || theme === 'dark' ? theme : 'auto');
+  syncGlobalTheme();
+}
+export function currentTheme() {
+  const v = localStorage.getItem('soliterra.theme');
+  return v === 'light' || v === 'dark' ? v : 'auto';
+}
+function syncGlobalTheme() {
+  const dark = currentTheme() === 'dark'
+    || (currentTheme() === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.body.classList.toggle('dark-mode', dark);
+}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (currentTheme() === 'auto') syncGlobalTheme();
+});
+
 /** 封面图加载失败 → 替换为大大的首字母（不留破图占位符）。 */
 export function bindCoverFallbacks(scope) {
   (scope || document).querySelectorAll('img[data-glyph]').forEach((img) => {
@@ -116,6 +136,7 @@ window.addEventListener('hashchange', route);
 
 (async () => {
   applyGlobalFont(currentFont());   // 第 100 轮：启动即应用平台字体档（首页也生效）
+  applyGlobalTheme(currentTheme()); // 第 121 轮：启动即应用平台主题（首页也生效）
   await setLang(state.lang);
   if (!location.hash) location.hash = '#/';
   await route();
