@@ -253,14 +253,14 @@
   "arc.entry": "条目已归档 · 点击还原",
   "arc.none": "暂无归档",
   "arc.restored": "已还原：{n}",
-  "arc.noEntry": "未成书 · 右键补建",
+  "arc.noEntry": "未成书 · 点击创建",
   "edit.autosave": "自动保存 · {n}s",
   "edit.autosaveOff": "自动保存已关 · 退出时保存",
   "edit.minNote": "极简编辑器 · 纯文本（无装饰层）",
   "edit.preview": "实时预览分屏（§B.3）",
   "ex.hidden": "隐藏",
   "ex.assetsN": "图片",
-  "book.noPairTip": "此节点还没有同名条目——右键「补建同名条目」即成为正式书籍（可设标签/封面）",
+  "book.noPairTip": "此节点还没有同名条目——点击即补建并进入（也可右键用菜单）",
   "shelf.all": "全部",
   "edit.editing": "编辑中",
   "edit.saveFailed": "保存失败",
@@ -286,5 +286,6 @@
   "set.autosaveOff": "关闭",
   "ex.groupDoc": "当前条目",
   "ex.groupBook": "当前书",
-  "ex.groupSite": "只读站点"
+  "ex.groupSite": "只读站点",
+  "tree.pairedAuto": "已补建同名条目：{n}"
 }

@@ -5,7 +5,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -44,6 +44,10 @@ before(async () => {
   writeFileSync(join(worldsDir, W, 'cv.png'), Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'));
   await api(`/api/w/${wid}/save`, { method: 'POST', body: { path: 'books/书B/稿.md', text: '&n 稿 &m cv.png\n\n# 稿\n\n洛桑学派北伐正文。\n', force: true } });
+  // 纯目录节点（第 80 轮场景）：有子 md、无配对 md——点它应自动补建（第 111 轮）
+  mkdirSync(join(worldsDir, W, 'books', '书A', '外来'), { recursive: true });
+  writeFileSync(join(worldsDir, W, 'books', '书A', '外来', '子.md'), '# 子\n');
+  await sleep(700);   // watcher 索引（awaitWriteFinish 300ms 余量）
   browser = await chromium.launch();
   page = await browser.newPage();
 });
@@ -54,8 +58,9 @@ after(async () => {
   rmSync(worldsDir, { recursive: true, force: true });
 });
 
-// depth 用 padding-left（行是块级、rect.left 全相同；缩进在行内 padding）
-const tocRows = () => page.$$eval('#toc-body .toc-row', (rows) => rows.map((r) => ({
+// depth 用 padding-left（行是块级、rect.left 全相同；缩进在行内 padding）；
+// **只取可见行**（hidden 子树内的行 offsetParent=null——否则收起状态也被统计）
+const tocRows = () => page.$$eval('#toc-body .toc-row', (rows) => rows.filter((r) => r.offsetParent !== null).map((r) => ({
   label: r.querySelector('.toc-label')?.textContent?.trim() || '',
   top: Math.round(r.getBoundingClientRect().top + r.getBoundingClientRect().height / 2),
   left: Math.round(r.getBoundingClientRect().left + r.getBoundingClientRect().width / 2),
@@ -72,7 +77,8 @@ test('进入流：默认书籍面板 → 点书 → 目录树填充', async () =
   await page.waitForFunction(() => location.hash.includes('books%2F%E4%B9%A6A.md') || location.hash.includes('books/书A.md'), { timeout: 6000 });
   await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('甲')), { timeout: 6000 });
   const rows = await tocRows();
-  assert.deepEqual(rows.map((r) => r.label), ['书A', '甲', '乙']);
+  const labels = rows.map((r) => r.label);
+  assert.ok(labels.includes('书A') && labels.includes('甲') && labels.includes('乙'), `树含书A/甲/乙（实际 ${labels}）`);
   const panel2 = await page.$eval('#shell', (el) => el.className);
   assert.ok(panel2.includes('p-toc'), '点书切入目录面板');
 });
@@ -88,13 +94,45 @@ test('树拖拽中区移入：甲 → 乙（乙变配对父，甲入其下）', 
   await page.mouse.move(dst.left, (dst.top + dst.top) / 2, { steps: 4 });   // 目标中区
   await page.mouse.up();
   await page.waitForTimeout(1800);   // fs/move + 树重建
+  // 展开乙（点行 = 打开+展开，第 111 轮语义）→ 甲应作为其子出现且缩进更深
+  await page.click('#toc-body .toc-row:has(.toc-label:text-is("乙"))');
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('甲') && e.offsetParent !== null), { timeout: 4000 });
   const rows2 = await tocRows();
-  assert.deepEqual(rows2.map((r) => r.label), ['书A', '乙', '甲'], '甲移入乙（先序 = 乙后接其子甲）');
-  assert.ok(rows2[2].depth > rows2[1].depth, '甲缩进为乙的子节点');
+  const yiRow = rows2.find((r) => r.label === '乙'), jiaRow = rows2.find((r) => r.label === '甲');
+  assert.ok(yiRow && jiaRow, '乙与其子甲均可见');
+  assert.ok(jiaRow.depth > yiRow.depth, '甲缩进为乙的子节点');
   const t = await api(`/api/w/${encodeURIComponent(W)}/tree`);
   const bookA = t.body.children.find((c) => c.name === 'books').children.find((c) => c.name === '书A');
   const yi = bookA.children.find((c) => c.name === '乙');
   assert.ok(yi.children?.some((c) => c.name === '甲'), '服务端：甲在乙子树（乙成配对书）');
+});
+
+test('行点击合并：点有子行 = 打开文档 + 同时收起；再点 = 展开（第 111 轮）', async () => {
+  const before = await tocRows();
+  const bl = before.map((r) => r.label);
+  assert.ok(bl.includes('书A') && bl.includes('乙'), `前置树（实际 ${bl}）`);
+  await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
+  // 竞态序：hash → 文档真渲染（title=书A，此前打开的是乙）→ 收起生效
+  await page.waitForFunction(() => decodeURIComponent(location.hash).includes('books/书A.md'), { timeout: 6000 });
+  await page.waitForFunction(() => (document.querySelector('.entry-title')?.textContent || '').trim() === '书A', { timeout: 6000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length === 1, { timeout: 4000 });
+  await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length > 1, { timeout: 4000 });
+});
+
+test('纯目录节点点击：自动补建配对 md 并打开（层级必须 md+文件夹，第 111 轮）', async () => {
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('外来') && e.offsetParent !== null), { timeout: 8000 });
+  const rows = await tocRows();
+  assert.ok(rows.some((r) => r.label === '外来'), '纯目录行（有子 md 无配对 md）在树中');
+  await page.click('#toc-body .toc-row:has(.toc-label:text-is("外来"))');
+  await page.waitForFunction(() => decodeURIComponent(location.hash).includes('books/书A/外来.md'), { timeout: 8000 });
+  await page.waitForSelector('.entry-title', { timeout: 6000 });
+  assert.equal((await page.$eval('.entry-title', (e) => e.textContent)).trim(), '外来', '打开补建出的文档');
+  const t = await api(`/api/w/${encodeURIComponent(W)}/tree`);
+  const bookA = t.body.children.find((c) => c.name === 'books').children.find((c) => c.name === '书A');
+  const wl = bookA.children.find((c) => c.name === '外来');
+  assert.equal(wl?.md, 'books/书A/外来.md', '服务端：外来已成对（md + 文件夹）');
+  assert.ok(wl?.children?.some((c) => c.name === '子'), '原子目录内容保留');
 });
 
 test('编辑自动保存：打字 → 状态条 Saved → 磁盘落盘', async () => {

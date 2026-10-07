@@ -5,6 +5,14 @@ import { worldDataCache, tocOpenDirs, hooks, refreshGitStatus, currentBookOf, ro
 import { emphasize } from './world-timeline.js';
 
 // ============ 结构操作（§5.4 ②③④ + 重命名/删除）：右键菜单 ============
+/** 第 111 轮：纯目录节点补建配对 md（层级必须 md+文件夹）——树行与书籍面板卡共用。 */
+export async function pairDirNode(ctx, dirPath, name) {
+  const r = await api(`/api/w/${enc(ctx.worldId)}/fs/create`, { method: 'POST', body: { dir: parentDirOf(dirPath), name, pair: false } });
+  await refreshTree(ctx);
+  refreshGitStatus(ctx);
+  return r;
+}
+
 export async function refreshTree(ctx) {
   worldDataCache.delete(ctx.worldId);
   ctx.tree = await api(`/api/w/${enc(ctx.worldId)}/tree`);
@@ -210,14 +218,27 @@ export function renderToc(ctx) {
         arrow.textContent = sub.hidden ? '▸' : '▾';
         if (sub.hidden) tocOpenDirs.delete(node.dir); else if (node.dir) tocOpenDirs.add(node.dir);
       });
-      // 第 94 轮：**点击有子条目的行 = 切换展开/收起**（无论有无配对 md——打开走其子条目或书籍面板）
-      row.addEventListener('click', () => { if (!clickGuardActive()) arrow.click(); });
     } else {
       arrow.textContent = '·';
       arrow.classList.add('leaf');
-      // 叶子条目：点击 = 打开
-      if (isOpenable) row.addEventListener('click', () => { if (!clickGuardActive()) navigate(`#/w/${enc(ctx.worldId)}/${enc(node.md)}`); });
     }
+    // 第 111 轮：**点击行为合并**（用户：跳转与展开/收起不隔离）——
+    // ① 有 md 的条目（不论有无子条目）：打开其文档 + 同时切换子树展开/收起；
+    // ② 纯目录节点（层级无配对 md）：**自动补建配对 md**（所有层级必须 md+文件夹）→ 打开 + 切换。
+    // 只想收起不跳转 → 点箭头（arrow handler stopPropagation，与行行为互不影响）。
+    row.addEventListener('click', async () => {
+      if (clickGuardActive()) return;
+      if (isOpenable) {
+        navigate(`#/w/${enc(ctx.worldId)}/${enc(node.md)}`);
+        if (sub) arrow.click();   // 程序化 click 在 arrow 内 stopPropagation，不会二次触发本 handler
+      } else if (node.dir) {
+        try {
+          const r = await pairDirNode(ctx, node.dir, node.name);
+          showToast(t('tree.pairedAuto').replace('{n}', r.path), 'success');
+          if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
+        } catch (e) { showToast(String(e.message), 'error'); }
+      }
+    });
     const wrapEl = document.createElement('div');
     wrapEl.className = 'toc-node';
     wrapEl.appendChild(row);

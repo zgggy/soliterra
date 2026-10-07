@@ -253,14 +253,14 @@
   "arc.entry": "Archived entry · click to restore",
   "arc.none": "No archives",
   "arc.restored": "Restored: {n}",
-  "arc.noEntry": "No entry · right-click",
+  "arc.noEntry": "No entry · click to create",
   "edit.autosave": "Autosave · {n}s",
   "edit.autosaveOff": "Autosave off · saved on exit",
   "edit.minNote": "Minimal editor · plain markdown",
   "edit.preview": "Split preview",
   "ex.hidden": "hidden",
   "ex.assetsN": "assets",
-  "book.noPairTip": "No paired entry yet",
+  "book.noPairTip": "No paired entry yet — click to create and open (or right-click for menu)",
   "shelf.all": "All",
   "edit.editing": "Editing",
   "edit.saveFailed": "Save failed",
@@ -286,5 +286,6 @@
   "set.autosaveOff": "Off",
   "ex.groupDoc": "Current entry",
   "ex.groupBook": "Current book",
-  "ex.groupSite": "Read-only site"
+  "ex.groupSite": "Read-only site",
+  "tree.pairedAuto": "Paired entry created: {n}"
 }

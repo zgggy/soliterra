@@ -10,7 +10,7 @@ import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporte
 import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators } from './ui.js';
 import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, armClickGuard, clickGuardActive } from './world-core.js';
 import { initTimeline } from './world-timeline.js';
-import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode, doMoveTo } from './world-tree.js';
+import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode, doMoveTo, pairDirNode } from './world-tree.js';
 import { renderRel } from './world-rel.js';
 import { renderReadlater, addReadlater } from './world-readlater.js';
 import { renderMetaDrawer, openMetaEditor, editMetaValue, insertMetaIntoText } from './world-meta.js';
@@ -1069,12 +1069,21 @@ function renderBooksPanel(ctx) {
       attachTilt(card);
       const b = books.find((x) => x.name === card.dataset.name);
       if (b) bindBookDrag(card, ctx, b);   // 第 101 轮：卡片可拖动调序
-      card.addEventListener('click', () => {
+      card.addEventListener('click', async () => {
         if (clickGuardActive()) return;   // 拖拽后的这次 click 不打开书
+        // 第 111 轮：纯目录卡（有子无配对 md）→ 点击即补建其 md 并进入「它的」文档（不再绕进子条目）
+        if (b && !b.md && b.dir) {
+          try {
+            const r = await pairDirNode(ctx, b.dir, b.name);
+            showToast(t('tree.pairedAuto').replace('{n}', r.path), 'success');
+            setPanel(ctx, 'toc');
+            if (r.path) navigate(`#/w/${enc(ctx.worldId)}/${enc(r.path)}`);
+          } catch (e) { showToast(String(e.message), 'error'); }
+          return;
+        }
         const first = b ? firstEntryOf(b) : null;
         if (!first) return;
-        // 点书 = 进入该书：切到目录界面（用户要求：书籍 → 目录 的进入流）+ 导航到首个条目。
-        // 先切面板再导航：目录体已建好，openEntry 的 renderToc 直接填充；同条目时仅切面板。
+        // 点书 = 进入该书：切到目录界面（第 93 轮进入流）+ 导航到首个条目；同条目时仅切面板。
         setPanel(ctx, 'toc');
         if (first !== ctx.currentPath) navigate(`#/w/${enc(ctx.worldId)}/${enc(first)}`);
       });
