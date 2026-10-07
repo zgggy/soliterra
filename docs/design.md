@@ -151,7 +151,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 | Wide | ≥ 1320px | 世界列表全卡展示；五 push 面板全尺寸（目录/书籍默认 1/3 屏、关系 1/2 屏、世界 `min(420px,40vw)`）。 |
 | Laptop | 1181–1319px | 同上，页边保持 24px。 |
 | Tablet | ≤ 1180px | push 面板默认宽度按屏宽比例收缩；目录区塌单栏；时间轴刻度降密。 |
-| Mobile | ≤ 720px | 页边 24→16px；卡内边距 22→18px；push 面板改**全屏浮层**（0 圆角 + hairline 顶边）；模态贴边 `calc(100vw - 24px)`。 |
+| Mobile | ≤ 720px | 页边 24→16px；卡内边距 22→18px；push 面板改**全屏浮层**（0 圆角 + hairline 顶边；**仅 .live**——空 aside 不得升层，第 121 轮修隐形整屏拦截）；**fab 簇 z 75**（浮层 70 之上，可关可切）；模态贴边 `calc(100vw - 24px)`。 |
 
 #### Touch Targets
 - 筛选按钮实测 87px 高、模态关闭键 2rem、主题切换 28px 圆钮——全部超过 WCAG 44px 最低线（主题钮依赖 28px 视觉 + 热区扩展）。
@@ -326,7 +326,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 > **世界内没有 header**——顶部只有时间轴（见 Timeline 节），导航职责分散给：时间轴（当前文档旗标 + 起止标记 + 创世排恒显示，打开不缩放）、五 push 面板（目录/世界/书籍/关系/工具）与 fab 簇、底部卡片集、`⌘K`（一切检索与动作）。
 
-**`home-masthead`** — 仅首页的极简顶行（参考站磨砂语言的唯一保留处）。
+**`home-masthead`** — 仅首页的极简顶行（参考站磨砂语言的唯一保留处）。**主题切换（第 121 轮）**：`#theme-switch` ☀/☾/◐ 循环 light→dark→auto（平台档 localStorage，与世界面板设置行同源）；暗色 = `body.dark-mode` 类覆写全站 token（编辑器 CM 同源继承）。
 - `position: sticky; top: 0; z-index: 20`；`background: rgba(255,255,255,.92); backdrop-filter: blur(12px)`；`border-bottom: 1px solid {colors.line}`；暗色 `rgba(20,20,20,.92)`。
 - 内层 flex 两端对齐、`padding: 8px 24px`、`max-width: 1440px`：左 `brandmark`、右 `theme-toggle`。
 
