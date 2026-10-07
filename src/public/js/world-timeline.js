@@ -555,7 +555,7 @@ export function initTimeline(ctx, wrap, canvas, ticks) {
       return;
     }
     if (!inAxis) return;
-    if (k === 'Escape') { wrap.blur(); wrap.classList.remove('chrono-kb'); return; }
+    if (k === 'Escape') { e.preventDefault(); wrap.blur(); wrap.classList.remove('chrono-kb'); return; }   // 第 127 轮：让位给 handleKeys（Esc=面板开关），本键只收轴
     if (k === 'ArrowLeft' || k === 'ArrowRight') {
       e.preventDefault();
       const d = (view.hi - view.lo) * (k === 'ArrowLeft' ? -0.1 : 0.1);

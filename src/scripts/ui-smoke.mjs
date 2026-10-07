@@ -287,6 +287,44 @@ test('快捷键：阅读态回车进编辑 · 编辑态 Esc 保存并退出（�
   assert.ok(true, '真外部修改照常提示');
 });
 
+test('非编辑态三键：Esc 加号面板 · b 书籍面板 · Tab 目录面板 开关切换（第 127 轮）', async () => {
+  await page.goto(`${base}/#/w/${encodeURIComponent(W)}/${encodeURIComponent('books/书B/稿.md')}`);
+  await page.waitForSelector('.entry-title, .cm-content', { timeout: 8000 });
+  if (await page.$('.cm-content')) {
+    await page.click('#fab-edit');
+    await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
+  }
+  await page.waitForSelector('.entry-title', { timeout: 8000 });
+  const shellCls = () => page.$eval('#shell', (e) => e.className);
+  const live = async () => !!(await page.$('.push-panel.live'));
+  // 归位：任意起始状态按 Esc 至多两次必落「关闭」
+  await page.keyboard.press('Escape');
+  await sleep(180);
+  if (await live()) { await page.keyboard.press('Escape'); await sleep(180); }
+  assert.ok(!(await live()), '起始关闭');
+  // Esc = 加号（世界）面板开关
+  await page.keyboard.press('Escape');
+  await sleep(180);
+  assert.ok((await shellCls()).includes('p-world') && (await live()), 'Esc 开加号面板');
+  await page.keyboard.press('Escape');
+  await sleep(180);
+  assert.ok(!(await live()), 'Esc 关加号面板');
+  // b = 书籍面板开关
+  await page.keyboard.press('b');
+  await sleep(180);
+  assert.ok((await shellCls()).includes('p-books') && (await live()), 'b 开书籍面板');
+  await page.keyboard.press('b');
+  await sleep(180);
+  assert.ok(!(await live()), 'b 关书籍面板');
+  // Tab = 目录面板开关（拦截默认焦点移动）
+  await page.keyboard.press('Tab');
+  await sleep(180);
+  assert.ok((await shellCls()).includes('p-toc') && (await live()), 'Tab 开目录面板');
+  await page.keyboard.press('Tab');
+  await sleep(180);
+  assert.ok(!(await live()), 'Tab 关目录面板');
+});
+
 test('导出弹窗：单按钮 → 三分组 → 可关闭', async () => {
   if (await page.$('.cm-content')) {   // 先退出编辑（若在）——第 123 轮：无条件点在阅读态会反向进编辑
     await page.click('#fab-edit');

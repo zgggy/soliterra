@@ -138,7 +138,14 @@ export async function renderWorld(root, worldId, entryPath) {
       }
       return;   // 编辑态不再走下方「关面板」
     }
-    if (e.key === 'Escape') setPanel(ctx, '');
+    // 第 127 轮：非编辑态三键——Esc 切换加号（世界）面板 · b 切换书籍面板 · Tab 切换目录面板。
+    // 打字上下文/对话框/编辑态让位；时间轴已处理的键（defaultPrevented）让位；Tab 拦默认焦点移动。
+    if (!ctx.editing && !e.metaKey && !e.ctrlKey && !e.altKey && !e.defaultPrevented
+      && !e.target?.closest?.('.reader-modal, .cm-editor, input, textarea, select, [contenteditable="true"]')) {
+      if (e.key === 'Escape') { setPanel(ctx, ctx.panel === 'world' ? '' : 'world'); return; }
+      if (e.key.toLowerCase() === 'b') { setPanel(ctx, ctx.panel === 'books' ? '' : 'books'); return; }
+      if (e.key === 'Tab') { e.preventDefault(); setPanel(ctx, ctx.panel === 'toc' ? '' : 'toc'); return; }
+    }
     if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey
       && !ctx.editing && ctx.currentPath
       // 打字上下文与对话框让位（输入框回车提交/CM 回车换行）；其余焦点（含按钮/链接/空白处）一律进编辑
