@@ -7,7 +7,7 @@ import { api, t, state, navigate, bindCoverFallbacks, abbrevPath, applyGlobalFon
 import { showLinkCard, leaveAnchor } from './linkcard.js';
 import { attachTilt } from './home.js';
 import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporter.js';
-import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators, uploadAsset, openAssetPicker } from './ui.js';
+import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, splitEntryNames, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators, uploadAsset, openAssetPicker } from './ui.js';
 import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, clickGuardActive } from './world-core.js';
 import { createCardDragger } from './card-drag.js';
 import { initTimeline } from './world-timeline.js';
@@ -339,8 +339,8 @@ function addBook(ctx) {
 async function addEntry(ctx) {
   const input = await askText(t('tree.nameNewEntry'));
   if (!input || !input.trim()) return;
-  // 第 121 轮：空格分隔 = 一次批量建多个（按输入顺序落层；重名等失败单列汇总）
-  const names = input.trim().split(/\s+/).filter(Boolean);
+  // 第 121 轮批量 · 第 122 轮带空格名：双引号括起的名字整体成一名，裸词按空白分
+  const names = splitEntryNames(input);
   try {
     const book = currentBookOf(ctx);
     const dir = book?.dir || '';

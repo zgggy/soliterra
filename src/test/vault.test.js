@@ -360,3 +360,23 @@ test('setCover：共享封面换图不连带——只改名复制上传图，项
   assert.equal(r2.cover, 'assets/covers/银湾-1.png', '二次换封面 → 序号新名');
   assert.equal(readFileSync(join(w, 'assets', 'covers', '银湾.png'), 'utf8'), 'NEW-IMG', '上一版副本不动');
 }));
+
+test('&n 条目名可含空格：整段读回 + 改名保留同键其余段（第 122 轮）', () => withWorld(async (v, w) => {
+  writeFileSync(join(w, '带 空格.md'), '&n 旧 名 字 &t 设定 历史\n\n# 旧 名 字\n\n正文。\n', 'utf8');
+  const idx = v.index('测试世界');
+  const e = idx.entry('带 空格.md');
+  assert.equal(e.title, '旧 名 字', '空格名整段为标题');
+  assert.deepEqual(e.meta.t, ['设定', '历史'], '&t 仍分词');
+  // 改名（新名也含空格）→ 同行 &t 段保留（原 ^&n\s.*$ 会整行吞掉）
+  v.renameEntry('测试世界', '带 空格.md', '新 名 字');
+  const txt = readFileSync(join(w, '新 名 字.md'), 'utf8');
+  assert.match(txt, /^&n 新 名 字 &t 设定 历史$/m, '同行 &t 保留');
+  assert.match(txt, /^# 新 名 字$/m, 'H1 同步（可含空格）');
+  assert.equal(idx.entry('新 名 字.md').title, '新 名 字', '新名读回');
+  // 名字含 &键 序列 → 写出自动引号，读回无损（第 122 轮）
+  v.renameEntry('测试世界', '新 名 字.md', 'X&t Y');
+  const txt2 = readFileSync(join(w, 'X&t Y.md'), 'utf8');
+  assert.match(txt2, /^&n "X&t Y" &t 设定 历史$/m, '含键序列名自动引号 + 同键保留');
+  assert.equal(idx.entry('X&t Y.md').title, 'X&t Y', '引号名读回无损');
+}));
+

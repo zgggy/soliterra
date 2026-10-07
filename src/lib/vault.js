@@ -12,6 +12,7 @@ const exec = promisify(execFile);
 /** 封面内容指纹（第 119 轮）：同内容才幂等复用——比旧的「同大小 = 同图」可靠。 */
 const hashFile = (p) => { try { return createHash('sha1').update(fs.readFileSync(p)).digest('hex'); } catch { return null; } };   // git 全异步（第 92 轮）：大仓库 commit/log 不再阻塞事件循环与正在打字的自动保存
 import { WorldIndex, collectMarkdown } from './indexer.js';
+import { replaceKeyInText, formatMetaValue, setMetaText } from '../shared/meta.js';
 import { parseEntry } from './parser.js';
 
 export class Vault {
@@ -224,7 +225,7 @@ export class Vault {
     const coverRel = this._bringCoverIn(this.realDir(id), imagePath, entryName);
     if (!writeMeta) return { cover: coverRel };
     if (text === null) text = '';
-    if (/^&m\s+/m.test(text)) text = text.replace(/^(&m\s+)(\S+)(.*)$/m, (m2, p1, p2, p3) => p1 + coverRel + p3);
+    if (/^&m\s+/m.test(text)) { const t2 = replaceKeyInText(text, 'm', coverRel); if (t2 !== null) text = t2; }   // 122 值段改写（路径可含空格）保同键
     else text = `&m ${coverRel}\n${text}`;
     fs.writeFileSync(abs, text, 'utf8');
     this.index(id).indexFile(mdRel);
@@ -310,7 +311,7 @@ export class Vault {
       if (!/^&n\s/m.test(t)) add.push(`&n ${name}`);
       let mReplaced = false;
       if (coverRel) {
-        if (/^&m\s/m.test(t)) { t = t.replace(/^&m\s+\S+/, `&m ${coverRel}`); mReplaced = true; }   // 第 119 轮：原位改值
+        if (/^&m\s/m.test(t)) { const t2 = replaceKeyInText(t, 'm', coverRel); if (t2 !== null) { t = t2; mReplaced = true; } }   // 119 原位改值 · 122 值段
         else add.push(`&m ${coverRel}`);
       }
       if (add.length || mReplaced) fs.writeFileSync(readmeAbs, `${add.join('\n')}${add.length ? '\n' : ''}${t}`, 'utf8');
@@ -556,7 +557,7 @@ export class Vault {
     if (!target) return;
     try {
       let t = fs.readFileSync(target, 'utf8');
-      if (/^&n\s/m.test(t)) t = t.replace(/^&n\s.*$/m, `&n ${newName}`);
+      if (/^&n\s/m.test(t)) { const t2 = replaceKeyInText(t, 'n', newName); if (t2 !== null) t = t2; }   // 122 值段改写保同键其余段
       else t = `&n ${newName}\n` + t;
       fs.writeFileSync(target, t, 'utf8');
     } catch { /* 根条目同步失败不影响改名 */ }
@@ -760,12 +761,12 @@ export class Vault {
     const src = this._safe(dir, arcRel);
     if (!fs.existsSync(src)) throw new Error('归档条目不存在: ' + rel);
     let text = fs.readFileSync(src, 'utf8');
-    const m = text.match(/^&x\s+(\S+)\s*$/m);
+    const m = text.match(/^&x\s+(.+?)\s*$/m);   // 第 122 轮：路径可含空格
     if (!m) throw new Error('缺少 &x 归档前位置，无法还原');
     const origRel = m[1];
     const destAbs = this._safe(dir, origRel);
     if (fs.existsSync(destAbs)) throw new Error('原位置已有同名条目：' + origRel);
-    text = text.replace(/^&x\s+\S+\s*\n/m, '');
+    text = text.replace(/^&x\s+.+?\s*\n/m, '');
     fs.writeFileSync(src, text, 'utf8');
     fs.mkdirSync(path.dirname(destAbs), { recursive: true });
     fs.renameSync(src, destAbs);
@@ -834,7 +835,7 @@ export class Vault {
         if (it.isDirectory()) walk(path.join(abs, it.name), r);
         else if (it.name.endsWith('.md')) {
           const text = (() => { try { return fs.readFileSync(path.join(abs, it.name), 'utf8'); } catch { return ''; } })();
-          const mx = text.match(/^&x\s+(\S+)\s*$/m);
+          const mx = text.match(/^&x\s+(.+?)\s*$/m);   // 第 122 轮：路径可含空格
           if (!mx) continue;   // 只列归档根（带 &x）；随迁的子树文件随根一起还原
           entries.push({ kind: 'entry', rel: `books/archives/${r}`, title: titleOf(path.join(abs, it.name), it.name.replace(/\.md$/, '')), orig: mx[1] });
         }
@@ -1003,8 +1004,8 @@ export class Vault {
         fs.renameSync(mdFrom, this._safe(dir, mdToRel));
         try {
           let text = fs.readFileSync(this._safe(dir, mdToRel), 'utf8');
-          if (/^&n\s/m.test(text)) text = text.replace(/^&n\s.*$/m, `&n ${newName}`);
-          else text = `&n ${newName}\n` + text;
+          if (/^&n\s/m.test(text)) { const t2 = replaceKeyInText(text, 'n', newName); if (t2 !== null) text = t2; }   // 122 值段改写保同键其余段
+          else text = `&n ${formatMetaValue('n', newName)}\n` + text;
           text = syncH1(text, newName);   // 正文首 H1 同步（第 115 轮）
           fs.writeFileSync(this._safe(dir, mdToRel), text, 'utf8');
         } catch { /* 内容改写失败不影响改名本身 */ }
@@ -1032,8 +1033,8 @@ export class Vault {
     // 双侧同步：文件内的 &n 行跟随新名（否则显示标题残留旧名）；无 &n 则标题回退新文件名
     try {
       let text = fs.readFileSync(to, 'utf8');
-      if (/^&n\s/m.test(text)) text = text.replace(/^&n\s.*$/m, `&n ${newName}`);
-      else text = `&n ${newName}\n` + text;
+      if (/^&n\s/m.test(text)) { const t2 = replaceKeyInText(text, 'n', newName); if (t2 !== null) text = t2; }   // 122 值段改写保同键其余段
+      else text = `&n ${formatMetaValue('n', newName)}\n` + text;
       text = syncH1(text, newName);   // 正文首 H1 同步（第 115 轮：防 &n 新名/正文 # 旧名 双标题）
       fs.writeFileSync(to, text, 'utf8');
     } catch { /* 内容改写失败不影响改名本身 */ }
@@ -1328,25 +1329,8 @@ function syncH1(text, newName) {
 // ---------- 详情面板编辑 helpers（第 115 轮）：README/书.md 通用 ----------
 
 /** & 行键值 upsert/删除（与前端 applyMetaToText 同语义：行内改值、无键前置、空值删键删行）。 */
-function setMetaLine(text, key, val) {
-  if (val == null || String(val).trim() === '') {
-    const re = new RegExp(`(^|\\s)&${key}(?=\\s|$)`);
-    const out = [];
-    for (const line of text.split('\n')) {
-      if (!re.test(line)) { out.push(line); continue; }
-      const nl = line
-        .replace(new RegExp(`(^|\\s)&${key}\\s*[^&]*`), '$1')
-        .replace(/[ \t]{2,}/g, ' ')
-        .replace(/\s+$/, '');
-      if (nl.trim() === '' || nl.trim() === '&') continue;
-      out.push(nl);
-    }
-    return out.join('\n');
-  }
-  const kv = new RegExp(`&${key}\\s+[^&\\n]*`);
-  if (kv.test(text)) return text.replace(kv, `&${key} ${String(val).trim()} `);
-  return `&${key} ${String(val).trim()}\n` + text;
-}
+// 第 122 轮：set/meta 抽屉同函数合一（shared/meta.setMetaText——值段/引号/保同键单点）
+const setMetaLine = (text, key, val) => setMetaText(text, key, val);
 
 /** 替换首段（保留其余段与分隔；首段不存在且新值非空 → 追加；新值空 → 删除该段）。 */
 function replaceIntro(body, intro) {

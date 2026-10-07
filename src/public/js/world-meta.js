@@ -3,6 +3,7 @@ import { api, state, t } from './app.js';
 import { enc, esc, showToast, openPaperDialog2 } from './ui.js';
 import { refreshGitStatus, refreshTimeline, topBookNodes, hooks } from './world-core.js';
 import { normalizeDateValue } from '../../shared/date.js';   // 第 95 轮：日期宽松输入 + 确认时规范化（补零）
+import { keyMatches, parseValueSpan, setMetaText } from '../../shared/meta.js';   // 第 122 轮：值段/引号语义与服务端同源
 
 // ============ §5.3 元数据结构化编辑（按键类型弹控件；返回最终值或 null） ============
 const META_ENUM = {
@@ -29,37 +30,24 @@ const META_KEY_DOC = {
 };
 const META_ORDER = ['s', 'e', 'n', 'w', 'd', 't', 'f', 'a', 'p', 'v', 'q', 'm', 'r'];
 
-/** 从文档文本解析 & 元数据（单行值断于下个键或行尾）→ Map<key, {value}>。 */
+/** 从文档文本解析 & 元数据 → Map<key, {value}>（第 122 轮：值段/引号与 parser 同源——
+ *  值可含空格、断于下一 &键；引号内 &键 不作键；显示层多值以空格回接）。 */
 export function parseMetaFromDoc(text) {
   const map = new Map();
   for (const line of text.split('\n')) {
     if (!/^\s*&[a-z]/.test(line)) continue;
-    const re = /&([a-z])(?:\s+([^&]*))?/g;
-    let m;
-    while ((m = re.exec(line))) map.set(m[1], { value: (m[2] || '').trim() });
+    const ms = keyMatches(line);
+    for (let i = 0; i < ms.length; i++) {
+      const end = i + 1 < ms.length ? ms[i + 1].idx : line.length;
+      const values = parseValueSpan(line.slice(ms[i].valStart, end), ms[i].key);
+      map.set(ms[i].key, { value: values.join(' ') });
+    }
   }
   return map;
 }
 
-/** 文本级改写单个元数据键（value 为空 = 删键；整行无键则删行）。编辑态与保存管线共用。 */
-function applyMetaToText(text, key, value) {
-  if (value === '' || value == null) {
-    const re = new RegExp(`(^|\\s)&${key}(?=\\s|$)`);
-    const out = [];
-    for (const line of text.split('\n')) {
-      if (!re.test(line)) { out.push(line); continue; }
-      const nl = line
-        .replace(new RegExp(`(^|\\s)&${key}\\s*[^&]*`), '$1')
-        .replace(/[ \t]{2,}/g, ' ').replace(/\s+$/, '');
-      if (nl.trim() === '' || nl.trim() === '&') continue;      // 行里没别的键了 → 删行
-      out.push(nl);
-    }
-    return out.join('\n');
-  }
-  const kv = new RegExp(`&${key}\\s+[^&\\n]*`);
-  if (kv.test(text)) return text.replace(kv, `&${key} ${value} `);
-  return `&${key} ${value}\n` + text;                           // 键不存在 → 插入文档头
-}
+/** 文本级改写单个元数据键（第 122 轮：与 vault 同源 shared/meta.setMetaText）。 */
+const applyMetaToText = (text, key, value) => setMetaText(text, key, value);
 
 /** 在文档的 & 行区插入空键 `&k `（追加到最后一个 & 行尾；无 & 行则插入文档头）；返回新文本。 */
 export function insertMetaIntoText(text, key) {

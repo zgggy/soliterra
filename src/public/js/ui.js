@@ -105,6 +105,18 @@ export function bindChecks(scope) {
 }
 
 /** 平台样式化输入弹层（替代原生 prompt）。resolve 输入值或 null（取消）。 */
+/** 批量条目名切分（第 122 轮）：双引号包住含空格的名字，裸词按空白分；未闭合引号剥掉引号字符。 */
+export function splitEntryNames(input) {
+  const out = [];
+  const re = /"([^"]*)"|(\S+)/g;
+  let m;
+  while ((m = re.exec(String(input || '')))) {
+    if (m[1] !== undefined) { if (m[1].trim()) out.push(m[1]); }
+    else out.push(m[2].replace(/"/g, ''));
+  }
+  return out.filter(Boolean);
+}
+
 export function askText(title, defaultValue = '') {
   return new Promise((resolve) => {
     const modal = document.createElement('div');

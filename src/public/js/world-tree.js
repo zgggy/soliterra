@@ -1,6 +1,6 @@
 // Soliterra 目录树（第 92 轮拆分）：树渲染 / 右键结构菜单 / pointer 拖拽（跨层移动 + 同层 &r 重排序）。
 import { api, state, navigate, t } from './app.js';
-import { enc, esc, showToast, askText } from './ui.js';
+import { enc, esc, showToast, askText, splitEntryNames } from './ui.js';
 import { worldDataCache, tocOpenDirs, hooks, refreshGitStatus, currentBookOf, rootNodeOf, topOfPath, firstEntryOf, flattenTree, topBookNodes, armClickGuard, clickGuardActive } from './world-core.js';
 import { emphasize } from './world-timeline.js';
 
@@ -75,8 +75,8 @@ export function showTreeMenu(e, ctx, node) {
           : (t('tree.nameChild'));
         const input = await askText(label);
         if (!input || !input.trim()) return;
-        // 第 121 轮：空格分隔 = 一次批量建多个（按输入顺序；失败单列汇总）
-        const names = input.trim().split(/\s+/).filter(Boolean);
+        // 第 121 轮批量 · 第 122 轮带空格名：双引号括起的名字整体成一名，裸词按空白分
+        const names = splitEntryNames(input);
         // 第 94 轮语义：add = **同级**（父目录）插到选中项下方并整层 &r 重排；child = **下一级**（node.dir）
         const targetDir = k === 'add' ? parentDirOf(node.dir) : inDir;
         if (k === 'add' && !targetDir) {

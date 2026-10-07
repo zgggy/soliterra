@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { collectMarkdown } from './indexer.js';
 import { parseEntry, parseMetadataLine, parseDate, extractFences, KEYS } from './parser.js';
+import { replaceKeyInLine } from '../shared/meta.js';
 import { containsSymbol, normalizeSymbols } from '../shared/symbols.js';
 
 // ---------- 规则 ----------
@@ -187,10 +188,10 @@ export function scanCover(worldDir, limit = 500) {
     if (to === m) continue;
     // before/after 必须是**含 &m 的整行**（&m 常与 &n 同行——apply 按整行匹配，片段永不命中）
     const lines = text.split('\n');
-    const lineIdx = lines.findIndex((l) => /(^|\s)&m\s+\S+/.test(l));
+    const lineIdx = lines.findIndex((l) => /(^|\s)&m\s+\S/.test(l));
     if (lineIdx < 0) continue;
     const line = lines[lineIdx];
-    const afterLine = line.replace(/(^|\s)&m\s+\S+/, `$1&m ${to}`);
+    const afterLine = replaceKeyInLine(line, 'm', to) ?? line;   // 第 122 轮：值段改写（路径可含空格）保同键
     if (afterLine === line) continue;
     items.push({ kind: 'cover', path: rel, line: lineIdx + 1, before: line, after: afterLine, rename: { from: m, to } });
     if (items.length >= limit) return items;

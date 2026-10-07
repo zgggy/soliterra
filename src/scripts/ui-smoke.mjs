@@ -146,14 +146,14 @@ test('批量建条目：空格分隔一次建多个（第 121 轮）', async () 
   await page.waitForSelector('#toc-add-entry', { timeout: 6000 });
   await page.click('#toc-add-entry');
   await page.waitForSelector('.ask-input', { timeout: 4000 });
-  await page.fill('.ask-input', '批甲 批乙 批丙');
+  await page.fill('.ask-input', '批甲 "带 空格" 批乙 批丙');   // 第 122 轮：双引号名含空格
   await page.press('.ask-input', 'Enter');
   await page.waitForFunction(() => [...document.querySelectorAll('.toc-label')].some((e) => e.textContent === '批丙' && e.offsetParent !== null), { timeout: 6000 });
   const rows = await tocRows();
   const labels = rows.map((r) => r.label);
-  for (const n of ['批甲', '批乙', '批丙']) assert.ok(labels.includes(n), `树含 ${n}（实际 ${JSON.stringify(rows)}）`);
-  assert.ok(labels.indexOf('批甲') < labels.indexOf('批乙') && labels.indexOf('批乙') < labels.indexOf('批丙'),
-    `按输入顺序落层（实际 ${JSON.stringify(rows)}）`);
+  for (const n of ['批甲', '带 空格', '批乙', '批丙']) assert.ok(labels.includes(n), `树含 ${n}（实际 ${JSON.stringify(rows)}）`);
+  const order = ['批甲', '带 空格', '批乙', '批丙'].map((n) => labels.indexOf(n));
+  assert.ok(order.every((v2, i2) => i2 === 0 || v2 > order[i2 - 1]), `按输入顺序落层（实际 ${JSON.stringify(rows)}）`);
 });
 
 test('编辑自动保存：打字 → 状态条 Saved → 磁盘落盘', async () => {

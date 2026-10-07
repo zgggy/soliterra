@@ -1,7 +1,7 @@
 // 第 86 轮：深层 YAML frontmatter 兼容读取（§15.6）。
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntry, splitFrontmatter, KEYS } from '../lib/parser.js';
+import { parseEntry, splitFrontmatter, KEYS, parseMetadataLine, entryTitle, formatMetaValue, replaceKeyInLine } from '../lib/parser.js';
 import { entryMetaParts } from '../lib/render.js';
 
 test('splitFrontmatter：文件头块剥离 + 至少一行 key: 才认定', () => {
@@ -64,4 +64,43 @@ test('parseEntry + entryMetaParts：&w/&d 解析并合入标题右侧 aside', ()
   // 无 &w/&d 且无 &s → aside 空（不占位）
   const bare = entryMetaParts({}, 'zh-CN');
   assert.equal(bare.rangeHTML, '', '无值不渲染');
+});
+
+test('parseMetadataLine：值可含空格（断于下一 &键）+ 双引号包裹（第 122 轮）', () => {
+  // 未引号：整段单值，仅断于下一个 &关键字；中间空格全属值
+  const r = parseMetadataLine('&n 我的 条目 &t 设定 历史');
+  assert.deepEqual(r.find((x) => x.key === 'n').values, ['我的 条目'], '&n 空格整段单值');
+  assert.deepEqual(r.find((x) => x.key === 't').values, ['设定', '历史'], '&t 仍空白分词（标签列表）');
+  // 双引号：内含空格与 & 键符也整体成值
+  const q = parseMetadataLine('&n "带 &钩的 名字"');
+  assert.deepEqual(q[0].values, ['带 &钩的 名字'], '双引号内原样（含 & 与空格）');
+  const q2 = parseMetadataLine('&t "多词 标签" 单词');
+  assert.deepEqual(q2[0].values, ['多词 标签', '单词'], '列表键：引号元素整体 + 裸词分词');
+  // & 后不是键（空格/大写）→ 不断值
+  assert.deepEqual(parseMetadataLine('&n A & B')[0].values, ['A & B'], '& 后空格不是键');
+  assert.deepEqual(parseMetadataLine('&n R&D 实验 &e 0705.01.01')[0].values, ['R&D 实验'], '大写 &D 不是键；&e 正常断值');
+  // 行内非首键也按值段收
+  const multi = parseMetadataLine('&w 张 三 &d 0705.09.09');
+  assert.deepEqual(multi.find((x) => x.key === 'w').values, ['张 三'], '&w 含空格');
+  assert.deepEqual(multi.find((x) => x.key === 'd').values, ['0705.09.09'], '&d 正常');
+});
+
+test('entryTitle：&n 空格名整段为标题（第 122 轮）', () => {
+  const e = parseEntry('x.md', '&n 带 空格 的 标题 &t a b\n\n# 别的\n\n正文\n');
+  assert.equal(e.title, '带 空格 的 标题', '空格不断标题');
+  assert.deepEqual(e.meta.t, ['a', 'b'], '标签照旧分词');
+  assert.equal(entryTitle({ n: ['空 格 名'] }, '# 兜底\n', 'f.md'), '空 格 名', 'entryTitle 直通');
+});
+
+test('引号内 &键 不作键 + 写出整形回环（第 122 轮）', () => {
+  const r = parseMetadataLine('&n "鱼 &t 池" &s 0705.01.01');
+  assert.deepEqual(r.find((x) => x.key === 'n').values, ['鱼 &t 池'], '引号内 &t 不断键/不拆值');
+  assert.deepEqual(r.find((x) => x.key === 's').values, ['0705.01.01'], '引号外键照常解析');
+  assert.equal(formatMetaValue('n', 'A &t B'), '"A &t B"', '值含键序列 → 自动补引号');
+  assert.equal(formatMetaValue('n', '鱼 & 熊掌'), '鱼 & 熊掌', '非键 & 不加引号');
+  assert.equal(formatMetaValue('n', '普通名'), '普通名', '无需引号原样');
+  const line = replaceKeyInLine('&n 旧 名 &t 设定', 'n', '新 &t 名');
+  assert.equal(line, '&n "新 &t 名" &t 设定', '行级改写：自动引号 + 同键其余段保留');
+  assert.deepEqual(parseMetadataLine(line).find((x) => x.key === 'n').values, ['新 &t 名'], '改写后读回一致');
+  assert.equal(replaceKeyInLine('正文里 &n x', 'n', 'y'), null, '非元数据行不动');
 });

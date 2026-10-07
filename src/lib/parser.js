@@ -7,21 +7,17 @@ export const KEYS = ['s', 'e', 't', 'f', 'n', 'a', 'p', 'v', 'q', 'm', 'r', 'w',
 // 匹配「& + 一个小写字母 + 空格或行尾」——正文里的 "A & B"、"Tom & Jerry" 不受影响
 const KEY_RE = /&([a-z])(?=\s|$)/g;
 
-/**
- * 解析一行内的元数据对。值由空格分割，断于下一个键或行尾。
- * @returns {Array<{key: string, values: string[]}>}
- */
+// 第 122 轮（条目名可含空格）：值段语义全部在 shared/meta.js（前后端单点）——
+// 值断于下一个 &关键字或行尾、双引号整体包裹（引号内 &键 不作键）、仅 &t 分词。
+import { keyMatches, parseValueSpan } from '../shared/meta.js';
+export { formatMetaValue, replaceKeyInLine, replaceKeyInText } from '../shared/meta.js';
+
 export function parseMetadataLine(line) {
-  const pairs = [];
-  const matches = [...line.matchAll(KEY_RE)];
-  for (let i = 0; i < matches.length; i++) {
-    const m = matches[i];
-    const start = m.index + m[0].length; // 键后
-    const end = i + 1 < matches.length ? matches[i + 1].index : line.length;
-    const values = line.slice(start, end).trim().split(/\s+/).filter(Boolean);
-    pairs.push({ key: m[1], values });
-  }
-  return pairs;
+  const ms = keyMatches(line);
+  return ms.map((m, i) => {
+    const end = i + 1 < ms.length ? ms[i + 1].idx : line.length;
+    return { key: m.key, values: parseValueSpan(line.slice(m.valStart, end), m.key) };
+  });
 }
 
 /**
