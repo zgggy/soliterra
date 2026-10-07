@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { scan, scanSymbols } from '../lib/tools.js';
+import { scan, scanSymbols, scanCover } from '../lib/tools.js';
 import { normalizeSymbols } from '../shared/symbols.js';
 import { apply, pruneBackups, lint, scanStructure, applyStructure } from '../lib/tools.js';
 
@@ -281,5 +281,48 @@ test('lint：&d 作成时间走日期格式校验（第 113 轮）', () => {
     assert.ok(bad, '&d 不合规被报');
     assert.match(bad.message, /&d 乱写/);
     assert.ok(!items.some((x) => x.kind === 'meta' && x.path === 'b.md'), '合规 &d 不报');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('scanCover：命名不规范 → 重命名修复（文本+文件联动）；孤儿 → manual（第 114 轮）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'soliterra-cov-'));
+  try {
+    mkdirSync(join(dir, 'assets', 'covers'), { recursive: true });
+    writeFileSync(join(dir, 'assets', 'covers', '乱名.png'), 'COVER-A', 'utf8');    // 被引用但名不规范
+    writeFileSync(join(dir, 'assets', 'covers', '孤.png'), 'ORPHAN', 'utf8');      // 无人引用
+    writeFileSync(join(dir, '甲.md'), '&n 甲\n&m assets/covers/乱名.png\n\n正文\n', 'utf8');
+    writeFileSync(join(dir, 'README.md'), '&n 测试世界\n\n# 测试世界\n', 'utf8');
+    const items = scanCover(dir);
+    const fix = items.filter((x) => !x.manual);
+    const orphans = items.filter((x) => x.manual);
+    assert.equal(fix.length, 1, '一条命名修复');
+    assert.equal(fix[0].path, '甲.md');
+    assert.equal(fix[0].before, '&m assets/covers/乱名.png', 'before = 含 &m 的整行');
+    assert.equal(fix[0].after, '&m assets/covers/甲.png', '目标名 = 条目名');
+    // &m 与 &n 同行（apply 整行匹配的边界场景）
+    writeFileSync(join(dir, '乙.md'), '&n 乙 &m assets/covers/乱名2.png\n\n正文\n', 'utf8');
+    writeFileSync(join(dir, 'assets', 'covers', '乱名2.png'), 'C2', 'utf8');
+    const fix3 = scanCover(dir).filter((x) => !x.manual && x.path === '乙.md');
+    assert.equal(fix3.length, 1, '同行 &m 也报');
+    assert.equal(fix3[0].before, '&n 乙 &m assets/covers/乱名2.png', 'before = 整行（含 &n）');
+    assert.equal(fix3[0].after, '&n 乙 &m assets/covers/乙.png', '行内只改 &m 值、其余键保留');
+    assert.deepEqual(fix[0].rename, { from: 'assets/covers/乱名.png', to: 'assets/covers/甲.png' });
+    assert.equal(orphans.length, 1, '孤儿一条（乱名.png 被引用不算）');
+    assert.match(orphans[0].before, /孤儿封面.*孤\.png/);
+    assert.equal(orphans[0].manual, true, '孤儿是 manual 行（不可自动修）');
+    // 应用：文本 + 文件改名联动（fix 含甲+乙两处）
+    const allFix = [...fix, ...scanCover(dir).filter((x) => !x.manual && x.path === '乙.md')];
+    const r = apply(dir, 'cover', allFix);
+    assert.ok(existsSync(join(dir, 'assets', 'covers', '甲.png')), '文件已改名');
+    assert.ok(!existsSync(join(dir, 'assets', 'covers', '乱名.png')), '旧名消失');
+    assert.ok(readFileSync(join(dir, '甲.md'), 'utf8').includes('&m assets/covers/甲.png'), '&m 文本已改写');
+    // 幂等：再扫无修复行
+    assert.equal(scanCover(dir).filter((x) => !x.manual).length, 0, '应用后零残留');
+    // README 特例：目标名 = 世界目录名
+    writeFileSync(join(dir, 'README.md'), '&n 世界\n&m assets/covers/其它名.png\n', 'utf8');
+    writeFileSync(join(dir, 'assets', 'covers', '其它名.png'), 'R', 'utf8');
+    const fix2 = scanCover(dir).filter((x) => !x.manual);
+    assert.equal(fix2.length, 1);
+    assert.ok(fix2[0].after.endsWith(`/${dir.split('/').pop()}.png`), 'README → 世界名（目录 basename）');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

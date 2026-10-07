@@ -287,5 +287,6 @@
   "ex.groupDoc": "Current entry",
   "ex.groupBook": "Current book",
   "ex.groupSite": "Read-only site",
-  "tree.pairedAuto": "Paired entry created: {n}"
+  "tree.pairedAuto": "Paired entry created: {n}",
+  "tools.coverName": "Covers (rename/orphans)"
 }

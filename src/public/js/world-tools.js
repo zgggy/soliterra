@@ -54,7 +54,7 @@ function setToolBadge(modal, tool, items) {
 }
 /** 打开工具箱面板时并行预扫全部工具的计数（不阻塞当前工具列表）。 */
 async function refreshToolBadges(ctx, modal) {
-  const tools = ['lint', 'date', 'onboard', 'brackets', 'symbols', 'drift', 'images', 'regex', 'dup'];
+  const tools = ['lint', 'structure', 'cover', 'date', 'onboard', 'brackets', 'symbols', 'drift', 'images', 'regex', 'dup'];
   await Promise.all(tools.map(async (tk) => {
     try {
       const r = await api(`/api/w/${enc(ctx.worldId)}/tools/scan?tool=${tk}`);
@@ -68,8 +68,8 @@ export function renderTools(ctx) {
   modal.innerHTML = `
       <div class="tools-layout">
         <nav class="tools-nav">
-          ${['lint', 'structure', 'date', 'onboard', 'brackets', 'symbols', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
-          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ structure: 'toolStructure', date: 'toolDate', onboard: 'toolOnboard', brackets: 'toolBrackets', symbols: 'toolSymbols', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
+          ${['lint', 'structure', 'cover', 'date', 'onboard', 'brackets', 'symbols', 'drift', 'images', 'regex', 'dup'].map((tk, i) => `
+          <button class="filter-button${i === 0 ? ' is-active' : ''}" data-tool="${tk}"><span>${lt(tk === 'lint' ? 'lintTitle' : ({ structure: 'toolStructure', cover: 'tools.coverName', date: 'toolDate', onboard: 'toolOnboard', brackets: 'toolBrackets', symbols: 'toolSymbols', drift: 'toolDrift', images: 'toolImages', regex: 'toolRegex', dup: 'toolDup' })[tk])}</span><span class="tool-badge" data-badge="${tk}" hidden></span></button>`).join('')}
         </nav>
         <div class="tools-main">
           <div class="tools-list" id="tools-list"><div class="loading">${lt('toolScanning')}</div></div>

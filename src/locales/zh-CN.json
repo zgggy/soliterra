@@ -287,5 +287,6 @@
   "ex.groupDoc": "当前条目",
   "ex.groupBook": "当前书",
   "ex.groupSite": "只读站点",
-  "tree.pairedAuto": "已补建同名条目：{n}"
+  "tree.pairedAuto": "已补建同名条目：{n}",
+  "tools.coverName": "封面规范（重命名/孤儿）"
 }

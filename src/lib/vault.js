@@ -202,22 +202,18 @@ export class Vault {
    *  writeMeta=false → 只把图片收进 assets/covers/ 并返回相对路径（编辑态由编辑器文本路径写 &m，防 mtime 互踩）。 */
   setCover(id, rel, imagePath, { writeMeta = true } = {}) {
     const dir = this.worldDir(id);
-    // 两种入参：世界内相对路径（assets/… ，如从 assets 选择器选的图）→ 校验后直接用；
-    // 本机绝对路径 → 复制进 assets/covers/（第 97 轮：新建书籍向导两入口共用）。
-    let coverRel;
-    const img = String(imagePath || '');
-    if (img.startsWith('assets/')) {
-      const abs = this._safe(dir, img);
-      if (!fs.existsSync(abs)) throw new Error('图片不存在: ' + img);
-      coverRel = img;
-    } else {
-      coverRel = this._bringCoverIn(this.realDir(id), img);
-    }
-    if (!writeMeta) return { cover: coverRel };
     const mdRel = /\.md$/i.test(String(rel)) ? String(rel) : `${String(rel)}.md`;
     const abs = this._safe(dir, mdRel);
     if (!fs.existsSync(abs)) throw new Error('条目不存在: ' + mdRel);
-    let text = fs.readFileSync(abs, 'utf8');
+    // 第 114 轮：条目名命名（README = 世界名）+ 读旧 &m（换封面沿用原名覆盖）→ 统一落库重命名
+    let text = null, oldCover = null;
+    try { text = fs.readFileSync(abs, 'utf8'); oldCover = text.match(/^&m\s+(\S+)/m)?.[1] || null; } catch { /* 空文件 */ }
+    const entryName = mdRel === 'README.md'
+      ? path.basename(this.realDir(id))
+      : path.basename(mdRel).replace(/\.md$/i, '');
+    const coverRel = this._bringCoverIn(this.realDir(id), imagePath, entryName, oldCover);
+    if (!writeMeta) return { cover: coverRel };
+    if (text === null) text = '';
     if (/^&m\s+/m.test(text)) text = text.replace(/^(&m\s+)(\S+)(.*)$/m, (m2, p1, p2, p3) => p1 + coverRel + p3);
     else text = `&m ${coverRel}\n${text}`;
     fs.writeFileSync(abs, text, 'utf8');
@@ -384,27 +380,49 @@ export class Vault {
     const { abs, real, name } = this._adoptTarget(dir);
     const { id } = this._registerWorld(abs, real, name);
     this._remanage(id);   // 重新采纳 = 恢复管理（第 90 轮）
-    const coverRel = coverPath ? this._bringCoverIn(real, coverPath) : '';
+    let oldReadmeM = null;   // 重采纳已有封面 → 沿用旧名覆盖（第 114 轮）
+    try { oldReadmeM = fs.readFileSync(path.join(real, 'README.md'), 'utf8').match(/^&m\s+(\S+)/m)?.[1] || null; } catch { /* 无 README */ }
+    const coverRel = coverPath ? this._bringCoverIn(real, coverPath, name, oldReadmeM) : '';
     await this._initWorldFolder(real, { name, intro, timeline, coverRel, calendar });
     this.indexes.delete(id);   // 重新索引（可能是已登记世界的再采纳）
     return this.worldInfo(id);
   }
 
   /** 把封面图片放进世界（返回相对路径）：已在世界内 → 原样相对；否则复制到 assets/（重名自动加序号）。 */
-  _bringCoverIn(real, coverPath) {
-    const src = path.resolve(String(coverPath));
+  /** 封面落库（第 114 轮：**按条目名重命名** + 防撞名）：
+   *  entryName = 目标条目名（README 特例 = 世界名）；oldCover = 目标条目现有 &m。
+   *  dest 规则：① oldCover 在 covers/ → 沿用旧名**覆盖**（换封面不换名——不堆孤儿、不产生序号）
+   *            ② 否则 `covers/<条目名><ext>`；已存在且与源同大小 → 复用（幂等）
+   *            ③ 内容不同 → `-2 -3…` 序号（避免重名）
+   *  源在世界内 / 世界外统一复制到 dest（源文件留存；孤儿由工具箱「封面规范」检查）。 */
+  _bringCoverIn(real, coverPath, entryName, oldCover) {
+    let src = String(coverPath);
+    if (src.startsWith('assets/')) src = path.join(real, src);   // 世界内相对路径
+    src = path.resolve(src);
+    const realRoot = path.resolve(real);
+    if (src.startsWith(realRoot + path.sep)) {
+      const rel0 = path.relative(realRoot, src);
+      if (rel0.startsWith('..')) throw new Error('invalid path');   // 穿越防护
+    }
     if (!fs.existsSync(src) || !fs.statSync(src).isFile()) throw new Error('封面图片不存在: ' + coverPath);
-    const srcReal = fs.realpathSync(src);
-    if (srcReal.startsWith(real + path.sep)) return path.relative(real, srcReal).replace(/\\/g, '/');
-    const ext = path.extname(src).toLowerCase();
-    const stem = path.basename(src, path.extname(src));
-    fs.mkdirSync(path.join(real, 'assets', 'covers'), { recursive: true });   // 封面之家（第 89 轮规范）
-    let rel = `assets/covers/${path.basename(src)}`;
+    const ext = (path.extname(src) || '.png').toLowerCase();
+    const name = String(entryName || 'cover').replace(/[\\/:*?"<>|\s]+/g, '_') || 'cover';
+    fs.mkdirSync(path.join(real, 'assets', 'covers'), { recursive: true });
+    // ① 沿用旧封面名（换封面 = 覆盖同名）
+    if (oldCover && oldCover.startsWith('assets/covers/')) {
+      const destAbs = path.join(real, oldCover);
+      let sameFile = false;
+      try { sameFile = fs.realpathSync(src) === fs.realpathSync(destAbs); } catch { /* dest 不在 */ }
+      if (!sameFile) fs.copyFileSync(src, destAbs);
+      return oldCover;
+    }
+    // ②/③ 默认名 + 撞名序号（同大小 = 同图 → 复用幂等）
+    let rel = `assets/covers/${name}${ext}`;
+    const srcSize = fs.statSync(src).size;
     let n = 1;
     while (fs.existsSync(path.join(real, rel))) {
-      // 同名文件已在：同大小视为同一张 → 复用；否则加序号
-      try { if (fs.statSync(path.join(real, rel)).size === fs.statSync(src).size) return rel; } catch {}
-      rel = `assets/covers/${stem}-${n++}${ext}`;
+      try { if (fs.statSync(path.join(real, rel)).size === srcSize) return rel; } catch {}
+      rel = `assets/covers/${name}-${n++}${ext}`;   // 首撞 = -1（与原版序号语义一致）
     }
     fs.copyFileSync(src, path.join(real, rel));
     return rel;

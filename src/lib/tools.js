@@ -155,6 +155,53 @@ export function scanSymbols(worldDir, limit = 500) {
   return out;
 }
 
+// ---------- 封面规范（第 114 轮）：命名重命名修复 + 孤儿检查 ----------
+/** ① &m 指向 covers/ 但文件名 ≠ 条目名（README = 世界名）→ 重命名修复行（带 rename 联动）；
+ *  ② covers/ 中未被任何 &m 引用的孤儿文件 → manual 提示行（不可自动修，需人工确认删除）。 */
+export function scanCover(worldDir, limit = 500) {
+  const items = [];
+  const coversAbs = path.join(worldDir, 'assets', 'covers');
+  const files = [];
+  try {
+    for (const nm of fs.readdirSync(coversAbs)) {
+      if (fs.statSync(path.join(coversAbs, nm)).isFile()) files.push(nm);
+    }
+  } catch { /* 无 covers 目录 */ }
+  const used = new Set();
+  for (const rel of collectMarkdown(worldDir)) {
+    let text; try { text = fs.readFileSync(path.join(worldDir, rel), 'utf8'); } catch { continue; }
+    const m = parseEntry(rel, text).meta?.m?.[0];
+    if (!m || !m.startsWith('assets/covers/')) continue;
+    used.add(m);
+    const curName = path.basename(m);
+    const base = path.basename(rel).replace(/\.md$/i, '');
+    const entry = base === 'README' ? path.basename(worldDir) : base;   // README → 世界名
+    const ext = path.extname(curName) || '.png';
+    const wantName = `${entry}${ext}`;
+    if (curName === wantName) continue;                                 // 已规范
+    let to = `assets/covers/${wantName}`;
+    let n = 1;
+    while (files.includes(path.basename(to)) && to !== m) {             // 目标被占 → 序号（防重名）
+      to = `assets/covers/${entry}-${n++}${ext}`;
+    }
+    if (to === m) continue;
+    // before/after 必须是**含 &m 的整行**（&m 常与 &n 同行——apply 按整行匹配，片段永不命中）
+    const lines = text.split('\n');
+    const lineIdx = lines.findIndex((l) => /(^|\s)&m\s+\S+/.test(l));
+    if (lineIdx < 0) continue;
+    const line = lines[lineIdx];
+    const afterLine = line.replace(/(^|\s)&m\s+\S+/, `$1&m ${to}`);
+    if (afterLine === line) continue;
+    items.push({ kind: 'cover', path: rel, line: lineIdx + 1, before: line, after: afterLine, rename: { from: m, to } });
+    if (items.length >= limit) return items;
+  }
+  for (const nm of files) {                                              // ② 孤儿
+    const rel2 = `assets/covers/${nm}`;
+    if (!used.has(rel2)) items.push({ manual: true, path: rel2, line: 0, before: `孤儿封面（未被任何 &m 引用）：${nm}` });
+  }
+  return items.slice(0, limit);
+}
+
 /** 图片路径规范化：绝对路径 / file:// → 相对 assets/。 */
 export function scanImages(worldDir, limit = 500) {
   const out = [];
@@ -514,6 +561,17 @@ export function apply(worldDir, tool, items) {
       changed++;
     }
     fs.writeFileSync(abs, text, 'utf8');
+  }
+  // 第 114 轮：封面重命名联动——文本 &m 已按 before/after 改写，此处移动文件本体
+  if (tool === 'cover') {
+    for (const it of items) {
+      if (!it.rename) continue;
+      try {
+        const fromAbs = path.join(worldDir, it.rename.from);
+        const toAbs = path.join(worldDir, it.rename.to);
+        if (fs.existsSync(fromAbs) && !fs.existsSync(toAbs)) fs.renameSync(fromAbs, toAbs);
+      } catch { /* 单个失败不阻断其余 */ }
+    }
   }
   pruneBackups(worldDir);   // 自动剪枝（保留最近 10 份；尽力而为）
   return { changed, backup: path.relative(worldDir, backupDir) };

@@ -11,7 +11,7 @@ import Fastify from 'fastify';
 import { Vault } from './lib/vault.js';
 import { renderEntry, renderFragment, sectionOf } from './lib/render.js';
 import { parseEntry } from './lib/parser.js';
-import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard, scanStructure, applyStructure, scanSymbols } from './lib/tools.js';
+import { scan, apply as applyTool, lint, scanDrift, scanImages, scanRegex, scanDuplicates, scanOnboard, scanStructure, applyStructure, scanSymbols, scanCover } from './lib/tools.js';
 import { buildSite } from './lib/publish.js';
 import { pickFolder, pickImage } from './lib/picker.js';
 
@@ -428,6 +428,10 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
     try { return { items: scanSymbols(vault.worldDir(req.params.id)) }; }
     catch (e) { return reply.code(500).send({ error: e.message }); }
   }
+  if (tool === 'cover') {
+    try { return { items: scanCover(vault.worldDir(req.params.id)) }; }
+    catch (e) { return reply.code(500).send({ error: e.message }); }
+  }
   if (tool === 'structure') {
     try { return { items: scanStructure(vault.worldDir(req.params.id)).items }; }
     catch (e) { return reply.code(500).send({ error: e.message }); }
@@ -439,7 +443,7 @@ app.get('/api/w/:id/tools/scan', (req, reply) => {
 
 app.post('/api/w/:id/tools/apply', (req, reply) => {
   const { tool, items } = req.body || {};
-  const APPLY_TOOLS = ['date', 'brackets', 'symbols', 'dup', 'drift', 'images', 'regex', 'onboard', 'structure'];
+  const APPLY_TOOLS = ['date', 'brackets', 'symbols', 'cover', 'dup', 'drift', 'images', 'regex', 'onboard', 'structure'];
   if (!APPLY_TOOLS.includes(tool) || !Array.isArray(items)) {
     return reply.code(400).send({ error: 'bad request' });
   }
