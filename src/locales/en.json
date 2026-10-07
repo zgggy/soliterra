@@ -283,5 +283,8 @@
   "set.sans": "Sans",
   "set.min": "Min",
   "set.off": "Off",
-  "set.autosaveOff": "Off"
+  "set.autosaveOff": "Off",
+  "ex.groupDoc": "Current entry",
+  "ex.groupBook": "Current book",
+  "ex.groupSite": "Read-only site"
 }

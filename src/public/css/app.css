@@ -1343,3 +1343,28 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 .book-card.dragging-src { opacity: .4; }
 /* 封面图：禁原生图片拖拽 + 事件穿透到卡片——否则在图上起手会被浏览器 DnD 接管，pointer 流断掉 */
 .book-card-cover img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
+
+/* ---------- 条目封面头（第 108 轮）：封面置顶 · 标题叠封面内底部 · 底部渐变（标题行高×1.5） ---------- */
+.entry-hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--bg-soft); margin: 0 0 14px; }
+.entry-hero-img { display: block; width: 100%; max-height: min(56vh, 620px); object-fit: cover; }
+.entry-hero-foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 26px 18px; }
+.entry-hero-veil {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--veil-h, 96px);
+  background: linear-gradient(to top, rgba(8, 8, 8, .82), rgba(8, 8, 8, 0)); pointer-events: none;
+}
+.entry-hero .entry-title-row { position: relative; z-index: 1; margin: 0; align-items: flex-end; }
+.entry-hero .entry-title { color: #fff; margin: 0; font-size: clamp(1.5rem, 2.8vw, 2.4rem); line-height: 1.2; }
+.entry-hero .m-item, .entry-hero .m-dash { color: rgba(255, 255, 255, .9); }
+.entry-hero .m-item:hover { background: rgba(255, 255, 255, .18); }
+/* 封面加载失败 → 塌回普通标题行（渐变隐藏、文字回墨色） */
+.entry-hero.no-img .entry-hero-img { display: none; }
+.entry-hero.no-img .entry-hero-foot { position: static; padding: 8px 0 0; }
+.entry-hero.no-img .entry-hero-veil { display: none; }
+.entry-hero.no-img .entry-title { color: var(--text); }
+
+/* 书卡拖入指示（第 108 轮）：中区 = 移入目标书 */
+.book-card.drop-into { outline: 1px dashed var(--line-strong); outline-offset: -1px; background: var(--bg-soft); }
+
+/* 导出弹窗分组标题（第 108 轮） */
+.export-group { padding: 10px 14px 4px; }
+.export-group .eyebrow { color: var(--text-muted); }

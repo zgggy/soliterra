@@ -550,3 +550,16 @@ test('setCover：世界内相对路径直接用（不复制）；绝对路径复
   assert.ok(r2.cover.startsWith('assets/covers/'), '复制到 covers');
   assert.match(readFileSync(join(w, '银湾.md'), 'utf8'), new RegExp(`^&m ${r2.cover.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'm'), '&m 原位改值');
 }));
+
+test('moveEntry：散条目移进叶子 → 目标叶子 mkdir 成为配对书（第 108 轮）', () => withWorld(async (v, w) => {
+  writeFileSync(join(w, '散入.md'), '# 散\n', 'utf8');
+  v.index('测试世界');
+  const r = v.moveEntry('测试世界', '散入.md', '黄金时代/北伐');
+  assert.equal(r.moves.length, 1);
+  assert.ok(existsSync(join(w, '黄金时代', '北伐', '散入.md')), '移入叶子并创建其目录');
+  assert.ok(existsSync(join(w, '黄金时代', '北伐.md')), '目标叶 md 仍在 → 北伐成为配对书（md+目录）');
+  assert.ok(!existsSync(join(w, '散入.md')), '根层原文件已移走');
+  const idx = v.index('测试世界');
+  assert.ok(idx.entry('黄金时代/北伐/散入.md'), '新路径已入索引');
+  assert.ok(!idx.entry('散入.md'), '旧路径已清');
+}));

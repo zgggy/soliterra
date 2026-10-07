@@ -10,7 +10,7 @@ import { download, subtreePaths, mdToTxt, buildEpub, buildDocx } from './exporte
 import { esc, enc, parseOrd, debounce, showToast, lt, ICON, askText, confirmModal, openPaperDialog2, checkHTML, bindChecks, attachScrollIndicators } from './ui.js';
 import { worldDataCache, hooks, refreshGitStatus, refreshTimeline, currentBookOf, rootNodeOf, topBookNodes, topOfPath, firstEntryOf, flattenTree, nextEntry, prevEntry, armClickGuard, clickGuardActive } from './world-core.js';
 import { initTimeline } from './world-timeline.js';
-import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode } from './world-tree.js';
+import { refreshTree, renderToc, updateTocCurrent, showTreeMenu, reorderNode, doMoveTo } from './world-tree.js';
 import { renderRel } from './world-rel.js';
 import { renderReadlater, addReadlater } from './world-readlater.js';
 import { renderMetaDrawer, openMetaEditor, editMetaValue, insertMetaIntoText } from './world-meta.js';
@@ -585,16 +585,7 @@ async function renderWorldPanel(ctx) {
     <div class="set-row"><span class="eyebrow">${lt('dashboard')}</span>
       <button class="button-ghost wp-dash" id="wp-dash">→</button></div>
     <div class="set-row wp-export-row"><span class="eyebrow">${lt('export')}</span>
-      <span class="export-btns">
-        <button class="button-ghost" id="ex-doc-md">${lt('exDocMd')}</button>
-        <button class="button-ghost" id="ex-doc-txt">${lt('exDocTxt')}</button>
-        <button class="button-ghost" id="ex-book-md">${lt('exBookMd')}</button>
-        <button class="button-ghost" id="ex-book-epub">${lt('exBookEpub')}</button>
-        <button class="button-ghost" id="ex-book-pdf">${lt('exBookPdf')}</button>
-        <button class="button-ghost" id="ex-book-docx">${lt('exBookDocx')}</button>
-        <button class="button-ghost" id="ex-site">${lt('exSite')}</button>${siteRel ? `<a class="button-ghost" id="ex-site-open" href="/w/${enc(ctx.worldId)}/${esc(siteRel)}/index.html" target="_blank" rel="noopener" title="${esc(siteRel)}">${lt('exSiteOpen')}</a>` : ''}
-      </span>
-    </div>
+      <button class="button-ghost" id="wp-export">→</button></div>
     <div class="wp-settings-rows">${settingsRowsHTML(ctx)}</div>
     <div class="set-row wp-about"><span class="eyebrow">${lt('about')}</span>
       <span class="about-mono">Soliterra v0.1 · local</span></div>`;
@@ -608,27 +599,52 @@ async function renderWorldPanel(ctx) {
     try { await api('/api/worlds/reveal', { method: 'POST', body: { id: ctx.worldId } }); }
     catch (e) { showToast(String(e.message), 'error'); }
   });
-  const top = currentBookOf(ctx) || rootNodeOf(ctx);
-  host.querySelector('#ex-doc-md').addEventListener('click', () => exportDoc(ctx, 'md'));
-  host.querySelector('#ex-doc-txt').addEventListener('click', () => exportDoc(ctx, 'txt'));
-  host.querySelector('#ex-book-md').addEventListener('click', () => exportBook(ctx, 'md', top));
-  host.querySelector('#ex-book-epub').addEventListener('click', () => exportBook(ctx, 'epub', top));
-  host.querySelector('#ex-book-docx').addEventListener('click', () => exportBook(ctx, 'docx', top));
-  host.querySelector('#ex-book-pdf').addEventListener('click', () => exportBook(ctx, 'pdf', top));
-  host.querySelector('#ex-site').addEventListener('click', async (ev) => {
-    const btn = ev.currentTarget;
-    btn.disabled = true;
-    try {
-      const r = await api(`/api/w/${enc(ctx.worldId)}/publish`, { method: 'POST', body: {} });
-      localStorage.setItem('soliterra.site.' + ctx.worldId, r.rel);   // 供「上次站点 ↗」原生链接（永不被拦）
-      renderWorldPanel(ctx);
-      showToast(`${lt('siteBuilt')}${r.rel}（${r.pages} ${t('ex.pages')}${r.hidden ? ` · ${t('ex.hidden')} ${r.hidden}` : ''}${r.assets ? ` · ${t('ex.assetsN')} ${r.assets}` : ''}）`, 'success', 6000);
-      window.open(`/w/${enc(ctx.worldId)}/${enc(r.rel)}/index.html`, '_blank');   // 生成即所见（手势内打开不被拦）
-    } catch (e) { showToast(String(e.message), 'error'); }
-    btn.disabled = false;
-  });
+  host.querySelector('#wp-export').addEventListener('click', () => openExportDialog(ctx, currentBookOf(ctx) || rootNodeOf(ctx)));
   bindCoverFallbacks(host);
   refreshGitStatus(ctx);
+}
+
+/** 导出弹窗（第 108 轮：原 8 个平铺按钮 → 单按钮 + 分组选择）。 */
+function openExportDialog(ctx, top) {
+  const { close, body } = openPaperDialog2(lt('export'));
+  const siteRel = localStorage.getItem('soliterra.site.' + ctx.worldId) || '';
+  body.innerHTML = `
+    <div class="export-group"><span class="eyebrow">${t('ex.groupDoc')}</span></div>
+    <button class="tree-menu-item" data-ex="doc-md">${lt('exDocMd')}</button>
+    <button class="tree-menu-item" data-ex="doc-txt">${lt('exDocTxt')}</button>
+    <div class="tree-menu-sep"></div>
+    <div class="export-group"><span class="eyebrow">${t('ex.groupBook')}</span></div>
+    <button class="tree-menu-item" data-ex="book-md">${lt('exBookMd')}</button>
+    <button class="tree-menu-item" data-ex="book-epub">${lt('exBookEpub')}</button>
+    <button class="tree-menu-item" data-ex="book-pdf">${lt('exBookPdf')}</button>
+    <button class="tree-menu-item" data-ex="book-docx">${lt('exBookDocx')}</button>
+    <div class="tree-menu-sep"></div>
+    <div class="export-group"><span class="eyebrow">${t('ex.groupSite')}</span></div>
+    <button class="tree-menu-item" data-ex="site">${lt('exSite')}</button>
+    ${siteRel ? `<a class="tree-menu-item" id="ex-last" href="/w/${enc(ctx.worldId)}/${esc(siteRel)}/index.html" target="_blank" rel="noopener" title="${esc(siteRel)}">${lt('exSiteOpen')}</a>` : ''}`;
+  body.querySelector('#ex-last')?.addEventListener('click', close);
+  body.querySelectorAll('[data-ex]').forEach((b) => b.addEventListener('click', async () => {
+    const k = b.dataset.ex;
+    close();
+    if (k === 'doc-md') exportDoc(ctx, 'md');
+    else if (k === 'doc-txt') exportDoc(ctx, 'txt');
+    else if (k === 'book-md') exportBook(ctx, 'md', top);
+    else if (k === 'book-epub') exportBook(ctx, 'epub', top);
+    else if (k === 'book-pdf') exportBook(ctx, 'pdf', top);
+    else if (k === 'book-docx') exportBook(ctx, 'docx', top);
+    else if (k === 'site') await publishSite(ctx);
+  }));
+}
+
+/** 生成只读站点（原导出区 handler 抽出，第 108 轮）。 */
+async function publishSite(ctx) {
+  try {
+    const r = await api(`/api/w/${enc(ctx.worldId)}/publish`, { method: 'POST', body: {} });
+    localStorage.setItem('soliterra.site.' + ctx.worldId, r.rel);   // 供「上次站点 ↗」原生链接（永不被拦）
+    renderWorldPanel(ctx);
+    showToast(`${lt('siteBuilt')}${r.rel}（${r.pages} ${t('ex.pages')}${r.hidden ? ` · ${t('ex.hidden')} ${r.hidden}` : ''}${r.assets ? ` · ${t('ex.assetsN')} ${r.assets}` : ''}）`, 'success', 6000);
+    window.open(`/w/${enc(ctx.worldId)}/${enc(r.rel)}/index.html`, '_blank');   // 生成即所见（手势内打开不被拦）
+  } catch (e) { showToast(String(e.message), 'error'); }
 }
 
 // ============ 导出（§15.2）：md / txt / EPUB / PDF 打印 ============
@@ -915,10 +931,23 @@ function ensureBookDragGlobal() {
     const target = el?.closest?.('.book-card');
     if (target && target !== bookDrag.card && !target.classList.contains('archived') && target.dataset.name) {
       const r = target.getBoundingClientRect();
-      const after = e.clientX > r.left + r.width / 2;   // 右半 = 后；左半 = 前（横排阅读顺序）
-      target.classList.add(after ? 'drop-after' : 'drop-sibling');
-      showBookDropLine(target, after);   // 第 103 轮：独立线悬在两卡间隙正中
-      bookDrag.mode = after ? 'after' : 'before';
+      // 第 108 轮：横向三分区（左 1/3=插前 · 中 1/3=**移入目标书** · 右 1/3=插后）——
+      // 中区松手 = 拖动的书变成目标书的条目（fs/move 成对联动；目标为叶子书时 mkdir 自动成配对书）
+      const frac = (e.clientX - r.left) / r.width;
+      target.classList.remove('drop-sibling', 'drop-after', 'drop-into');
+      if (frac < 0.34) {
+        target.classList.add('drop-sibling');
+        showBookDropLine(target, false);
+        bookDrag.mode = 'before';
+      } else if (frac > 0.66) {
+        target.classList.add('drop-after');
+        showBookDropLine(target, true);
+        bookDrag.mode = 'after';
+      } else {
+        target.classList.add('drop-into');
+        hideBookDropLine();
+        bookDrag.mode = 'into';
+      }
       bookDrag.target = target;
     }
   });
@@ -938,6 +967,12 @@ function ensureBookDragGlobal() {
     const targetName = d.target.dataset.name;
     const targetNode = topBookNodes(d.ctx).find((b) => b.name === targetName);
     if (!targetNode || targetNode === d.node) return;
+    if (d.mode === 'into') {
+      // 第 108 轮：移入目标书 = 成为其条目（配对书走目录+md 成对移动；叶子书 mkdir 自动配对）
+      const fromPath = d.node.children.length ? d.node.dir : (d.node.md || d.node.dir);
+      await doMoveTo(d.ctx, fromPath, targetNode.dir);
+      return;
+    }
     await reorderNode(d.ctx, d.node, targetNode, d.mode);   // 同父校验 + 整层 &r 重排 + 重绘（world-tree 导出）
   });
 }
@@ -1078,13 +1113,26 @@ async function openEntry(ctx, path, chrono) {
   const next = nextEntry(ctx.tree, path);
   const prev = prevEntry(ctx.tree, path);
 
+  // 第 108 轮：条目封面头——有 &m 时封面置顶、标题叠封面内底部、底部渐变（标题高×1.5）
+  const heroCover = e.meta?.m?.[0] || '';
   reader.innerHTML = `
-    <article class="entry">
+    <article class="entry${heroCover ? ' has-hero' : ''}">
       ${e.topMetaHTML || ''}
+      ${heroCover ? `
+      <div class="entry-hero">
+        <img class="entry-hero-img" src="/w/${enc(ctx.worldId)}/${enc(heroCover)}" alt="">
+        <div class="entry-hero-foot">
+          <div class="entry-hero-veil"></div>
+          <div class="entry-title-row">
+            <h1 class="entry-title">${esc(e.title)}</h1>
+            ${e.rangeHTML || ''}
+          </div>
+        </div>
+      </div>` : `
       <div class="entry-title-row">
         <h1 class="entry-title">${esc(e.title)}</h1>
         ${e.rangeHTML || ''}
-      </div>
+      </div>`}
       <div class="entry-body">${e.html}</div>
       ${e.backlinks.length ? `<div class="backlinks"><span class="eyebrow">${t('reader.backlinks')}</span>
         ${e.backlinks.map((b) => `<button class="wikilink" data-target="${esc(b)}">${esc(b)}</button>`).join('')}</div>` : ''}
@@ -1154,6 +1202,14 @@ async function openEntry(ctx, path, chrono) {
   document.querySelectorAll('.rlf-card').forEach((c) => c.classList.toggle('open', c.dataset.path === path));
   annotateCurrent(ctx);   // 工具箱跳转：把错误处框起来（存在 goto 状态时）
   const readerCol = document.getElementById('reader');
+  // 第 108 轮 hero：渐变高 = 标题行实测高 ×1.5；封面 404 → 塌回普通标题布局（no-img）
+  requestAnimationFrame(() => {
+    const hero = reader.querySelector('.entry-hero');
+    if (!hero) return;
+    const foot = hero.querySelector('.entry-hero-foot');
+    if (foot) hero.style.setProperty('--veil-h', Math.round(foot.offsetHeight * 1.5) + 'px');
+    hero.querySelector('.entry-hero-img')?.addEventListener('error', () => hero.classList.add('no-img'));
+  });
   // 进度记忆（§4.2）：恢复已存滚动位置；无记录从头开始
   let savedScroll = 0;
   try { savedScroll = parseInt(localStorage.getItem(`soliterra.scroll.${ctx.worldId}.${path}`) || '0', 10) || 0; } catch {}

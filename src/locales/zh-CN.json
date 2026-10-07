@@ -283,5 +283,8 @@
   "set.sans": "无衬线",
   "set.min": "极简",
   "set.off": "关",
-  "set.autosaveOff": "关闭"
+  "set.autosaveOff": "关闭",
+  "ex.groupDoc": "当前条目",
+  "ex.groupBook": "当前书",
+  "ex.groupSite": "只读站点"
 }

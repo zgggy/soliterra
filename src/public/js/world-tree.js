@@ -297,18 +297,22 @@ function ensureTocDragGlobal(ctx) {
     const row = findRow(e.clientX, e.clientY);
     if (row && row !== tocDrag.row && !row.contains(tocDrag.row)) {
       const r = row.getBoundingClientRect();
-      const into = e.clientY > r.top + r.height / 2;   // 下半=移入；上半=同级（拖到父行上半=上移一级）
-      // 第 91 轮：同父级直接子女之间 = 重排序（上半=插到目标之前，下半=插到目标之后）——
-      // 整层顺序落 `&r`；跨父级保持原移动语义（上半=移到目标父目录，下半=移入目标目录）。
-      // 同父级书目录的「移入」仍可达：拖到其子行的上半（= 移到该子行父目录）。
+      // 第 108 轮：**三分区**（上 1/3 = 插前 · 中 1/3 = 移入 · 下 1/3 = 插后）——
+      // 中区「移入」对同层也开放（原第 91 轮只有二区，同层无法把条目放进兄弟叶子）：
+      // 松手落在无子条目（叶子）中区 → 目标叶子 mkdir 获得配对目录、成为父条目。
+      const frac = (e.clientY - r.top) / r.height;
       const rowDir = row.dataset.dir || '';
       const dragDir = tocDrag.node?.dir || '';
-      if (parentDirOf(rowDir) === parentDirOf(dragDir) && parentDirOf(tocDrag.movePath) === parentDirOf(dragDir)) {
-        row.classList.add(into ? 'drop-after' : 'drop-sibling');
-        tocDrag.mode = into ? 'after' : 'before';
+      const sameParent = parentDirOf(rowDir) === parentDirOf(dragDir) && parentDirOf(tocDrag.movePath) === parentDirOf(dragDir);
+      if (sameParent) {
+        if (frac < 0.34) { row.classList.add('drop-sibling'); tocDrag.mode = 'before'; }   // 插前（&r 排序）
+        else if (frac > 0.66) { row.classList.add('drop-after'); tocDrag.mode = 'after'; }  // 插后（&r 排序）
+        else { row.classList.add('drop-into'); tocDrag.mode = 'into'; }                     // 移入目标（目标变父）
         tocDrag.target = row;
         return;
       }
+      // 跨级保持原语义：上 1/3 = 移到目标同层（前），中/下 = 移入目标
+      const into = frac >= 0.34;
       row.classList.add(into ? 'drop-into' : 'drop-sibling');
       tocDrag.mode = into ? 'into' : 'sibling';
       tocDrag.target = row;
@@ -439,7 +443,7 @@ function gotoSuccessor(ctx, succPos) {
 }
 
 // ============ 树移动（拖动改层级）与时间轴强调（拖到时间轴） ============
-async function doMoveTo(ctx, fromPath, toDir) {
+export async function doMoveTo(ctx, fromPath, toDir) {
   try {
     await api(`/api/w/${enc(ctx.worldId)}/fs/move`, { method: 'POST', body: { path: fromPath, toDir } });
     worldDataCache.delete(ctx.worldId);

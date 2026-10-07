@@ -501,6 +501,8 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 **`detail-panel`（世界/书籍详情，第 92 轮）** — 纸面（openPaperDialog2 同族）内的 `detail-grid` 两栏：左 `detail-cover`（200×4:3 纯色直角框，**点击 = 换封面**，空态 = 首字衬线大字 + 「＋ 设置封面」eyebrow；hover 边框转 line-strong）+ 右信息列（`detail-name` 衬线 700 → muted 简介 → `detail-rows` 发丝行键值表：统计/git/位置/`&m` 元数据路径等宽注记）。
 **`git-uncommitted`（提交历史未提交项，第 94 轮）** — `openGitHistory` 列表首行：`git-commit` 行同构（hash `····` + subj `未提交 · N 个文件` + 内联 `git-commit-now` 按钮），**warn 色 3px 左前缘**区分于历史提交；点击 → `update: 时间戳` 直接提交 → 列表刷新（未提交项消失、新提交置顶）。
+**`entry-hero`（条目封面头，第 108 轮）** — 阅读态有 `&m` 时：封面置顶（object-fit cover，max-height 56vh）→ `entry-hero-foot` absolute 贴底（标题白字 + 浅字 chip）→ `entry-hero-veil` 底部向上渐变，**高 = 标题行实测高 ×1.5**（rAF 写 `--veil-h`）；404 → `.no-img` 塌回普通标题。
+**`export-group`（导出弹窗，第 108 轮）** — 「导出 →」单按钮 → 弹窗三组（当前条目/当前书/只读站点）eyebrow + `tree-menu-item` 行 + 分隔线；书卡 `drop-into` = 虚线 outline + bg-soft（移入指示）。
 **`confirm-modal`（第 92 轮）** — 保存冲突等二选一确认：ask-dialog 同骨架 + `meta-explain` 正文 + 右对齐 [ghost 取消 | primary 确定]；替代原生 confirm。
 
 **`toast`** — 3px 前缘语义色 + bg-soft 底 + 等宽大写标签 + Level 2 投影，四变体 info/success/warning/error。
