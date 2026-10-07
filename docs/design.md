@@ -480,6 +480,10 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 - **共享卡片族**：`card-cover`(9:16，**无 border-bottom**，bg-soft + 衬线首字；有图 `object-fit: cover`) > `card-overlay`（底部渐变白字 / 无封面墨字回退）> `card-title`（**padding 0** nowrap 省略）+ `card-tag.eyebrow` 标签行（无标签不渲染）；**hover 倾斜**（`hover-tilt`）；点击 → 打开该书首条目并切换为目录面板。
 - **拖动（`card-drag` 三分区）**：横向左 1/3 插前 / 中 1/3 移入目标书 / 右 1/3 插后；幽灵 = 独立名字条（`目标/原名` 前缀），间隙线 = 网格上 2px 竖线悬于两卡间隙正中。
 
+**`books-head`（全部书籍面板头，第 118 轮合一）** — 原 `panel-head`（「全部书籍」标题 + N 本计数 + ＋）与 `books-filter`（chip 行）两行并成一行 `.panel-head.books-head`：左侧 chip 横滚区（`flex:1 · nowrap · overflow-x:auto`，滚动条隐藏，`bf-chip flex:none` 不压缩），右侧 ＋ 固定；filter 右缘 36px `linear-gradient(→ surface)` 渐变遮挡（`pointer-events:none`，chips 从渐变下滑入）；头高约 80→53px。标题与计数文案删除（分类信息只在 chip 上，归档数在归档 chip 内）。
+
+**文档内图片指针规约（第 118 轮）** — 阅读视图所有 img（`entry-body` / `embed-block` / `entry-hero` / `wp-banner` / 大图纸面）与卡片封面同规：`-webkit-user-drag:none · user-select:none · pointer-events:none`——hover 永不落在 img 本体上，浏览器与插件不再把指针下的元素识别为图片。正文图外包 `.doc-img`（display:block · cursor:zoom-in）代理点击 → 大图纸面（`stopPropagation` 防冒泡进外层 `[[双链]]` 跳转）。
+
 **`card-drag`（卡片拖拽统一原语，第 117 轮）** — `public/js/card-drag.js`，世界卡/书卡各建一个实例共用机制：pointerdown（排除卡上菜单）→ 5px 阈值激活（源卡 `dragging-src` 淡出 + `body.toc-dragging` + 名字幽灵）→ 分区判定（`zones` 含 into = 三分区，否则二分）→ `card-drop-line` 间隙线（gap/2 居中，含容器滚动偏移）→ 松手 `armClickGuard()` 400ms + `onDrop` 提交；`pointercancel` 只清场不提交。
 
 **`annotation-row`** — 勘误行（书籍错误 → 正确段落的链接）。

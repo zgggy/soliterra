@@ -508,6 +508,13 @@ img { display: block; max-width: 100%; }
 .entry-body ul, .entry-body ol { padding-left: 1.2em; }
 .entry-body hr { border: 0; border-top: 1px solid var(--line); margin: 2rem 0; }
 .entry-body img { width: 100%; border: 1px solid var(--line); margin: 1.4rem 0; }
+/* 第 118 轮：文档内图片与卡片封面同规——img 本体不接收指针（-webkit-user-drag / user-select /
+   pointer-events:none），hover 永远落在外层 .doc-img 上，浏览器与插件不再把 hover 元素认作图片；
+   缩放点击由 .doc-img 代理（world.js）。hero/banner/大图纸面一并处理，全站 img 指针语义统一。 */
+.entry-body img, .embed-block img, .entry-hero-img, .wp-banner img, .img-paper img {
+  -webkit-user-drag: none; user-select: none; pointer-events: none;
+}
+.doc-img { display: block; position: relative; cursor: zoom-in; }
 
 .wikilink {
   color: var(--link); text-decoration: underline; text-underline-offset: 4px;
@@ -1165,8 +1172,26 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 
 /* ---------- 打磨轮增补（2026-10-06） ---------- */
 /* 全部书籍面板：分类 chip 行（§8.3，旧弹层分类行迁移） */
-.books-filter { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 16px 8px; border-bottom: 1px solid var(--line); }
+.books-filter { display: flex; flex-wrap: wrap; gap: 6px; }
+/* 面板头合一（第 118 轮）：filter 进 head 左侧（横滚、省掉原独立一行的高度），＋ 固定右端；
+   chip 滚向右端时没入 ＋ 左侧的渐变（透明 → 面板底色），chips 视觉上从渐变下滑入 */
+.books-head { position: relative; align-items: center; }
+.books-head .books-filter {
+  flex: 1; min-width: 0;
+  flex-wrap: nowrap; align-items: center;
+  overflow-x: auto; overflow-y: hidden;
+  padding: 0; border-bottom: 0;
+  scrollbar-width: none;
+}
+.books-head .books-filter::-webkit-scrollbar { display: none; }
+.books-head .panel-head-btn { flex: none; margin-left: 12px; }
+.books-head::after {   /* 渐变遮挡：filter 右缘 36px（正好到 ＋ 左缘前的间隙） */
+  content: ''; position: absolute; top: 0; bottom: 1px; right: 58px; width: 36px;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0), var(--surface));
+  pointer-events: none;
+}
 .bf-chip {
+  flex: none;   /* 横滚容器内不压缩（第 118 轮头合一） */
   border: 1px solid var(--line); background: transparent; color: var(--text-muted);
   padding: 3px 10px; font-family: var(--font-ui); font-size: 0.72rem; letter-spacing: .06em; border-radius: 0;
   transition: color var(--motion-quick), border-color var(--motion-quick);

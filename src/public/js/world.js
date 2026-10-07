@@ -371,10 +371,10 @@ function renderLeftPanel(ctx, name) {
   } else if (name === 'books') {
     host.innerHTML = `
       ${resize()}
-      <div class="panel-head"><span class="eyebrow">${lt('shelfAll')}</span><span class="panel-count" id="books-count"></span>
+      <div class="panel-head books-head">
+        <div class="books-filter" id="books-filter"></div>
         <button class="panel-head-btn" id="books-add-book" title="${t('book.new')}">＋</button>
       </div>
-      <div class="books-filter" id="books-filter"></div>
       <div class="panel-scroll"><div class="books-grid" id="books-grid"></div></div>`;
     renderBooksPanel(ctx);
     bindPanelResize(ctx, 'left', '--books-w', 'soliterra.booksW');
@@ -891,7 +891,6 @@ const bindBookDrag = (card, ctx, node) => bookDragger.bind(card, { ctx, node });
 function renderBooksPanel(ctx) {
   const grid = document.getElementById('books-grid');
   if (!grid) return;
-  const count = document.getElementById('books-count');
   const filter = document.getElementById('books-filter');
   const books = topBookNodes(ctx).filter((c) => c.md || c.children.length);
   // 分类 filter（§8.3）：顶层书的 &t 标签去重成 chip 行（旧弹层的分类行迁移）
@@ -912,7 +911,6 @@ function renderBooksPanel(ctx) {
   function paintGrid() {
     if (ctx.booksCat === '归档') {
       const arch = ctx.archives || { books: [], entries: [] };
-      if (count) count.textContent = `${archN}`;
       grid.innerHTML = [
         ...arch.books.map((a) => `
         <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="book">
@@ -945,9 +943,6 @@ function renderBooksPanel(ctx) {
       return;
     }
     const shown = books.filter((b) => ctx.booksCat === '全部' || (b.tags || []).includes(ctx.booksCat));
-    if (count) count.textContent = ctx.booksCat === '全部'
-      ? `${books.length} ${lt('shelfBooks')}`
-      : `${shown.length} / ${books.length} ${lt('shelfBooks')}`;
     // 第 117 轮：与世界卡同构——card-cover(9:16) > card-overlay(标题 + 标签)，信息全在封面内
     grid.innerHTML = shown.map((b) => `
       <button class="book-card" data-name="${esc(b.name)}">
@@ -1101,10 +1096,20 @@ async function openEntry(ctx, path, chrono) {
     });
     a.addEventListener('mouseleave', () => leaveAnchor());
   });
-  // 图片点击放大（§B.5）：大图纸面
+  // 图片点击放大（§B.5）：大图纸面。
+  // 第 118 轮：img 本体 pointer-events:none（CSS 统一，与卡片封面同规）——指针永远落在外层
+  // .doc-img 上，浏览器/插件不再认为 hover 到了图片；点击由外层 span 代理（stopPropagation
+  // 防冒泡到外层双链 <a> 触发跳转）。
   reader.querySelectorAll('.entry-body img, .embed-block img').forEach((im) => {
-    im.style.cursor = 'zoom-in';
-    im.addEventListener('click', (ev) => { ev.preventDefault(); openImagePaper(im.getAttribute('src') || ''); });
+    const wrap = document.createElement('span');
+    wrap.className = 'doc-img';
+    im.replaceWith(wrap);
+    wrap.appendChild(im);
+    wrap.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      openImagePaper(im.currentSrc || im.src || im.getAttribute('src') || '');
+    });
   });
 
   // 目录：换书 → 重建树；同书 → 只移动高亮行（不重建，避免面板闪动）
