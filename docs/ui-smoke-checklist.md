@@ -1,7 +1,10 @@
 # UI 冒烟清单（人工过一遍 · 第 106 轮 P3）
 
-> 自动化已覆盖 API 层（`test/smoke.test.js`，76 项含端到端）。本清单覆盖 DOM 交互——
-> 每轮涉及前端改动后硬刷新逐条过；未来引入 playwright 时按此清单固化。
+> **自动化已覆盖**（第 109 轮起）：API 层 `test/smoke.test.js`（端到端 8 链，随 `npm test`）+
+> **UI 层 `scripts/ui-smoke.mjs`**（playwright headless，`npm run test:ui`，6 关键流：进入流 / 树拖拽
+> 中区移入 / 编辑自动保存落盘 / 导出弹窗 / 封面 hero / ⌘K 搜索）。chromium 未装先跑
+> `npx playwright install chromium`（国内建议加 `PLAYWRIGHT_DOWNLOAD_HOST=https://npmmirror.com/mirrors/playwright`）。
+> 本清单用于人工过未自动化的长尾项。
 
 准备：临时世界（`PORT=0 SOLITERRA_WORLDS=$(mktemp -d) node server.js` → 用打印的端口打开），
 建 1 书 + 2 叶子条目 + 1 已建条目（含 `[[未建]]` 双链与 `&s` 时间）。

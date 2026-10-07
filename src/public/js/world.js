@@ -917,7 +917,11 @@ function ensureBookDragGlobal() {
       const ghost = bookDrag.card.cloneNode(true);
       ghost.className = 'toc-drag-ghost';
       ghost.style.transform = '';
-      ghost.style.width = Math.round(bookDrag.card.getBoundingClientRect().width) + 'px';
+      // 第 109 轮：幽灵只留紧凑名字条——cover 大块与标签行删掉（否则名字被大图推到卡底 = 名字前大片空白）
+      ghost.querySelector('.book-card-cover')?.remove();
+      ghost.querySelector('.book-card-tags')?.remove();
+      ghost.style.width = '';
+      ghost.style.paddingLeft = '10px';
       document.body.appendChild(ghost);
       bookDrag.ghost = ghost;
       // 第 103 轮：抑制标志**在松手时**才起算（原按下起算 → 拖 >400ms 松手后 click 漏拦 = 拖完进入书籍）
@@ -929,6 +933,18 @@ function ensureBookDragGlobal() {
     bookDrag.mode = null; bookDrag.target = null;
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const target = el?.closest?.('.book-card');
+    // 第 109 轮：幽灵卡隶属前缀（判定前先按上一帧 mode 还原/刷新，判定后在块尾再刷一次）
+    const syncGhost = () => {
+      const gt = bookDrag.ghost?.querySelector('.book-card-title');
+      if (!gt) return;
+      const self = bookDrag.node.title || bookDrag.node.name;
+      if (bookDrag.mode === 'into' && bookDrag.target) {
+        const parent = bookDrag.target.querySelector('.book-card-title')?.textContent?.trim() || bookDrag.target.dataset.name || '';
+        gt.innerHTML = `<span class="ghost-parent">${esc(parent)}/</span>${esc(self)}`;
+      } else if (gt.querySelector('.ghost-parent')) {
+        gt.textContent = self;
+      }
+    };
     if (target && target !== bookDrag.card && !target.classList.contains('archived') && target.dataset.name) {
       const r = target.getBoundingClientRect();
       // 第 108 轮：横向三分区（左 1/3=插前 · 中 1/3=**移入目标书** · 右 1/3=插后）——
@@ -949,6 +965,11 @@ function ensureBookDragGlobal() {
         bookDrag.mode = 'into';
       }
       bookDrag.target = target;
+      syncGhost();   // 第 109 轮：判定完成 → 幽灵卡刷新「目标/原名」前缀
+    } else {
+      bookDrag.target = null;
+      bookDrag.mode = null;
+      syncGhost();   // 无落点 → 还原原名
     }
   });
   document.addEventListener('pointerup', async () => {
@@ -1396,8 +1417,8 @@ function mountEditStatus(title, initialSaveText) {
   if (!shell || document.getElementById('edit-status')) return;
   shell.insertAdjacentHTML('afterbegin',
     `<div class="edit-status" id="edit-status"><span class="es-phase">${t('edit.editing')}</span><span class="es-title"></span><span class="es-save"></span></div>`);
-  const t = shell.querySelector('.es-title');
-  if (t) t.textContent = title ? `· ${title}` : '';
+  const titleEl = shell.querySelector('.es-title');   // 第 109 轮修：局部原名 t 与模板 t() 同名 → 块级 TDZ 崩编辑状态条
+  if (titleEl) titleEl.textContent = title ? `· ${title}` : '';
   setEditStatus(initialSaveText || '');
 }
 /** 保存态文案（autoSave/scheduleAutoSave 调用；状态条不在则 no-op）。 */

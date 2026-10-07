@@ -13,6 +13,19 @@ export async function refreshTree(ctx) {
   if (document.getElementById('books-grid')) hooks.renderBooksPanel?.(ctx);   // 书籍面板在场时同步重绘（第 79 轮：面板内改书后即时反映）
 }
 
+/** 第 109 轮：拖拽幽灵卡显示「即将隶属的节点」——仅移入（into）时名字前插 `目标/`（浅色），其余还原原名。 */
+function updateGhostAffiliation(drag) {
+  const gl = drag.ghost?.querySelector('.toc-label');
+  if (!gl) return;
+  const self = drag.node.title || drag.node.name;
+  if (drag.mode === 'into' && drag.target) {
+    const parent = drag.target.querySelector('.toc-label')?.textContent?.trim() || '';
+    gl.innerHTML = `<span class="ghost-parent">${esc(parent)}/</span>${esc(self)}`;
+  } else if (gl.querySelector('.ghost-parent')) {
+    gl.textContent = self;   // 非移入模式还原（仅在有前缀时写 DOM）
+  }
+}
+
 export function closeTreeMenu() { document.querySelectorAll('.tree-menu').forEach((m) => m.remove()); }
 
 export function showTreeMenu(e, ctx, node) {
@@ -278,6 +291,7 @@ function ensureTocDragGlobal(ctx) {
       document.body.classList.add('toc-dragging');
       const ghost = tocDrag.row.cloneNode(true);
       ghost.className = 'toc-drag-ghost';
+      ghost.style.paddingLeft = '10px';   // 第 109 轮：清 clone 带来的行内深缩进（否则名字前大片空白）
       document.body.appendChild(ghost);
       tocDrag.ghost = ghost;
       // 第 103 轮：抑制标志改在**松手时**起算（原按下起算 → 拖 >400ms 松手后 click 漏拦）
@@ -308,14 +322,14 @@ function ensureTocDragGlobal(ctx) {
         if (frac < 0.34) { row.classList.add('drop-sibling'); tocDrag.mode = 'before'; }   // 插前（&r 排序）
         else if (frac > 0.66) { row.classList.add('drop-after'); tocDrag.mode = 'after'; }  // 插后（&r 排序）
         else { row.classList.add('drop-into'); tocDrag.mode = 'into'; }                     // 移入目标（目标变父）
-        tocDrag.target = row;
-        return;
+      } else {
+        // 跨级保持原语义：上 1/3 = 移到目标同层（前），中/下 = 移入目标
+        const into = frac >= 0.34;
+        row.classList.add(into ? 'drop-into' : 'drop-sibling');
+        tocDrag.mode = into ? 'into' : 'sibling';
       }
-      // 跨级保持原语义：上 1/3 = 移到目标同层（前），中/下 = 移入目标
-      const into = frac >= 0.34;
-      row.classList.add(into ? 'drop-into' : 'drop-sibling');
-      tocDrag.mode = into ? 'into' : 'sibling';
       tocDrag.target = row;
+      updateGhostAffiliation(tocDrag);   // 第 109 轮：幽灵卡「目标/原名」前缀随落点实时更新
     }
   });
 

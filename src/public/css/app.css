@@ -277,7 +277,7 @@ img { display: block; max-width: 100%; }
 /* 时间轴高度把手：60×10 悬浮在时间轴下边界正中（世界视图层，浮于内容区之上不被裁剪）；距边界 ≤40px 才显示 */
 .chrono-resize {
   position: absolute; left: 50%; top: calc(var(--chrono-h, 112px) - 5px); transform: translateX(-50%);
-  width: 60px; height: 10px; z-index: 91;   /* 高于一切（卡片 hover 90/打开 80/fab 27）*/
+  width: 60px; height: 10px; z-index: 55;   /* 第 109 轮：不必最高——低于悬浮预览卡(60)/模态(80)/toast(90)/卡片 hover(90)，只高于固定控件 fab/卡片集(27) */
   border: 1px solid var(--line); background: var(--bg-soft); cursor: row-resize;
   opacity: 0; pointer-events: none;
   transition: opacity var(--motion-quick), border-color var(--motion-quick);
@@ -1368,3 +1368,6 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 /* 导出弹窗分组标题（第 108 轮） */
 .export-group { padding: 10px 14px 4px; }
 .export-group .eyebrow { color: var(--text-muted); }
+
+/* 拖拽幽灵卡：即将隶属前缀（第 109 轮）——`目标节点/原名`，父名浅色 */
+.toc-drag-ghost .ghost-parent { color: var(--text-muted); font-weight: 400; opacity: .7; }

@@ -82,6 +82,7 @@ Node.js · Fastify · better-sqlite3（FTS5 + JSON1）· chokidar（文件监听
 ```
 node --test          # 76 项：单元 + 集成 + 端到端 API 冒烟（test/smoke.test.js 自起服务）
 npm run build:editor # 仅当改动 editor/ 时
+npm run test:ui      # 改前端时跑（playwright 6 关键流；需先 npx playwright install chromium）
 ```
 
 三连绿才提交；**每轮完成即 commit**（不积压）。UI 层关键流清单见 `docs/ui-smoke-checklist.md`（人工过一遍；playwright 自动化为后续可选项）。
