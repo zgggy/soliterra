@@ -51,11 +51,17 @@ node server.js       # → http://127.0.0.1:4747
 
 ```
 Soliterra/
-├── 平台设计方案.md      # 整体设计（概念模型/数据层/架构/路线）
-├── 功能设计.md          # 功能全量规格（§1–§19 + 审计表）
-├── design.md            # 样式规范与三层组件清单（含 Motion 系统）
-├── 全景时间轴与编辑器增强设计.md   # 进行中新需求规格（规划）
-├── docs/                # ui-smoke-checklist.md（人工 UI 冒烟清单）
+├── README.md            # 门面与快速开始（唯一保留在根的 md）
+├── soliterra.sh         # 服务启停入口（./soliterra.sh 4747 / stop）
+├── soliterra.config.example.json   # 世界库路径配置模板（副本 gitignore）
+├── docs/                # 全部设计文档（第 110 轮归拢：根目录不再散落 md）
+│   ├── 平台设计方案.md   # 整体设计（概念模型/数据层/架构/路线）
+│   ├── 功能设计.md       # 功能全量规格（§1–§19 + 审计表 = 唯一待办池）
+│   ├── design.md         # 样式规范与三层组件清单（含 Motion 系统）
+│   ├── design.md.template# 样式文档模板（Wired 风格骨架）
+│   ├── 全景时间轴与编辑器增强设计.md  # 已完成的专项规格（历史立档）
+│   ├── matrees平台与优质世界观总结.md # 领域调研（参考素材）
+│   └── ui-smoke-checklist.md          # 人工 UI 冒烟清单（playwright 自动化未覆盖的长尾）
 └── src/
     ├── server.js        # Fastify：REST + 静态(异步) + SSE 推送 + 文件监听
     ├── shared/          # 前后端共享单点表：symbols.js（全角→半角）/ date.js（日期归一）
@@ -63,8 +69,9 @@ Soliterra/
     ├── public/js/       # 零构建前端：world 编排层 + 十模块（ui/core/timeline/tree/rel/
     │                    #   meta/readlater/detail/search/tools）+ app/home/linkcard/exporter
     ├── editor/          # CM6 扩展源码（esbuild → public/js/vendor/）
-    ├── test/            # 76 项：单元 + 集成 + 端到端 API 冒烟（smoke.test.js 自起服务）
-    └── locales/         # 语言包（放新 json 即自动注册；142 键 zh/en 同构）
+    ├── test/            # 77 项：单元 + 集成 + 端到端 API 冒烟（随 npm test）
+    ├── scripts/         # ui-smoke.mjs（playwright UI 冒烟，npm run test:ui）
+    └── locales/         # 语言包（放新 json 即自动注册；zh/en 同构）
 ```
 
 ## 技术栈
@@ -85,9 +92,9 @@ npm run build:editor # 仅当改动 editor/ 时
 npm run test:ui      # 改前端时跑（playwright 6 关键流；需先 npx playwright install chromium）
 ```
 
-三连绿才提交；**每轮完成即 commit**（不积压）。UI 层关键流清单见 `docs/ui-smoke-checklist.md`（人工过一遍；playwright 自动化为后续可选项）。
+三连绿才提交；**每轮完成即 commit**（不积压）。UI 层关键流已由 `npm run test:ui`（playwright 6 流）自动化；人工清单 `docs/ui-smoke-checklist.md` 只兜长尾。
 
 ## 协作约定（三文档同步）
 
-设计需求落笔时三份主文档**同步更新**：平台设计方案（架构融入）· 功能设计（交互规格）· design.md（组件与样式）；
+设计需求落笔时三份主文档（均在 `docs/`）**同步更新**：平台设计方案（架构融入）· 功能设计（交互规格）· design.md（组件与样式）；
 进行中的新需求在《全景时间轴与编辑器增强设计.md》立档，实现后回填三主文档。`功能设计.md` §18 审计表 = 唯一待办池。

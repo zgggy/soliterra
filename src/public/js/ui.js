@@ -137,7 +137,7 @@ export function askText(title, defaultValue = '') {
   });
 }
 
-// 极简 toast（design.md 四语义色：3px 前缘 + 等宽标签）
+// 极简 toast（docs/design.md 四语义色：3px 前缘 + 等宽标签）
 export function showToast(text, kind = 'info') {
   const el = document.createElement('div');
   el.className = `toast toast-${kind}`;
