@@ -2,12 +2,15 @@
 // 世界 = 一个 git 仓库目录；平台不预设任何内容目录，只管理 assets/ 与 .soliterra/。
 
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import chokidar from 'chokidar';
 
-const exec = promisify(execFile);   // git 全异步（第 92 轮）：大仓库 commit/log 不再阻塞事件循环与正在打字的自动保存
+const exec = promisify(execFile);
+/** 封面内容指纹（第 119 轮）：同内容才幂等复用——比旧的「同大小 = 同图」可靠。 */
+const hashFile = (p) => { try { return createHash('sha1').update(fs.readFileSync(p)).digest('hex'); } catch { return null; } };   // git 全异步（第 92 轮）：大仓库 commit/log 不再阻塞事件循环与正在打字的自动保存
 import { WorldIndex, collectMarkdown } from './indexer.js';
 import { parseEntry } from './parser.js';
 
@@ -211,13 +214,14 @@ export class Vault {
     const mdRel = /\.md$/i.test(String(rel)) ? String(rel) : `${String(rel)}.md`;
     const abs = this._safe(dir, mdRel);
     if (!fs.existsSync(abs)) throw new Error('条目不存在: ' + mdRel);
-    // 第 114 轮：条目名命名（README = 世界名）+ 读旧 &m（换封面沿用原名覆盖）→ 统一落库重命名
-    let text = null, oldCover = null;
-    try { text = fs.readFileSync(abs, 'utf8'); oldCover = text.match(/^&m\s+(\S+)/m)?.[1] || null; } catch { /* 空文件 */ }
+    // 第 119 轮：条目名命名（README = 世界名）——换封面也**按条目名重新落名复制**，
+    // 旧 &m 指向的文件不再被读取/覆盖（共享封面被多张卡引用时，覆盖会连带改掉别人的封面）
+    let text = null;
+    try { text = fs.readFileSync(abs, 'utf8'); } catch { /* 空文件 */ }
     const entryName = mdRel === 'README.md'
       ? path.basename(this.realDir(id))
       : path.basename(mdRel).replace(/\.md$/i, '');
-    const coverRel = this._bringCoverIn(this.realDir(id), imagePath, entryName, oldCover);
+    const coverRel = this._bringCoverIn(this.realDir(id), imagePath, entryName);
     if (!writeMeta) return { cover: coverRel };
     if (text === null) text = '';
     if (/^&m\s+/m.test(text)) text = text.replace(/^(&m\s+)(\S+)(.*)$/m, (m2, p1, p2, p3) => p1 + coverRel + p3);
@@ -288,7 +292,8 @@ export class Vault {
   }
 
   /** 世界文件夹初始化（create / adopt 共用，第 88 轮）：
-   *  assets/ 确保存在；根条目 = README.md（介绍与 & 元数据；**已存在则只前置缺失的 & 行，绝不改正文**）；
+   *  assets/ 确保存在；根条目 = README.md（介绍与 & 元数据；已存在则 &n 缺失才前置、**&m 有新封面时原位改值**
+   *  （第 119 轮：重采纳换封面必须重指 &m，否则新副本落库却没人引用）——正文一律一字不动；
    *  时间线事件 → `时间线/NN-标题.md`；`.gitignore` 补 `.soliterra/`；非 git 仓库 → init + 唯一自动提交。 */
   async _initWorldFolder(dir, { name, intro = '', timeline = '', coverRel = '', calendar = '' }) {
     fs.mkdirSync(path.join(dir, 'assets'), { recursive: true });
@@ -303,8 +308,12 @@ export class Vault {
       let t = fs.readFileSync(readmeAbs, 'utf8');
       const add = [];
       if (!/^&n\s/m.test(t)) add.push(`&n ${name}`);
-      if (coverRel && !/^&m\s/m.test(t)) add.push(`&m ${coverRel}`);
-      if (add.length) fs.writeFileSync(readmeAbs, `${add.join('\n')}\n${t}`, 'utf8');
+      let mReplaced = false;
+      if (coverRel) {
+        if (/^&m\s/m.test(t)) { t = t.replace(/^&m\s+\S+/, `&m ${coverRel}`); mReplaced = true; }   // 第 119 轮：原位改值
+        else add.push(`&m ${coverRel}`);
+      }
+      if (add.length || mReplaced) fs.writeFileSync(readmeAbs, `${add.join('\n')}${add.length ? '\n' : ''}${t}`, 'utf8');
     } else {
       const meta = [`&n ${name}`, coverRel ? `&m ${coverRel}` : ''].filter(Boolean).join('\n');
       const body = [`# ${name}`, '', intro || '', calLine && ['', calLine], '', plainLines.join('\n')].flat().filter((x) => x !== undefined).join('\n');
@@ -397,9 +406,8 @@ export class Vault {
     if (text !== before) fs.writeFileSync(mdAbs, text, 'utf8');
     if (newName !== base) newRel = this.renameEntry(id, rel, newName).path;
     if (cover !== undefined && cover !== '') {
-      // 先删旧 &m 再 setCover：封面按**新名**落库（否则第 114 轮「沿用旧名」规则会钉在旧书名上）
-      const cur = fs.readFileSync(this._safe(dir, newRel), 'utf8');
-      fs.writeFileSync(this._safe(dir, newRel), setMetaLine(cur, 'm', ''), 'utf8');
+      // 第 119 轮：不再预删旧 &m（那是为已废止的「沿用旧名」规则服务的）——setCover 自身
+      // 原位改写 &m；预删在图片不存在时反而会先把旧封面弄丢
       this.setCover(id, newRel, cover);
     } else if (cover === '') {
       const cur = fs.readFileSync(this._safe(dir, newRel), 'utf8');
@@ -459,9 +467,7 @@ export class Vault {
     const { abs, real, name } = this._adoptTarget(dir);
     const { id } = this._registerWorld(abs, real, name);
     this._remanage(id);   // 重新采纳 = 恢复管理（第 90 轮）
-    let oldReadmeM = null;   // 重采纳已有封面 → 沿用旧名覆盖（第 114 轮）
-    try { oldReadmeM = fs.readFileSync(path.join(real, 'README.md'), 'utf8').match(/^&m\s+(\S+)/m)?.[1] || null; } catch { /* 无 README */ }
-    const coverRel = coverPath ? this._bringCoverIn(real, coverPath, name, oldReadmeM) : '';
+    const coverRel = coverPath ? this._bringCoverIn(real, coverPath, name) : '';
     await this._initWorldFolder(real, { name, intro, timeline, coverRel, calendar });
     this.indexes.delete(id);   // 重新索引（可能是已登记世界的再采纳）
     return this.worldInfo(id);
@@ -474,7 +480,13 @@ export class Vault {
    *            ② 否则 `covers/<条目名><ext>`；已存在且与源同大小 → 复用（幂等）
    *            ③ 内容不同 → `-2 -3…` 序号（避免重名）
    *  源在世界内 / 世界外统一复制到 dest（源文件留存；孤儿由工具箱「封面规范」检查）。 */
-  _bringCoverIn(real, coverPath, entryName, oldCover) {
+  /** 收封面进 assets/covers/（第 119 轮重定）：**只对「上传进来的图片」改名复制，
+   *  项目内已有的文件一律不改名、不覆盖、不删**——多张卡的 &m 可能指向同一文件（共享封面），
+   *  覆盖旧文件会连带改掉别的卡的封面（第 119 轮用户实测 bug）。
+   *  规则：按条目名落库（README = 世界名）→ 撞名加序号 -1/-2… → 已有文件与上传**内容一致**
+   *  才复用（sha1 幂等，重传同一张不堆孤儿）。换封面不再「沿用旧名覆盖」（第 114 轮规则废止）
+   *  → 旧文件原样保留（无引用时成孤儿，由用户按需手动清理）。 */
+  _bringCoverIn(real, coverPath, entryName) {
     let src = String(coverPath);
     if (src.startsWith('assets/')) src = path.join(real, src);   // 世界内相对路径
     src = path.resolve(src);
@@ -487,21 +499,12 @@ export class Vault {
     const ext = (path.extname(src) || '.png').toLowerCase();
     const name = String(entryName || 'cover').replace(/[\\/:*?"<>|\s]+/g, '_') || 'cover';
     fs.mkdirSync(path.join(real, 'assets', 'covers'), { recursive: true });
-    // ① 沿用旧封面名（换封面 = 覆盖同名）
-    if (oldCover && oldCover.startsWith('assets/covers/')) {
-      const destAbs = path.join(real, oldCover);
-      let sameFile = false;
-      try { sameFile = fs.realpathSync(src) === fs.realpathSync(destAbs); } catch { /* dest 不在 */ }
-      if (!sameFile) fs.copyFileSync(src, destAbs);
-      return oldCover;
-    }
-    // ②/③ 默认名 + 撞名序号（同大小 = 同图 → 复用幂等）
+    const srcHash = hashFile(src);
     let rel = `assets/covers/${name}${ext}`;
-    const srcSize = fs.statSync(src).size;
     let n = 1;
     while (fs.existsSync(path.join(real, rel))) {
-      try { if (fs.statSync(path.join(real, rel)).size === srcSize) return rel; } catch {}
-      rel = `assets/covers/${name}-${n++}${ext}`;   // 首撞 = -1（与原版序号语义一致）
+      if (srcHash !== null && hashFile(path.join(real, rel)) === srcHash) return rel;   // 同内容 → 幂等复用
+      rel = `assets/covers/${name}-${n++}${ext}`;   // 撞名但内容不同 → 序号新名（绝不改写既有文件）
     }
     fs.copyFileSync(src, path.join(real, rel));
     return rel;

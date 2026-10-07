@@ -191,7 +191,7 @@ test('adopt：已有 README.md → 正文一字不动、只补 & 行、重复采
   }
 });
 
-test('adopt 封面（第 114 轮）：按世界名重命名 + 撞名序号 + 重采纳沿用旧名覆盖', async () => {
+test('adopt 封面（第 119 轮改）：按世界名重命名 + 撞名序号 + 重采纳换封面按新名复制', async () => {
   const { root, v } = mkBare();
   const folder = join(root, '封面世界');
   try {
@@ -211,20 +211,20 @@ test('adopt 封面（第 114 轮）：按世界名重命名 + 撞名序号 + 重
     const readme2 = readFileSync(join(folder, 'README.md'), 'utf8');
     assert.ok(readme2.includes('&m assets/covers/封面世界-1.png'), '撞名 → -1 序号');
     assert.equal(readFileSync(join(folder, 'assets', 'covers', '封面世界.png'), 'utf8'), 'OLD-XXXX', '既有文件不动');
-    // 场景 C：重采纳换封面 → &m 已指向 -1 → 沿用旧名覆盖（不产生 -2、不堆孤儿）
+    // 场景 C（第 119 轮）：重采纳换封面 → **不沿用旧名覆盖**（旧文件可能被共享）——序号新名
     const c3 = join(root, 'cover3.png');
     writeFileSync(c3, 'THIRD', 'utf8');
     await v.adoptFolder({ dir: folder, coverPath: c3 });
-    assert.ok(readFileSync(join(folder, 'README.md'), 'utf8').includes('&m assets/covers/封面世界-1.png'), '换封面沿用旧名');
-    assert.equal(readFileSync(join(folder, 'assets', 'covers', '封面世界-1.png'), 'utf8'), 'THIRD', '旧名被覆盖');
-    assert.ok(!existsSync(join(folder, 'assets', 'covers', '封面世界-2.png')), '不产生序号堆积');
+    assert.ok(readFileSync(join(folder, 'README.md'), 'utf8').includes('&m assets/covers/封面世界-2.png'), '换封面 → 序号新名');
+    assert.equal(readFileSync(join(folder, 'assets', 'covers', '封面世界-2.png'), 'utf8'), 'THIRD', '新图落位');
+    assert.equal(readFileSync(join(folder, 'assets', 'covers', '封面世界-1.png'), 'utf8'), 'NEW-DIFFERENT', '旧封面文件不动（共享不被连带）');
   } finally {
     v.close('封面世界');
     rmSync(root, { recursive: true, force: true });
   }
 });
 
-test('setCover（第 114 轮）：按条目名重命名 + 撞名序号 + 换封面沿用旧名覆盖', () => withWorld(async (v, w, root) => {
+test('setCover（第 119 轮改）：按条目名重命名 + 撞名序号 + 换封面按新名复制、旧文件全留', () => withWorld(async (v, w, root) => {
   mkdirSync(join(w, 'assets', 'covers'), { recursive: true });
   writeFileSync(join(w, 'assets', 'covers', '已有.png'), 'PNG-SOURCE', 'utf8');
   // 相对路径入口（assets 选择器）→ 复制成 covers/<条目名>（不再原样返回）
@@ -242,13 +242,19 @@ test('setCover（第 114 轮）：按条目名重命名 + 撞名序号 + 换封�
   const r2 = v.setCover('测试世界', '二级/银湾.md', outside);
   assert.equal(r2.cover, 'assets/covers/银湾-1.png', '同名不同条目 → -1 序号（防重名）');
   assert.match(readFileSync(join(w, '二级', '银湾.md'), 'utf8'), /^&m assets\/covers\/银湾-1\.png$/m, '&m 指向新名');
-  // 主条目换封面 → &m 已指向银湾.png → 沿用旧名覆盖（不产生序号堆积）
+  // 主条目换封面（第 119 轮）：**不再沿用旧名覆盖**——按条目名重新落名撞序号；旧文件全部原样保留
   const third = join(root, '三图.png');
   writeFileSync(third, 'THIRD', 'utf8');
   const r3 = v.setCover('测试世界', '银湾.md', third);
-  assert.equal(r3.cover, 'assets/covers/银湾.png', '换封面沿用旧名');
-  assert.ok(!existsSync(join(w, 'assets', 'covers', '银湾-2.png')), '不堆序号');
-  assert.equal(readFileSync(join(w, 'assets', 'covers', '银湾.png'), 'utf8'), 'THIRD', '旧名被覆盖');
+  assert.equal(r3.cover, 'assets/covers/银湾-2.png', '换封面 → 撞名序号新名（旧名不覆盖）');
+  assert.equal(readFileSync(join(w, 'assets', 'covers', '银湾-2.png'), 'utf8'), 'THIRD', '新图落位');
+  assert.equal(readFileSync(join(w, 'assets', 'covers', '银湾.png'), 'utf8'), 'PNG-SOURCE', '原封面文件不动');
+  assert.equal(readFileSync(join(w, 'assets', 'covers', '银湾-1.png'), 'utf8'), 'PNG2-LONGER', '他条目封面不动');
+  assert.match(readFileSync(join(w, '银湾.md'), 'utf8'), /^&m assets\/covers\/银湾-2\.png$/m, '&m 指向新名');
+  // 幂等：重传同一张 → 内容一致复用（不堆 -3）
+  const r4 = v.setCover('测试世界', '银湾.md', third);
+  assert.equal(r4.cover, 'assets/covers/银湾-2.png', '同内容 sha1 复用');
+  assert.ok(!existsSync(join(w, 'assets', 'covers', '银湾-3.png')), '不堆孤儿');
 }));
 
 test('moveEntry：散条目移进叶子 → 目标叶子 mkdir 成为配对书（第 108 轮）', () => withWorld(async (v, w) => {
@@ -331,4 +337,26 @@ test('list 顺序：.order.json 自定义序在前、未入序排尾；改名保
   } finally {
     v.close('测改世界'); v.close('甲世界'); v.close('乙世界'); v.close('新世界');
   }
+}));
+
+test('setCover：共享封面换图不连带——只改名复制上传图，项目内旧文件一律不动（第 119 轮）', () => withWorld(async (v, w, root) => {
+  mkdirSync(join(w, 'assets', 'covers'), { recursive: true });
+  writeFileSync(join(w, 'assets', 'covers', '共享.png'), 'SHARED-OLD', 'utf8');
+  // 两张卡的 &m 指向同一文件（共享封面——资产选择器原样选用 / 同图幂等复用都会造成）
+  writeFileSync(join(w, '银湾.md'), '&m assets/covers/共享.png\n\n# 银湾\n', 'utf8');
+  writeFileSync(join(w, '黄金时代', '北伐.md'), '&m assets/covers/共享.png\n\n# 北伐\n', 'utf8');
+  // 给银湾重新上传封面（外部图片）——旧规则会把 共享.png 覆盖掉，北伐的封面被连带改掉
+  const up = join(root, '新图.png');
+  writeFileSync(up, 'NEW-IMG', 'utf8');
+  const r = v.setCover('测试世界', '银湾.md', up);
+  assert.equal(readFileSync(join(w, 'assets', 'covers', '共享.png'), 'utf8'), 'SHARED-OLD', '共享旧文件原样保留');
+  assert.match(readFileSync(join(w, '黄金时代', '北伐.md'), 'utf8'), /^&m assets\/covers\/共享\.png$/m, '另一张卡 &m 不变（封面不被连带）');
+  assert.equal(r.cover, 'assets/covers/银湾.png', '上传图按条目名改名复制');
+  assert.equal(readFileSync(join(w, 'assets', 'covers', '银湾.png'), 'utf8'), 'NEW-IMG', '新图内容落位');
+  // 二次换封面 → 序号新名；上一版副本也不动
+  const up2 = join(root, '新图2.png');
+  writeFileSync(up2, 'NEW-IMG-2', 'utf8');
+  const r2 = v.setCover('测试世界', '银湾.md', up2);
+  assert.equal(r2.cover, 'assets/covers/银湾-1.png', '二次换封面 → 序号新名');
+  assert.equal(readFileSync(join(w, 'assets', 'covers', '银湾.png'), 'utf8'), 'NEW-IMG', '上一版副本不动');
 }));
