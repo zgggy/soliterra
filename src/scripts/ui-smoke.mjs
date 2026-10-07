@@ -83,8 +83,8 @@ test('进入流：默认书籍面板 → 点书 → 目录树填充', async () =
   assert.ok(panel.includes('p-books'), '首访默认书籍面板');
   await page.click('.book-card[data-name="书A"]');
   // 关键：初始树（README 行）也在 #toc-body——必须等**导航到位 + 书A 子树**出现，仅等 .toc-row 会立即满足
-  await page.waitForFunction(() => location.hash.includes('books%2F%E4%B9%A6A.md') || location.hash.includes('books/书A.md'), { timeout: 6000 });
-  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('甲')), { timeout: 6000 });
+  await page.waitForFunction(() => location.hash.includes('books%2F%E4%B9%A6A.md') || location.hash.includes('books/书A.md'), null, { timeout: 6000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('甲')), null, { timeout: 6000 });
   const rows = await tocRows();
   const labels = rows.map((r) => r.label);
   assert.ok(labels.includes('书A') && labels.includes('甲') && labels.includes('乙'), `树含书A/甲/乙（实际 ${labels}）`);
@@ -105,7 +105,7 @@ test('树拖拽中区移入：甲 → 乙（乙变配对父，甲入其下）', 
   await page.waitForTimeout(1800);   // fs/move + 树重建
   // 展开乙（点行 = 打开+展开，第 111 轮语义）→ 甲应作为其子出现且缩进更深
   await page.click('#toc-body .toc-row:has(.toc-label:text-is("乙"))');
-  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('甲') && e.offsetParent !== null), { timeout: 4000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('甲') && e.offsetParent !== null), null, { timeout: 4000 });
   const rows2 = await tocRows();
   const yiRow = rows2.find((r) => r.label === '乙'), jiaRow = rows2.find((r) => r.label === '甲');
   assert.ok(yiRow && jiaRow, '乙与其子甲均可见');
@@ -122,24 +122,24 @@ test('两段式点击（第 112 轮）：未选中点=打开保持展开 → 再
   assert.ok(bl.includes('书A') && bl.includes('乙'), `前置树（实际 ${bl}）`);
   // ① 未选中+已展开 → 只打开、保持展开（第一次点击 = 选中）
   await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
-  await page.waitForFunction(() => decodeURIComponent(location.hash).includes('books/书A.md'), { timeout: 6000 });
-  await page.waitForFunction(() => (document.querySelector('.entry-title')?.textContent || '').trim() === '书A', { timeout: 6000 });
-  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length > 1, { timeout: 4000 });
+  await page.waitForFunction(() => decodeURIComponent(location.hash).includes('books/书A.md'), null, { timeout: 6000 });
+  await page.waitForFunction(() => (document.querySelector('.entry-title')?.textContent || '').trim() === '书A', null, { timeout: 6000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length > 1, null, { timeout: 4000 });
   // ② 已选中+已展开 → 收起（唯一收起时机；同文档不重载）
   await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
-  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length === 1, { timeout: 4000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length === 1, null, { timeout: 4000 });
   // ③ 已选中+已收起 → 展开
   await page.click('#toc-body .toc-row:has(.toc-label:text-is("书A"))');
-  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length > 1, { timeout: 4000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-row')].filter((r) => r.offsetParent !== null).length > 1, null, { timeout: 4000 });
   assert.equal((await page.$eval('.entry-title', (e) => e.textContent)).trim(), '书A', '文档保持打开');
 });
 
 test('纯目录节点点击：自动补建配对 md 并打开（层级必须 md+文件夹，第 111 轮）', async () => {
-  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('外来') && e.offsetParent !== null), { timeout: 8000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('#toc-body .toc-label')].some((e) => e.textContent.includes('外来') && e.offsetParent !== null), null, { timeout: 8000 });
   const rows = await tocRows();
   assert.ok(rows.some((r) => r.label === '外来'), '纯目录行（有子 md 无配对 md）在树中');
   await page.click('#toc-body .toc-row:has(.toc-label:text-is("外来"))');
-  await page.waitForFunction(() => decodeURIComponent(location.hash).includes('books/书A/外来.md'), { timeout: 8000 });
+  await page.waitForFunction(() => decodeURIComponent(location.hash).includes('books/书A/外来.md'), null, { timeout: 8000 });
   await page.waitForSelector('.entry-title', { timeout: 6000 });
   assert.equal((await page.$eval('.entry-title', (e) => e.textContent)).trim(), '外来', '打开补建出的文档');
   const t = await api(`/api/w/${encodeURIComponent(W)}/tree`);
@@ -156,7 +156,7 @@ test('批量建条目：空格分隔一次建多个（第 121 轮）', async () 
   await page.waitForSelector('.ask-input', { timeout: 4000 });
   await page.fill('.ask-input', '批甲 "带 空格" 批乙 批丙');   // 第 122 轮：双引号名含空格
   await page.press('.ask-input', 'Enter');
-  await page.waitForFunction(() => [...document.querySelectorAll('.toc-label')].some((e) => e.textContent === '批丙' && e.offsetParent !== null), { timeout: 6000 });
+  await page.waitForFunction(() => [...document.querySelectorAll('.toc-label')].some((e) => e.textContent === '批丙' && e.offsetParent !== null), null, { timeout: 6000 });
   const rows = await tocRows();
   const labels = rows.map((r) => r.label);
   for (const n of ['批甲', '带 空格', '批乙', '批丙']) assert.ok(labels.includes(n), `树含 ${n}（实际 ${JSON.stringify(rows)}）`);
@@ -172,7 +172,7 @@ test('编辑自动保存：打字 → 状态条 Saved → 磁盘落盘', async (
   await page.click('.cm-content');
   await page.keyboard.press('ControlOrMeta+End');
   await page.keyboard.type(' UI存盘标记', { delay: 30 });
-  await page.waitForFunction(() => (document.getElementById('edit-status')?.textContent || '').includes('Saved'), { timeout: 6000 });
+  await page.waitForFunction(() => (document.getElementById('edit-status')?.textContent || '').includes('Saved'), null, { timeout: 6000 });
   const raw = await api(`/api/w/${encodeURIComponent(W)}/raw?path=${encodeURIComponent('books/书B/稿.md')}`);
   assert.ok(raw.body.text.includes('UI存盘标记'), '磁盘含输入内容');
 });
@@ -272,6 +272,19 @@ test('快捷键：阅读态回车进编辑 · 编辑态 Esc 保存并退出（�
   assert.equal(await page.evaluate(() => location.hash), he, '编辑态方向键不翻页');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
+  // 第 126 轮：自家保存不得误报「外部修改」——SSE 事件 ≈ 保存后 1.1s（watch 300 + 防抖 800），
+  // 2.2s 时误报 toast 仍在屏上（3.6s 才消失）
+  await sleep(2200);
+  const ownToast = await page.$$eval('.toast', (ts) => ts.map((t) => t.textContent)
+    .filter((x) => x.includes('外部修改') || x.includes('externally')));
+  assert.deepEqual(ownToast, [], '自家保存不弹外部修改提示');
+  // 真外部改动（3s 窗口之外、经 API 写盘）→ 提示必须照常出现。**保留原文追加**（冲掉正文会让
+  // 后续「洛桑」搜索断言落空——fixture 内容是共享的）
+  const preRaw = await api(`/api/w/${encodeURIComponent(W)}/raw?path=${encodeURIComponent('books/书B/稿.md')}`);
+  await api(`/api/w/${encodeURIComponent(W)}/save`, { method: 'POST', body: { path: 'books/书B/稿.md', text: `${preRaw.body.text}\n外部程序改写标记\n`, force: true } });
+  await page.waitForFunction(() => [...document.querySelectorAll('.toast')]
+    .some((t) => t.textContent.includes('外部修改') || t.textContent.includes('externally')), null, { timeout: 5000 });
+  assert.ok(true, '真外部修改照常提示');
 });
 
 test('导出弹窗：单按钮 → 三分组 → 可关闭', async () => {
@@ -317,7 +330,7 @@ test('⌘K 搜索：快捷键 → 面板 → 中文查询出结果', async () =>
   await page.keyboard.press('ControlOrMeta+k');
   await page.waitForSelector('.search-dialog', { timeout: 4000 });
   await page.fill('.search-input', '洛桑');
-  await page.waitForFunction(() => document.querySelectorAll('.search-row').length > 0, { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelectorAll('.search-row').length > 0, null, { timeout: 5000 });
   const hits = await page.$$eval('.search-row .entry-card-title', (els) => els.map((e) => e.textContent.trim()));
   assert.ok(hits.includes('稿'), '搜索命中（trigram LIKE 通道）');
   // 搜索面板无关闭按钮（Esc 亦不收）→ 手动移除，否则 reader-modal 遮罩拦截后续测试的指针事件
@@ -418,7 +431,7 @@ test('书卡拖动：幽灵带书名 + 中区前缀 + 三分区换位（第 117 
   await ensureBooksPanel();
   await page.waitForSelector('.book-card[data-name="书A"]', { timeout: 10000 });
   // 面板展开有宽度动画（过渡期仅 1 列 186px）——等全宽 2 列就位再量几何
-  await page.waitForFunction(() => (document.getElementById('books-grid')?.parentElement?.getBoundingClientRect().width || 0) > 400, { timeout: 6000 });
+  await page.waitForFunction(() => (document.getElementById('books-grid')?.parentElement?.getBoundingClientRect().width || 0) > 400, null, { timeout: 6000 });
   await sleep(300);
   const rect = (sel) => page.$eval(sel, (c) => { const r = c.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
   const bA = await rect('.book-card[data-name="书A"]');

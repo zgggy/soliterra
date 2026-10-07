@@ -240,8 +240,12 @@ function watchFsEvents(ctx) {
         await refreshTimeline(ctx);
         if (ctx.panel === 'rel') renderRel(ctx, ctx.graphMode);
       } catch { /* 世界已删等情况：忽略 */ }
-      // 当前条目被外部改动且非编辑态 → 原地重载（滚动位置先落 localStorage，openEntry 会恢复）
-      if (paths.has(ctx.currentPath) && !ctx.editing && ctx.currentPath) {
+      // 当前条目被改动且非编辑态 → 原地重载（滚动位置先落 localStorage，openEntry 会恢复）。
+      // 第 126 轮：**自家写盘 3s 内不算外部修改**——watch 稳定 300ms + SSE 防抖 800ms ⇒ 自己
+      // 每次保存后 ~1.1s 就会收到自己的事件，原实现无差别提示「文件已被外部修改——已重新加载」
+      // 并重载正文（实测每次保存都弹、纯误报）。真外部改动（自家保存 3s 之后）照常提示+重载。
+      const ownWrite = ctx.currentPath && Date.now() - (ctx.localWriteAt || 0) < 3000;
+      if (paths.has(ctx.currentPath) && !ctx.editing && ctx.currentPath && !ownWrite) {
         try { localStorage.setItem(`soliterra.scroll.${ctx.worldId}.${ctx.currentPath}`, String(document.getElementById('reader')?.scrollTop || 0)); } catch {}
         showToast(t('wp.externalReload'), 'info');
         openEntry(ctx, ctx.currentPath, ctx.chrono);
@@ -1440,6 +1444,7 @@ async function saveEntryText(ctx, rel, text, { prompt = false } = {}) {
   try {
     const r = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: rel, text, baseMtime: ctx.currentMtime ?? null, force: false } });
     ctx.currentMtime = r.mtime ?? ctx.currentMtime;
+    ctx.localWriteAt = Date.now();   // 第 126 轮：自家写盘标记（SSE 据此不误报外部修改）
     ctx.conflictAcked = false;
     return true;
   } catch (e) {
@@ -1455,6 +1460,7 @@ async function saveEntryText(ctx, rel, text, { prompt = false } = {}) {
     try {
       const r = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: rel, text, force: true } });
       ctx.currentMtime = r.mtime ?? ctx.currentMtime;
+      ctx.localWriteAt = Date.now();   // 第 126 轮：自家写盘标记
       showToast(t('edit.overwrote'), 'warning');
       return true;
     } catch (e2) { showToast(String(e2.message), 'error'); return false; }

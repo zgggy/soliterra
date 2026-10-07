@@ -281,6 +281,7 @@ export async function editMetaValue(ctx, key, value) {
   try {
     const r = await api(`/api/w/${enc(ctx.worldId)}/save`, { method: 'POST', body: { path: ctx.currentPath, text: raw, baseMtime: ctx.currentMtime ?? null } });
     ctx.currentMtime = r.mtime ?? ctx.currentMtime;   // 第 92 轮：乐观锁基准前移
+    ctx.localWriteAt = Date.now();   // 第 126 轮：自家写盘标记（SSE 不误报外部修改）
     refreshGitStatus(ctx);
     await refreshTimeline(ctx);   // 元数据改完即刻上轴（含范围重算）
     await hooks.openEntry?.(ctx, ctx.currentPath, ctx.chrono);   // 原地重载正文（不重建面板；打开本就不取景）
