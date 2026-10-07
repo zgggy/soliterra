@@ -326,6 +326,8 @@ const META_DEFS = [
   ['s', '起始时间', '时间轴定位起点；* 模糊段，公元前加 -', 'Start time (timeline anchor; * fuzzy, - for BCE)'],
   ['e', '结束时间', '缺省 = 瞬时事件（轴上一个点）', 'End time; omit = instant event'],
   ['n', '标题', '不写则用文件名', 'Title; defaults to filename'],
+  ['w', '作者', '世界观内的作者（写这本书的人）', 'In-world author (who wrote this)'],
+  ['d', '作成时间', '本书写成的日期（yyyy.mm.dd，可模糊）', 'Date written (yyyy.mm.dd, fuzzy ok)'],
   ['t', '标签', '空格分隔；书籍分类与图筛选', 'Tags (space separated)'],
   ['f', '事件分类', '时间轴旗标的分组维度', 'Flag group on the timeline'],
   ['a', '时代', '时间轴时代带：同代条目时间并集', 'Era band grouping'],

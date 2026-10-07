@@ -10,7 +10,7 @@ const META_ENUM = {
   v: [['公众', '公众'], ['秘传', '秘传'], ['作者', '作者']],
   q: [['可靠', '可靠'], ['存疑', '存疑'], ['已证伪', '已证伪'], ['立场鲜明', '立场鲜明']],
 };
-const META_LABEL = { s: '起始时间', e: '结束时间', t: '标签', f: '事件分类', n: '标题', a: '时代', p: '状态', v: '可见性', q: '可信度', m: '封面图', r: '顺序' };
+const META_LABEL = { s: '起始时间', e: '结束时间', t: '标签', f: '事件分类', n: '标题', w: '作者', d: '作成时间', a: '时代', p: '状态', v: '可见性', q: '可信度', m: '封面图', r: '顺序' };
 // §B.2 元数据抽屉键表（与《全景时间轴与编辑器增强设计.md》§B.2 一致：名 / 解释 / 示例）
 const META_KEY_DOC = {
   s: { zh: '时间轴定位起点；`*` 为模糊段，公元前加 `-`', en: 'Timeline start; * fuzzy, - for BCE' },
@@ -23,9 +23,11 @@ const META_KEY_DOC = {
   v: { zh: '可见性——读者视图分级（存中文值）', en: 'Visibility (reader-view gating)' },
   q: { zh: '可信度——卡片徽章前置（存中文值）', en: 'Reliability badge' },
   m: { zh: '封面图——assets/ 相对路径', en: 'Cover image path' },
+  w: { zh: '作者——世界观内的作者（写这本书的人）', en: 'In-world author (who wrote this)' },
+  d: { zh: '作成时间——本书写成的日期（yyyy.mm.dd，可模糊）', en: 'Date written (yyyy.mm.dd, fuzzy ok)' },
   r: { zh: '同层目录顺序（1 起）——目录里拖动即自动整层重写', en: 'Sibling order (1+) — rewritten by TOC drag' },
 };
-const META_ORDER = ['s', 'e', 'n', 't', 'f', 'a', 'p', 'v', 'q', 'm', 'r'];
+const META_ORDER = ['s', 'e', 'n', 'w', 'd', 't', 'f', 'a', 'p', 'v', 'q', 'm', 'r'];
 
 /** 从文档文本解析 & 元数据（单行值断于下个键或行尾）→ Map<key, {value}>。 */
 export function parseMetaFromDoc(text) {
@@ -139,7 +141,7 @@ export function renderMetaDrawer(ctx) {
 
 export function openMetaEditor(ctx, key, current) {
   return new Promise((resolve) => {
-    const isDate = key === 's' || key === 'e';
+    const isDate = key === 's' || key === 'e' || key === 'd';   // 作成时间用同一日期控件（宽松归一 shared/date）
     const isTags = key === 't';
     const seg = META_ENUM[key];
     const flagCats = [...new Set(ctx.timeline.map((r) => r.flag).filter(Boolean))];

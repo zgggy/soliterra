@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseEntry, splitFrontmatter, KEYS } from '../lib/parser.js';
+import { entryMetaParts } from '../lib/render.js';
 
 test('splitFrontmatter：文件头块剥离 + 至少一行 key: 才认定', () => {
   const fm = '---\ntitle: 章名\ntags: [a, b]\nstatus: canon\nsub:\n  nested: v\n---\n# 正文\n';
@@ -46,4 +47,21 @@ test('parseEntry：&r 顺序键解析 + KEYS 登记（lint 不报未知键）', 
   const mixed = parseEntry('b.md', '&r 9 &t 设定\n\n# 标题\n');
   assert.deepEqual(mixed.meta.r, ['9']);
   assert.deepEqual(mixed.meta.t, ['设定']);
+});
+
+// 第 113 轮：in-world 作者（&w）与作成时间（&d）——标题右侧展示
+test('parseEntry + entryMetaParts：&w/&d 解析并合入标题右侧 aside', () => {
+  const e = parseEntry('w.md', '&n 某书 &w 星辉史官 &d 0705.09\n\n# 某书\n\n正文\n');
+  assert.deepEqual(e.meta.w, ['星辉史官']);
+  assert.deepEqual(e.meta.d, ['0705.09']);
+  assert.ok(KEYS.includes('w') && KEYS.includes('d'), '键表登记（lint 不报未知）');
+  const { rangeHTML } = entryMetaParts(e.meta, 'zh-CN');
+  assert.ok(rangeHTML.includes('entry-aside'), '合入标题右侧容器');
+  assert.ok(rangeHTML.includes('作者 · 星辉史官'), '作者项');
+  assert.ok(rangeHTML.includes('成书 · 0705.09'), '作成时间项');
+  const en = entryMetaParts(e.meta, 'en');
+  assert.ok(en.rangeHTML.includes('Author ·') && en.rangeHTML.includes('Written ·'), 'en 文案');
+  // 无 &w/&d 且无 &s → aside 空（不占位）
+  const bare = entryMetaParts({}, 'zh-CN');
+  assert.equal(bare.rangeHTML, '', '无值不渲染');
 });

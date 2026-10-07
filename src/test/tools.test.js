@@ -270,3 +270,16 @@ test('scanSymbols + apply：逐行列出并应用（含 & 行与 wikilink 行）
     assert.equal(scanSymbols(dir).length, 0, '应用后零残留（幂等）');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('lint：&d 作成时间走日期格式校验（第 113 轮）', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'soliterra-d-'));
+  try {
+    writeFileSync(join(dir, 'a.md'), '&n 书 &d 乱写\n\n正文\n', 'utf8');
+    writeFileSync(join(dir, 'b.md'), '&n 书2 &d 0705.09.*\n\n正文\n', 'utf8');
+    const items = lint(dir);
+    const bad = items.find((x) => x.kind === 'meta' && x.path === 'a.md');
+    assert.ok(bad, '&d 不合规被报');
+    assert.match(bad.message, /&d 乱写/);
+    assert.ok(!items.some((x) => x.kind === 'meta' && x.path === 'b.md'), '合规 &d 不报');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

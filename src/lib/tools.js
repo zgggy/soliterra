@@ -390,7 +390,7 @@ export function lint(worldDir, limit = 800) {
       if (!/&[a-z](?=\s|$)/.test(lines[i])) continue;
       for (const pr of parseMetadataLine(lines[i])) {
         if (!KEYS.includes(pr.key)) push({ kind: 'meta', severity: 'warn', path: rel, line: i + 1, message: `未知元数据键：&${pr.key}（词表是建议不是锁）` });
-        if (pr.key === 's' || pr.key === 'e') {
+        if (pr.key === 's' || pr.key === 'e' || pr.key === 'd') {   // 作成时间同格式校验（第 113 轮）
           for (const v of pr.values) {
             if (!/^-?\d{1,4}\.(\d{2}|\*)\.(\d{2}|\*)$/.test(v)) {
               push({ kind: 'meta', severity: 'warn', path: rel, line: i + 1, message: `日期不合规：&${pr.key} ${v}（应为 yyyy.mm.dd，模糊段用 *）` });

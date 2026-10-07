@@ -110,6 +110,7 @@ const STATUS_EN = { canon: 'Canon', draft: 'Draft', disputed: 'Disputed', deprec
 
 export function entryMetaParts(meta, lang) {
   const top = [];
+  const zh2 = lang !== 'en';
   if (meta.q?.[0]) top.push(`<button class="m-item m-q" data-key="q">${esc(meta.q[0])}</button>`);
   if (meta.p?.[0]) {
     const label = (lang === 'en' ? STATUS_EN : STATUS_ZH)[meta.p[0]] || meta.p[0];
@@ -123,7 +124,14 @@ export function entryMetaParts(meta, lang) {
   const rangeHTML = meta.s?.[0]
     ? `<span class="entry-range"><button class="m-item m-s" data-key="s">${esc(meta.s[0])}</button><span class="m-dash">–</span><button class="m-item m-e" data-key="e">${esc(meta.e?.[0] || '')}</button></span>`
     : '';
-  return { topMetaHTML, rangeHTML };
+  // 第 113 轮：in-world 作者（&w）与作成时间（&d）——**标题右侧右对齐**（有无封面同位）：
+  // 合入 entry-aside 单容器（title-row 是 flex space-between → h1 左、aside 右，位置稳定）。
+  const asideBits = [];
+  if (meta.w?.[0]) asideBits.push(`<span class="ea-item">${zh2 ? '作者' : 'Author'} · ${esc(meta.w[0])}</span>`);
+  if (meta.d?.[0]) asideBits.push(`<span class="ea-item">${zh2 ? '成书' : 'Written'} · ${esc(meta.d[0])}</span>`);
+  const asideHTML = (asideBits.length || rangeHTML)
+    ? `<span class="entry-aside">${asideBits.join('')}${rangeHTML}</span>` : '';
+  return { topMetaHTML, rangeHTML: asideHTML };   // 合体返回：所有消费点（阅读/预览/站点/EPUB）零改动
 }
 
 // callout：> [!档案] 标题\n> 内容

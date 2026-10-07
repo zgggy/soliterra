@@ -1371,3 +1371,8 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 
 /* 拖拽幽灵卡：即将隶属前缀（第 109 轮）——`目标节点/原名`，父名浅色 */
 .toc-drag-ghost .ghost-parent { color: var(--text-muted); font-weight: 400; opacity: .7; }
+
+/* ---------- 标题右侧：in-world 作者 + 作成时间（第 113 轮）——&w/&d，右对齐，封面版同位 ---------- */
+.entry-aside { display: inline-flex; align-items: baseline; gap: 14px; }
+.entry-author, .ea-item { font-family: var(--font-mono); font-size: 0.74rem; color: var(--text-muted); white-space: nowrap; }
+.entry-hero .entry-aside, .entry-hero .ea-item, .entry-hero .entry-author { color: rgba(255, 255, 255, .92); }   /* 封面内白字 */
