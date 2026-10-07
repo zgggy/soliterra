@@ -61,6 +61,14 @@ after(async () => {
 
 // depth 用 padding-left（行是块级、rect.left 全相同；缩进在行内 padding）；
 // **只取可见行**（hidden 子树内的行 offsetParent=null——否则收起状态也被统计）
+// 第 125 轮：刷新会恢复**各自上次的面板**（按世界 sessionStorage）——期望书籍面板的测试先归位
+const ensureBooksPanel = async () => {
+  await page.waitForSelector('.entry-title, .cm-content', { timeout: 8000 });   // 等渲染走完（面板恢复已定）
+  if (await page.$('.books-head')) return;
+  await page.click('#fab-books');
+  await page.waitForSelector('.books-head', { timeout: 6000 });
+};
+
 const tocRows = () => page.$$eval('#toc-body .toc-row', (rows) => rows.filter((r) => r.offsetParent !== null).map((r) => ({
   label: r.querySelector('.toc-label')?.textContent?.trim() || '',
   top: Math.round(r.getBoundingClientRect().top + r.getBoundingClientRect().height / 2),
@@ -362,6 +370,7 @@ test('首页卡片同构 9:16 信息入封面 + 世界卡拖动换位落盘', as
 
 test('书籍头合一 + filter 横滚（第 118/120 轮）', async () => {
   await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+  await ensureBooksPanel();
   await page.waitForSelector('.books-head', { timeout: 10000 });
   const head = await page.$eval('.books-head', (h) => ({
     titleGone: !h.textContent.includes('全部书籍'),
@@ -373,30 +382,40 @@ test('书籍头合一 + filter 横滚（第 118/120 轮）', async () => {
   assert.ok(head.titleGone && head.countGone, '「全部书籍」「N 本」已删');
   assert.ok(head.oneRow, 'filter 与 ＋ 合并在同一行');
   assert.ok(head.fade && head.fadePointer === 'none', '右端渐变遮挡在且不挡指针');
-  // 注满 chips → 纵向滚轮应映射成横向滚动（第 120 轮）
-  await page.evaluate(() => {
-    const f = document.getElementById('books-filter');
-    for (let i = 0; i < 40; i++) {
-      const b = document.createElement('button');
-      b.className = 'bf-chip';
-      b.textContent = '很长的分类标签' + i;
-      f.appendChild(b);
-    }
-  });
-  const st = await page.$eval('#books-filter', (f) => {
-    const r = f.getBoundingClientRect();
-    return { sw: f.scrollWidth, cw: f.clientWidth, left: f.scrollLeft, x: Math.round(r.x + Math.min(r.width / 2, 120)), y: Math.round(r.y + r.height / 2) };
-  });
+  // 注满 chips → 纵向滚轮应映射成横向滚动（第 120 轮）。
+  // 竞争（第 125 轮实测）：renderBooksPanel 的归档接口回来会整块重渲染、冲掉注入的 chips
+  //（336/336）或让 wheel 打空（0→0）——「注入 → 量 → 滚」小循环，被冲掉就等一轮重来（≤3 次）。
+  let st = null, left2 = 0;
+  for (let i = 0; i < 3 && !left2; i++) {
+    await page.evaluate(() => {
+      const f = document.getElementById('books-filter');
+      if (!f || f.children.length >= 40) return;
+      for (let k = 0; k < 40; k++) {
+        const b = document.createElement('button');
+        b.className = 'bf-chip';
+        b.textContent = '很长的分类标签' + k;
+        f.appendChild(b);
+      }
+    });
+    await sleep(150);
+    st = await page.$eval('#books-filter', (f) => {
+      const r = f.getBoundingClientRect();
+      return { sw: f.scrollWidth, cw: f.clientWidth, left: f.scrollLeft, x: Math.round(r.x + Math.min(r.width / 2, 120)), y: Math.round(r.y + r.height / 2) };
+    });
+    if (!(st.sw > st.cw)) { await sleep(350); continue; }   // 刚被重渲染冲掉 → 等归档回调落定
+    await page.mouse.move(st.x, st.y);
+    await sleep(120);   // 命中测试落位（面板过渡中的 stale 坐标会打空）
+    await page.mouse.wheel(0, 240);
+    await sleep(220);
+    left2 = await page.$eval('#books-filter', (f) => f.scrollLeft);
+  }
   assert.ok(st.sw > st.cw, `chips 溢出可滚（${st.sw}/${st.cw}）`);
-  await page.mouse.move(st.x, st.y);
-  await page.mouse.wheel(0, 240);
-  await sleep(200);
-  const left2 = await page.$eval('#books-filter', (f) => f.scrollLeft);
   assert.ok(left2 > st.left, `滚轮 → 横向滚动（${st.left} → ${left2}）`);
 });
 
 test('书卡拖动：幽灵带书名 + 中区前缀 + 三分区换位（第 117 轮：结构变更不丢名字）', async () => {
   await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+  await ensureBooksPanel();
   await page.waitForSelector('.book-card[data-name="书A"]', { timeout: 10000 });
   // 面板展开有宽度动画（过渡期仅 1 列 186px）——等全宽 2 列就位再量几何
   await page.waitForFunction(() => (document.getElementById('books-grid')?.parentElement?.getBoundingClientRect().width || 0) > 400, { timeout: 6000 });
@@ -456,6 +475,7 @@ test('暗色主题平台化：首页循环切换 → 刷新保持 → 世界内�
   assert.ok(afterReload, '刷新后首页仍暗色');
   // 进世界 → 一致（主题不再按世界分裂）
   await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+  await ensureBooksPanel();
   await page.waitForSelector('.books-head', { timeout: 8000 });
   const inWorld = await page.evaluate(() => ({
     cls: document.body.classList.contains('dark-mode'),
@@ -482,6 +502,7 @@ test('移动端 375×667：面板全屏浮层 + fab 可点关面板 + 各态无�
     await page.waitForSelector('.world-card:not(.world-card-new)', { timeout: 8000 });
     await noHOverflow('首页');
     await page.goto(`${base}/#/w/${encodeURIComponent(W)}`);
+    await ensureBooksPanel();
     await page.waitForSelector('.books-head', { timeout: 8000 });
     await sleep(500);
     const panel = await page.evaluate(() => {
@@ -528,4 +549,34 @@ test('移动端 375×667：面板全屏浮层 + fab 可点关面板 + 各态无�
   } finally {
     await page.setViewportSize({ width: 1280, height: 720 });
   }
+});
+
+// ---------- 第 125 轮：刷新保持面板（按世界 sessionStorage；无记录默认书籍） ----------
+test('刷新保持面板：目录仍目录 · 关闭仍关 · 无记录默认书籍', async () => {
+  await page.goto(`${base}/#/w/${encodeURIComponent(W)}/${encodeURIComponent('books/书A.md')}`);
+  await page.waitForSelector('.entry-title', { timeout: 8000 });
+  // A：开着目录面板 → 刷新仍是目录
+  await page.click('#fab-toc');
+  await sleep(400);
+  assert.ok((await page.$eval('#shell', (e) => e.className)).includes('p-toc'), '起始目录面板');
+  await page.reload();
+  await page.waitForSelector('.entry-title', { timeout: 8000 });
+  await sleep(300);
+  const afterReload = await page.$eval('#shell', (e) => e.className);
+  assert.ok(afterReload.includes('p-toc'), `刷新后仍目录面板（实际 ${afterReload}）`);
+  assert.ok(await page.$('.push-panel.live'), '目录面板内容在');
+  // B：关闭面板 → 刷新仍关
+  await page.click('#fab-toc');
+  await sleep(350);
+  assert.ok(!(await page.$('.push-panel.live')), '起始关闭');
+  await page.reload();
+  await page.waitForSelector('.entry-title', { timeout: 8000 });
+  await sleep(300);
+  assert.ok(!(await page.$('.push-panel.live')), '刷新后仍关闭（保持现状）');
+  // C：无记录（本世界首次进入语义）→ 默认书籍面板
+  await page.evaluate(() => sessionStorage.removeItem('soliterra.panel.UI测'));
+  await page.reload();
+  await page.waitForSelector('.entry-title', { timeout: 8000 });
+  await sleep(300);
+  assert.ok((await page.$eval('#shell', (e) => e.className)).includes('p-books'), '无记录默认书籍');
 });

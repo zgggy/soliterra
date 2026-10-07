@@ -179,9 +179,15 @@ export async function renderWorld(root, worldId, entryPath) {
   });
 
   // ---------- 面板先于阅读恢复（避免目录区先空白后跳出 → 闪烁） ----------
-  // 第 92 轮用户要求：进入世界默认打开「全部书籍」面板——进入流 = 世界 → 书籍 → （点书）目录。
-  // 世界内换条目/换书不走本函数（activeWorld.update 原地更新），因此阅读中翻页不会重置面板。
-  if (entryPath) { setPanel(ctx, 'books'); ctx.panelPainted = true; }
+  // 第 92 轮：进入世界默认「全部书籍」（进入流 = 世界 → 书籍 → 点书目录）。
+  // 第 125 轮修：原实现无条件 setPanel('books') → **刷新永远跳回书籍面板**；改为按世界读
+  // sessionStorage（soliterra.panel.<worldId>，'' = 当时关着）——刷新/重进保持现状；
+  // 无记录（本世界首次进入）才默认书籍。世界内换条目不走本函数（activeWorld.update），翻页不重置面板。
+  if (entryPath) {
+    const saved = sessionStorage.getItem(`soliterra.panel.${worldId}`);
+    setPanel(ctx, saved == null ? 'books' : saved);
+    ctx.panelPainted = true;
+  }
 
   // ---------- 阅读 ----------
   if (entryPath) {
@@ -191,7 +197,6 @@ export async function renderWorld(root, worldId, entryPath) {
     const rootBook = rootNodeOf(ctx);
     const first = rootBook ? firstEntryOf(rootBook) : null;
     if (first) {
-      sessionStorage.setItem('soliterra.panel', 'books');   // 进入流：世界 → 书籍面板 → 目录
       navigate(`#/w/${enc(worldId)}/${enc(first)}`);
       return;
     }
@@ -259,7 +264,7 @@ export function currentWorld() { return activeWorld; }
 // ============ 面板管理（push 原语：左=世界/全部书籍/目录；右=关系/工具；互斥） ============
 function setPanel(ctx, name) {
   ctx.panel = name;
-  sessionStorage.setItem('soliterra.panel', name || '');
+  sessionStorage.setItem(`soliterra.panel.${ctx.worldId}`, name || '');   // 第 125 轮：按世界记忆（刷新恢复用）
   const shell = document.getElementById('shell');
   const left = document.getElementById('panel-left');
   const right = document.getElementById('panel-right');
