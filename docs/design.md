@@ -24,7 +24,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
   - **readlater-fan**（底部卡片集）：稍后阅读 = 屏幕底部中央的**扇形卡片集**——rest 聚拢成扇（±9° / 间距 26px / 只露上半 70px），hover 整集转**横排展开**（gap 8、尽量不重叠、总宽距两侧钮群 ≥40px），单卡 hover 上升 + 右上 `×` 移除。
 - **首页 = 世界列表**：横排竖卡 + 「+ 新建」卡，滚轮左右滚动，卡片 hover 3D 倾斜（±6deg，不加影不加圆角）；不是 banner 三栏、不是全屏大图。
 - footer 是**一行居中的灰字题记**，无链接列、无图标——与你的「卷旨/题记」习惯完全同构。
-- **书**：书卡 = 2:3 封面竖矩形 + 书名 + 标签行（全部书籍面板内）；书架 Dock / 书脊 / 底座方案**已整体废弃**。**书卡管理入口（第 80 轮定稿）**：**卡内右键**（键盘等价 = 「菜单键」/ Shift+F10）→ `tree-menu`（重命名 / 删除 / 补建同名条目 / 在书内加条目）；面板头 `＋`（`panel-head-btn` 同款）与目录面板一致。**不做卡上悬浮按钮**（第 79 轮曾试 `⋯`，用户判定多余已移除——右键为正式入口）。
+- **书**：书卡 = **9:16 封面竖矩形** + 书名/标签行**叠入封面内底部**（全部书籍面板内，第 116 轮）；书架 Dock / 书脊 / 底座方案**已整体废弃**。**书卡管理入口（第 80 轮定稿）**：**卡内右键**（键盘等价 = 「菜单键」/ Shift+F10）→ `tree-menu`（重命名 / 删除 / 补建同名条目 / 在书内加条目）；面板头 `＋`（`panel-head-btn` 同款）与目录面板一致。**不做卡上悬浮按钮**（第 79 轮曾试 `⋯`，用户判定多余已移除——右键为正式入口）。
 
 ## Colors
 
@@ -163,7 +163,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 #### Image Behavior
 - 概念图/地图：卡内 `width: 100%` + 1px `{colors.line}` 边框（参考站 `.inline-image` 同款），不圆角、不投影。
-- 词条封面图放卡片顶部（4:3）；地图查看器整幅占满阅读列。
+- 词条封面图放卡片/文档标题区顶部（**9:16 竖版，第 116 轮**，`entry-hero` 标题叠入封面内底部）；地图查看器整幅占满阅读列。
 
 ### 阅读页（文章/词条/章节共用）
 - 参考站用**模态阅读层**（点卡片 → 全屏遮罩 + 居中 980px 纸面）。平台沿用此形态做**词条速览**：`rgba(0,0,0,.48)` 遮罩 + `blur(5px)`，纸面 `min(980px, calc(100vw - 48px))`，`margin: 88px auto 56px`，入场 `translateY(24px) scale(.985) → 0` 的 `cubic-bezier(.22,1,.36,1) 300ms`。
@@ -192,7 +192,7 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 | `{rounded.full}` | 50% / 9999px | 仅三处：主题切换圆钮、用户头像、状态圆点。 |
 
 ### Photography Geometry
-- 概念图/地图：原比例，1px 边框，0 圆角；卡内封面 4:3 裁切；正文插图满列宽。
+- 概念图/地图：原比例，1px 边框，0 圆角；卡内封面 **9:16 裁切**（第 116 轮全站统一）；正文插图满列宽。
 
 ## Motion（交互动画系统，v3 定稿）
 
@@ -368,8 +368,8 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 **`world-row`** — 首页世界列表横排容器。
 - flex、gap 20px、`padding: 0 8vw`、`overflow-x: auto`；滚轮 deltaY 映射 `scrollLeft`；整行屏幕垂直居中。
 
-**`world-card`** — 首页世界竖卡（240×340）。
-- card-surface 配方；上 62% 封面（无图 → bg-soft + 首字大衬线），下 38% 世界名（display-md）+ 简介（2 行省略）+ **`world-card-path` 位置行（第 87 轮）** + 底部等宽元数据（hairline 上隔）；右上角线条 icon-button 菜单。
+**`world-card`** — 首页世界竖卡（约 203×361，**9:16 封面比例，第 116 轮**）。
+- card-surface 配方；**整卡 = 9:16 封面**，信息（世界名 display-md + 简介 2 行省略 + `world-card-path` 位置行 + 等宽元数据）以 `world-card-body` **absolute 叠入封面内底部**——有封面：底部向上墨色渐变 + 白字；无封面：浅底墨字 + 首字大衬线 glyph（`has-cover` class 区分）；右上角线条 icon-button 菜单（盖在封面右上，第 116 轮）。
 - **`world-card-path`**：`~/<世界库>/<名>/` 等宽 0.62rem `{colors.text-muted}`，单行 `text-overflow: ellipsis`，`title` = 完整绝对路径（数据 = `/api/worlds` 的 `dir` + `/api/meta.home` 缩写）。
 - **hover 倾斜**：`hover-tilt` 原语（±6deg / 200ms）+ 边框 `line-strong`。
 
@@ -471,11 +471,11 @@ Soliterra 是一个本地部署的条目平台（一切皆条目：一个 .md = 
 
 **`books-panel`（全部书籍，左 push；书架 Dock 已废弃）** — 左下 `格` 钮开合。
 - 面板 = `.panel-head`（「全部书籍 + N 本」等宽计数）+ **`.books-filter` 分类 chip 行**（`bf-chip`：全部 + 顶层书 `&t` 去重；激活 = ink 底；计数「N / M 本」）+ `.panel-scroll` 内 **`.books-grid`**：`repeat(auto-fill, minmax(150px, 1fr))` **默认两列**、竖排滚动；**拖动把手加宽 → 列数自动增加**；
-- 书卡 `book-card`（2:3 封面 + 书名 + 标签行）+ **hover 倾斜**（`hover-tilt` 原语，容器 `perspective: 1200px`）；
+- 书卡 `book-card`（9:16 封面，书名+标签 `book-card-overlay` 叠入封面内底部，第 116 轮）+ **hover 倾斜**（`hover-tilt` 原语，容器 `perspective: 1200px`）；
 - 点击书卡 → 打开该书首条目并**切换为目录面板**。
 
 **`book-card`** — 全部书籍面板网格项（功能设计 §8.3）。
-- 2:3 封面竖矩形（bg-soft + 边框 + 衬线首字）+ 书名（衬线 700）+ 标签行（eyebrow）；**hover 倾斜**（`hover-tilt`）；点击 → 打开该书首条目并切换为目录面板。
+- **9:16 封面竖矩形**（bg-soft + 边框 + 衬线首字；有图 `object-fit: cover`）+ 书名（衬线 700）+ 标签行（eyebrow）**以 `book-card-overlay` absolute 叠入封面内底部**（有图：底部渐变白字；无图：墨字回退，`has-cover` 区分）；**hover 倾斜**（`hover-tilt`）；点击 → 打开该书首条目并切换为目录面板。
 
 **`annotation-row`** — 勘误行（书籍错误 → 正确段落的链接）。
 - alert-row 同构：3px `{colors.alert}` 前缘 + `{colors.bg-soft}` 底 + 正文 + 指向 `[[词条#锚]]` 的超链；`disputed`（存疑）态 = 虚线 warning 左缘、不判死。行内配 `已证伪/存疑` 徽章（status-badge）。
