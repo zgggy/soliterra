@@ -1027,15 +1027,19 @@ function renderBooksPanel(ctx) {
       grid.innerHTML = [
         ...arch.books.map((a) => `
         <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="book">
-          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span></div>
-          <div class="book-card-title">${esc(a.title)}</div>
-          <div class="book-card-tags eyebrow">${t('arc.book')}</div>
+          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span>
+            <div class="book-card-overlay">
+              <div class="book-card-title">${esc(a.title)}</div>
+              <div class="book-card-tags eyebrow">${t('arc.book')}</div>
+            </div></div>
         </button>`),
         ...arch.entries.map((a) => `
         <button class="book-card archived" data-rel="${esc(a.rel)}" data-kind="entry">
-          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span></div>
-          <div class="book-card-title">${esc(a.title)}</div>
-          <div class="book-card-tags eyebrow" title="${esc(a.orig)}">${t('arc.entry')}</div>
+          <div class="book-card-cover"><span class="book-card-glyph">${esc((a.title || a.rel).slice(0, 1))}</span>
+            <div class="book-card-overlay">
+              <div class="book-card-title">${esc(a.title)}</div>
+              <div class="book-card-tags eyebrow" title="${esc(a.orig)}">${t('arc.entry')}</div>
+            </div></div>
         </button>`),
       ].join('') || `<div class="empty-state">${t('arc.none')}</div>`;
       grid.querySelectorAll('.book-card.archived').forEach((card) => {
@@ -1055,15 +1059,19 @@ function renderBooksPanel(ctx) {
     if (count) count.textContent = ctx.booksCat === '全部'
       ? `${books.length} ${lt('shelfBooks')}`
       : `${shown.length} / ${books.length} ${lt('shelfBooks')}`;
+    // 第 116 轮：信息层（标题+标签行）移入 9:16 封面内部（有封面白字+渐变 / 无封面墨字）
     grid.innerHTML = shown.map((b) => `
       <button class="book-card" data-name="${esc(b.name)}">
-        <div class="book-card-cover">${b.cover
+        <div class="book-card-cover${b.cover ? ' has-cover' : ''}">${b.cover
           ? `<img src="/w/${enc(ctx.worldId)}/${enc(b.cover)}" alt="" data-glyph="${esc((b.title || b.name).slice(0, 1))}" data-glyph-class="book-card-glyph">`
-          : `<span class="book-card-glyph">${esc((b.title || b.name).slice(0, 1))}</span>`}</div>
-        <div class="book-card-title">${esc(b.title || b.name)}</div>
-        ${(b.tags || []).length || !b.md ? `<div class="book-card-tags eyebrow"${b.md ? '' : ` title="${t('book.noPairTip')}"`}>${b.md
-          ? esc((b.tags || []).slice(0, 2).join(' · '))
-          : t('arc.noEntry')}</div>` : ''}
+          : `<span class="book-card-glyph">${esc((b.title || b.name).slice(0, 1))}</span>`}
+          <div class="book-card-overlay">
+            <div class="book-card-title">${esc(b.title || b.name)}</div>
+            ${(b.tags || []).length || !b.md ? `<div class="book-card-tags eyebrow"${b.md ? '' : ` title="${t('book.noPairTip')}"`}>${b.md
+              ? esc((b.tags || []).slice(0, 2).join(' · '))
+              : t('arc.noEntry')}</div>` : ''}
+          </div>
+        </div>
       </button>`).join('');
     grid.querySelectorAll('.book-card').forEach((card) => {
       attachTilt(card);

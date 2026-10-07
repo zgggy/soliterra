@@ -42,17 +42,19 @@ export async function renderHome(root) {
     card.href = `#/w/${encodeURIComponent(w.id)}`;
     const dirFull = w.dir || '';
     const dirShow = dirFull ? abbrevPath(dirFull, homeMeta.home) + '/' : '';
+    // 第 116 轮：信息层移入 9:16 封面内部（body=absolute overlay，有封面白字+渐变 / 无封面墨字）
     card.innerHTML = `
-      <div class="world-card-cover">${w.cover
+      <div class="world-card-cover${w.cover ? ' has-cover' : ''}">${w.cover
         ? `<img src="/w/${encodeURIComponent(w.id)}/${encodeURIComponent(w.cover)}" alt="" data-glyph="${escapeHtml(w.name.slice(0, 1))}" data-glyph-class="world-card-glyph">`
-        : `<span class="world-card-glyph">${escapeHtml(w.name.slice(0, 1))}</span>`}</div>
-      <button class="world-card-menu" title="${t('home.worldActions')}">⋯</button>
-      <div class="world-card-body">
+        : `<span class="world-card-glyph">${escapeHtml(w.name.slice(0, 1))}</span>`}
+        <div class="world-card-body">
         <h3 class="world-card-title">${escapeHtml(w.name)}</h3>
         <p class="world-card-sub">${escapeHtml(w.subtitle || '')}</p>
         ${dirShow ? `<div class="world-card-path" title="${escapeHtml(dirFull)}">${escapeHtml(dirShow)}</div>` : ''}
         <div class="world-card-meta">${w.stats.entries} ${t('world.entries')} · ${w.stats.events} ${t('world.events')}</div>
-      </div>`;
+        </div>
+      </div>
+      <button class="world-card-menu" title="${t('home.worldActions')}">⋯</button>`;
     row.appendChild(card);
     attachTilt(card);
     bindCoverFallbacks(card);

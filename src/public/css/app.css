@@ -165,7 +165,8 @@ img { display: block; max-width: 100%; }
 }
 .world-card:hover { border-color: var(--line-strong); box-shadow: var(--shadow-1); }
 .world-card-cover {
-  height: 62%;
+  /* 第 116 轮：统一 9:16 竖版封面（宽9高16）——信息叠入封面内部（body 变 overlay） */
+  aspect-ratio: 9 / 16; position: relative; flex: none;
   background: var(--bg-soft);
   display: flex; align-items: center; justify-content: center;
   border-bottom: 1px solid var(--line);
@@ -173,7 +174,12 @@ img { display: block; max-width: 100%; }
 }
 .world-card-cover img { width: 100%; height: 100%; object-fit: cover; }
 .world-card-glyph { font-family: var(--font-serif); font-size: 64px; color: var(--text-muted); }
-.world-card-body { flex: 1; padding: 14px 16px; display: flex; flex-direction: column; gap: 6px; }
+.world-card-body {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 5px;
+  background: linear-gradient(to top, rgba(8, 8, 8, .82), rgba(8, 8, 8, 0)); color: #fff;   /* 信息区自底渐变 */
+}
+.world-card-cover:not(.has-cover) .world-card-body { background: none; color: var(--text); }   /* 无封面 = 浅底墨字 */
 .world-card-title { margin: 0; font-family: var(--font-serif); font-size: 1.15rem; font-weight: 700; line-height: 1.2; }
 .world-card-sub {
   margin: 0; color: var(--text-muted); font-size: 0.82rem; line-height: 1.5;
@@ -1130,7 +1136,7 @@ details.callout-spoiler-fold .callout-body { margin-top: 6px; }
 .book-card.archived { opacity: .72; border-style: dashed; }
 .book-card.archived .book-card-cover { filter: grayscale(.7); }
 .book-card-cover {
-  aspect-ratio: 2 / 3; background: var(--bg-soft);
+  aspect-ratio: 9 / 16; background: var(--bg-soft);   /* 第 116 轮：统一 9:16 竖版（与世界卡/文档封面同族） */
   border: 0; border-bottom: 1px solid var(--line);   /* 卡内分块用分割线，不套小 box */
   display: flex; align-items: center; justify-content: center; overflow: hidden;
   margin: 0;
@@ -1303,7 +1309,7 @@ body.toc-dragging { cursor: grabbing; user-select: none; }
 /* ---------- 详情面板（第 92 轮：世界 / 书籍 图形化管理，右键进入） ---------- */
 .detail-grid { display: grid; grid-template-columns: 200px 1fr; gap: 20px; align-items: start; }
 .detail-cover {
-  width: 200px; aspect-ratio: 3 / 4; padding: 0; cursor: pointer;
+  width: 200px; aspect-ratio: 9 / 16; padding: 0; cursor: pointer;   /* 第 116 轮：9:16 家族统一 */
   border: 1px solid var(--line); background: var(--bg-soft); border-radius: 0; overflow: hidden;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
 }
@@ -1345,8 +1351,8 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 .book-card-cover img { -webkit-user-drag: none; user-select: none; pointer-events: none; }
 
 /* ---------- 条目封面头（第 108 轮）：封面置顶 · 标题叠封面内底部 · 底部渐变（标题行高×1.5） ---------- */
-.entry-hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--bg-soft); margin: 0 0 14px; }
-.entry-hero-img { display: block; width: 100%; max-height: min(56vh, 620px); object-fit: cover; }
+.entry-hero { position: relative; overflow: hidden; border: 1px solid var(--line); background: var(--bg-soft); margin: 0 0 14px; aspect-ratio: 9 / 16; }   /* 第 116 轮：文档封面同 9:16 竖版 */
+.entry-hero-img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .entry-hero-foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 26px 18px; }
 .entry-hero-veil {
   position: absolute; left: 0; right: 0; bottom: 0; height: var(--veil-h, 96px);
@@ -1357,6 +1363,7 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 .entry-hero .m-item, .entry-hero .m-dash { color: rgba(255, 255, 255, .9); }
 .entry-hero .m-item:hover { background: rgba(255, 255, 255, .18); }
 /* 封面加载失败 → 塌回普通标题行（渐变隐藏、文字回墨色） */
+.entry-hero.no-img { aspect-ratio: auto; }   /* 无图回退常规标题布局 */
 .entry-hero.no-img .entry-hero-img { display: none; }
 .entry-hero.no-img .entry-hero-foot { position: static; padding: 8px 0 0; }
 .entry-hero.no-img .entry-hero-veil { display: none; }
@@ -1389,3 +1396,20 @@ div.git-file.is-static { cursor: default; font-family: var(--font-mono); }
 .cover-field .detail-cover.is-empty { border-style: dashed; }
 .cover-field .cover-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .cover-field .cover-actions .button-ghost { font-size: 0.72rem; padding: 4px 8px; }
+
+.world-card-cover.has-cover .world-card-sub,
+.world-card-cover.has-cover .world-card-path,
+.world-card-cover.has-cover .world-card-meta { color: rgba(255, 255, 255, .82); }
+.world-card-cover.has-cover .world-card-title { color: #fff; }
+
+/* 书卡信息叠入封面内部（第 116 轮）：底部渐变白字；无封面 = 浅底墨字 */
+.book-card-overlay {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 4px;
+  background: linear-gradient(to top, rgba(8, 8, 8, .82), rgba(8, 8, 8, 0)); color: #fff;
+}
+.book-card-cover { position: relative; overflow: hidden; }
+.book-card-cover:not(.has-cover) .book-card-overlay { background: none; color: var(--text); }
+.book-card-overlay .book-card-title { color: inherit; }
+.book-card-overlay .book-card-tags { border-top: 0; margin-top: 0; padding: 2px 0 0; color: inherit; opacity: .88; }
+.book-card-cover:not(.has-cover) .book-card-overlay .book-card-tags { opacity: 1; }
