@@ -129,7 +129,23 @@ export async function renderWorld(root, worldId, entryPath) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); setPanel(ctx, ctx.panel === 'rel' ? '' : 'rel'); }
     if ((e.metaKey || e.ctrlKey) && e.key === '1') { e.preventDefault(); if (ctx.panel === 'rel') setPanel(ctx, ''); }
     if ((e.metaKey || e.ctrlKey) && e.key === '2') { e.preventDefault(); if (ctx.currentPath) { ctx.graphMode = 'full'; setPanel(ctx, 'rel'); } }
+    // 第 123 轮：阅读态回车 = 进编辑（不论面板开没开）；编辑态 Esc = 保存并退出
+    if (e.key === 'Escape' && ctx.editing) {
+      // 对话框/补全弹层的 Esc 归它们自己（askText 关弹层、CM 关补全）——不误触发保存退出
+      if (!e.target?.closest?.('.reader-modal, .cm-tooltip-autocomplete')) {
+        e.preventDefault();
+        exitEdit(ctx);   // 保存落盘才退出；409 冲突选「放弃」→ 留在编辑态（exitEdit 既有语义）
+      }
+      return;   // 编辑态不再走下方「关面板」
+    }
     if (e.key === 'Escape') setPanel(ctx, '');
+    if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !e.altKey
+      && !ctx.editing && ctx.currentPath
+      // 打字上下文与对话框让位（输入框回车提交/CM 回车换行）；其余焦点（含按钮/链接/空白处）一律进编辑
+      && !e.target?.closest?.('.reader-modal, .cm-editor, input, textarea, select, [contenteditable="true"]')) {
+      e.preventDefault();
+      enterEdit(ctx);
+    }
   }
 
   // 时间轴智能收拢：主区下滚 > 80px + 进度记忆（防抖 400ms 存 localStorage，跨会话）

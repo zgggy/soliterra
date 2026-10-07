@@ -224,9 +224,40 @@ test('分屏预览滚动同步：两栏按比例互跟（第 121 轮）', async 
   await page.waitForTimeout(150);
 });
 
+test('快捷键：阅读态回车进编辑 · 编辑态 Esc 保存并退出（第 123 轮）', async () => {
+  await page.goto(`${base}/#/w/${encodeURIComponent(W)}/${encodeURIComponent('books/书B/稿.md')}`);
+  // 前序测试停在同条目编辑态（编辑保存/滚动同步）→ 先等任一态就位，编辑态则 fab 退回阅读
+  await page.waitForSelector('.entry-title, .cm-content', { timeout: 8000 });
+  if (await page.$('.cm-content')) {
+    await page.click('#fab-edit');
+    await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
+    await sleep(300);
+  }
+  await page.waitForSelector('.entry-title', { timeout: 8000 });
+  assert.ok(!(await page.$('.cm-content')), '起始阅读态');
+  await page.click('.entry-title');   // 焦点清到非打字上下文（h1 不可聚焦）
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.cm-content', { timeout: 5000 });
+  await page.click('.cm-content');
+  await page.keyboard.press('ControlOrMeta+End');   // 光标锚到文末——否则点在 &m 元数据行中间插入会打烂封面路径
+  await page.keyboard.type('回车进编辑标记', { delay: 15 });
+  await page.waitForFunction(() => (document.getElementById('edit-status')?.textContent || '').includes('Saved'), null, { timeout: 6000 });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
+  const raw = await api(`/api/w/${encodeURIComponent(W)}/raw?path=${encodeURIComponent('books/书B/稿.md')}`);
+  assert.ok(raw.body.text.includes('回车进编辑标记'), 'Esc = 保存并退出（落盘）');
+  // 回到阅读态后再回车 → 又进编辑（循环可用）
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.cm-content', { timeout: 5000 });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
+});
+
 test('导出弹窗：单按钮 → 三分组 → 可关闭', async () => {
-  await page.click('#fab-edit');   // 先退出编辑（若在）
-  await page.waitForTimeout(600);
+  if (await page.$('.cm-content')) {   // 先退出编辑（若在）——第 123 轮：无条件点在阅读态会反向进编辑
+    await page.click('#fab-edit');
+    await page.waitForTimeout(600);
+  }
   await page.click('#fab-world');
   await page.waitForSelector('#wp-export', { timeout: 6000 });
   assert.ok(!(await page.$('#ex-doc-md')), '旧平铺按钮已移除');
@@ -240,6 +271,11 @@ test('导出弹窗：单按钮 → 三分组 → 可关闭', async () => {
 });
 
 test('条目封面头 hero：封面置顶 + 标题叠底 + 渐变 ×1.5', async () => {
+  if (await page.$('.cm-content')) {   // 编辑态 goto 会被条目切换闸挡住渲染（第 123 轮自防御）
+    await page.click('#fab-edit');
+    await page.waitForFunction(() => !document.querySelector('.cm-content'), null, { timeout: 6000 });
+    await sleep(300);
+  }
   await page.goto(`${base}/#/w/${encodeURIComponent(W)}/${encodeURIComponent('books/书B/稿.md')}`);
   await page.waitForSelector('.entry-hero', { timeout: 8000 });
   const r = await page.$eval('.entry-hero', (hero) => {
