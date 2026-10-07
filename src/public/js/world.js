@@ -1323,9 +1323,33 @@ function toggleEditorPreview(ctx) {
     pane.id = 'editor-preview';
     shell.appendChild(pane);
     ctx.__previewDeb = debounce(() => renderPreviewNow(ctx), 400);
+    bindPreviewScrollSync(pane);   // 第 121 轮：两栏按滚动比例互相跟随
   }
   renderPreviewNow(ctx);
   ctx.editor?.requestMeasure?.();
+}
+
+/** 分屏预览滚动同步（第 121 轮，原持平决策点落地）：编辑器 ↔ 预览按**滚动比例**互跟，
+ *  锁挡住程序化 scrollTop 触发的回环事件（rAF 一帧后放锁）；任一侧不可滚（内容不溢出）不动。 */
+function bindPreviewScrollSync(pane) {
+  // 滚动源 = 实际溢出的那个：CM6 默认随内容撑高 → 滚的是 .editor-host；定高时滚 .cm-scroller。
+  // 两个都绑（谁溢出谁触发），反向也写回两者（未溢出者 scrollTop 无效果）。
+  const sources = [document.getElementById('editor-host'), document.querySelector('#editor-host .cm-scroller')]
+    .filter((el) => el && !el.__scrollSynced);
+  if (!sources.length) return;
+  let lock = false;
+  const mirror = (from, to) => {
+    from.addEventListener('scroll', () => {
+      if (lock || !to.isConnected) return;
+      const maxF = from.scrollHeight - from.clientHeight;
+      const maxT = to.scrollHeight - to.clientHeight;
+      if (maxF <= 0 || maxT <= 0) return;
+      lock = true;
+      to.scrollTop = (from.scrollTop / maxF) * maxT;
+      requestAnimationFrame(() => { lock = false; });
+    }, { passive: true });
+  };
+  for (const el of sources) { el.__scrollSynced = true; mirror(el, pane); mirror(pane, el); }
 }
 
 async function renderPreviewNow(ctx) {

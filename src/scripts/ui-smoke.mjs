@@ -169,6 +169,61 @@ test('编辑自动保存：打字 → 状态条 Saved → 磁盘落盘', async (
   assert.ok(raw.body.text.includes('UI存盘标记'), '磁盘含输入内容');
 });
 
+test('分屏预览滚动同步：两栏按比例互跟（第 121 轮）', async () => {
+  // 前序测试停在 稿.md 编辑态——灌 40 行真实文本让两栏都可滚
+  await page.click('.cm-content');
+  await page.keyboard.press('ControlOrMeta+End');
+  for (let i = 0; i < 40; i++) { await page.keyboard.type(`同步测试行第${i}行`); await page.keyboard.press('Enter'); }
+  await page.click('.editor-shell [data-cmd="preview"]');   // 先开分屏（非分屏态滚动的是 reader-column）
+  await page.waitForSelector('.editor-preview .entry-body', { timeout: 6000 });
+  // 分屏后编辑器栏（editor-host / cm-scroller）必须自己可滚
+  await page.waitForFunction(() => {
+    const ed = ['#editor-host', '.cm-scroller'].map((s) => document.querySelector(s))
+      .find((el) => el && el.scrollHeight > el.clientHeight + 300);
+    return !!ed;
+  }, null, { timeout: 8000 });
+  await page.waitForFunction(() => {
+    const pv = document.querySelector('.editor-preview');
+    return pv && pv.scrollHeight > pv.clientHeight + 300;
+  }, null, { timeout: 8000 });
+  // 正向：编辑器滚到 60% → 预览按比例跟随
+  const fwd = await page.evaluate(() => new Promise((res) => {
+    const sc = ['#editor-host', '.cm-scroller'].map((s) => document.querySelector(s))
+      .find((el) => el && el.scrollHeight > el.clientHeight + 10);
+    const pv = document.querySelector('.editor-preview');
+    const maxE = sc.scrollHeight - sc.clientHeight;
+    const maxP = pv.scrollHeight - pv.clientHeight;
+    sc.scrollTop = Math.round(maxE * 0.6);
+    let tries = 0;
+    const tick = () => {
+      const got = maxP > 0 ? pv.scrollTop / maxP : -1;
+      if (Math.abs(got - 0.6) < 0.06 || tries++ > 60) { res({ got, pvTop: pv.scrollTop, maxP }); return; }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }));
+  assert.ok(Math.abs(fwd.got - 0.6) < 0.06, `预览跟随 60%（实测 ${JSON.stringify(fwd)}）`);
+  // 反向：预览滚到 30% → 编辑器跟随
+  const bwd = await page.evaluate(() => new Promise((res) => {
+    const sc = ['#editor-host', '.cm-scroller'].map((s) => document.querySelector(s))
+      .find((el) => el && el.scrollHeight > el.clientHeight + 10);
+    const pv = document.querySelector('.editor-preview');
+    const maxE = sc.scrollHeight - sc.clientHeight;
+    const maxP = pv.scrollHeight - pv.clientHeight;
+    pv.scrollTop = Math.round(maxP * 0.3);
+    let tries = 0;
+    const tick = () => {
+      const got = maxE > 0 ? sc.scrollTop / maxE : -1;
+      if (Math.abs(got - 0.3) < 0.06 || tries++ > 60) { res({ got, edTop: sc.scrollTop, maxE }); return; }
+      requestAnimationFrame(tick);
+    };
+    tick();
+  }));
+  assert.ok(Math.abs(bwd.got - 0.3) < 0.06, `编辑器反向跟随 30%（实测 ${JSON.stringify(bwd)}）`);
+  await page.click('.editor-shell [data-cmd="preview"]');   // 关分屏，还原后续测试环境
+  await page.waitForTimeout(150);
+});
+
 test('导出弹窗：单按钮 → 三分组 → 可关闭', async () => {
   await page.click('#fab-edit');   // 先退出编辑（若在）
   await page.waitForTimeout(600);

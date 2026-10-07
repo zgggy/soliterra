@@ -734,7 +734,9 @@ img { display: block; max-width: 100%; }
 .editor-toolbar .icon-button.active { background: var(--ink); color: var(--on-ink); }
 /* §B.3.4 实时预览分屏：drawer+toolbar 满宽顶行，下两栏各半（左 CM6 / 右渲染预览，独立滚动） */
 .editor-shell > .editor-preview { display: none; }
-.editor-shell.split { max-width: 100%; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto minmax(56vh, 1fr); }
+/* 第 121 轮：分屏必须**视口内定高**（填满阅读列）——否则 shell 随内容撑开、两栏一起被整列滚，
+   栏内 overflow 永不生效，滚动同步无从谈起（实测 shell 1214/1214、栏 995/995 全不可滚）。 */
+.editor-shell.split { max-width: 100%; height: 100%; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto auto minmax(56vh, 1fr); }
 .editor-shell.split > .meta-drawer { grid-column: 1 / -1; grid-row: 1; }
 .editor-shell.split > /* §5 编辑态顶缘状态条（第 86 轮）：24px 内嵌主区顶缘 + 发丝线；不占顶部（顶部只有时间轴） */
 .edit-status {
